@@ -37,6 +37,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject }: AddProjec
         images: [],
         yarns: [],
         needles: [],
+        counters: [],
       });
       setName('');
       setShowTemplates(false);
@@ -53,6 +54,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject }: AddProjec
       images: [],
       yarns: [],
       needles: [],
+      counters: [],
     });
     setName('');
     setShowTemplates(false);

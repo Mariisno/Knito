@@ -6,6 +6,7 @@ export interface Yarn {
   brand?: string;
   color?: string;
   amount?: string;
+  notes?: string; // For standalone yarn inventory
 }
 
 export interface Needle {
@@ -23,6 +24,18 @@ export interface TimeLog {
   endTime?: Date;
 }
 
+export interface Counter {
+  id: string;
+  label: string;
+  count: number;
+}
+
+export interface LogEntry {
+  id: string;
+  text: string;
+  timestamp: Date;
+}
+
 export interface KnittingProject {
   id: string;
   name: string;
@@ -32,6 +45,7 @@ export interface KnittingProject {
   endDate?: Date;
   recipe?: string;
   notes?: string;
+  logEntries?: LogEntry[]; // Log entries for project notes
   images: string[];
   yarns: Yarn[];
   needles: Needle[];
@@ -40,4 +54,5 @@ export interface KnittingProject {
   timeSpentMinutes?: number; // Total time spent on project
   currentTimeLog?: TimeLog; // Active time tracking session
   category?: string; // e.g. "Sokker", "Genser", "Skjerf"
+  counters?: Counter[]; // Row/stitch counters
 }

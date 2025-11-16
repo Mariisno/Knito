@@ -16,7 +16,7 @@ import { toast } from 'sonner@2.0.3';
 import * as api from './utils/api';
 import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from './utils/supabase/info.tsx';
-import type { KnittingProject } from './types/knitting';
+import type { KnittingProject, Yarn } from './types/knitting';
 
 const supabase = createClient(
   `https://${projectId}.supabase.co`,
@@ -26,6 +26,7 @@ const supabase = createClient(
 function AppContent() {
   const { theme, toggleTheme } = useTheme();
   const [projects, setProjects] = useState<KnittingProject[]>([]);
+  const [standaloneYarns, setStandaloneYarns] = useState<Yarn[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,10 +46,10 @@ function AppContent() {
       ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / total)
       : 0;
     const totalTime = projects.reduce((sum, p) => sum + (p.timeSpentMinutes || 0), 0);
-    const totalYarns = projects.reduce((sum, p) => sum + p.yarns.length, 0);
+    const totalYarns = projects.reduce((sum, p) => sum + p.yarns.length, 0) + standaloneYarns.length;
     
     return { total, active, completed, paused, avgProgress, totalTime, totalYarns };
-  }, [projects]);
+  }, [projects, standaloneYarns]);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -118,11 +119,15 @@ function AppContent() {
     
     try {
       setLoading(true);
-      const data = await api.getAllProjects(accessToken);
-      setProjects(data);
+      const [projectsData, yarnsData] = await Promise.all([
+        api.getAllProjects(accessToken),
+        api.getStandaloneYarns(accessToken),
+      ]);
+      setProjects(projectsData);
+      setStandaloneYarns(yarnsData);
     } catch (error) {
-      console.error('Failed to load projects:', error);
-      toast.error('Kunne ikke laste prosjekter');
+      console.error('Failed to load data:', error);
+      toast.error('Kunne ikke laste data');
     } finally {
       setLoading(false);
     }
@@ -156,7 +161,25 @@ function AppContent() {
     setUser(null);
     setAccessToken(null);
     setProjects([]);
+    setStandaloneYarns([]);
     toast.success('Du er nå logget ut');
+  };
+
+  const handleUpdateStandaloneYarns = async (yarns: Yarn[]) => {
+    if (!accessToken) return;
+
+    // Optimistic update
+    const previousYarns = standaloneYarns;
+    setStandaloneYarns(yarns);
+
+    try {
+      await api.updateStandaloneYarns(yarns, accessToken);
+    } catch (error) {
+      console.error('Failed to update standalone yarns:', error);
+      // Rollback on error
+      setStandaloneYarns(previousYarns);
+      toast.error('Kunne ikke lagre restegarn. Prøv igjen.');
+    }
   };
 
   const handleAddProject = async (project: Omit<KnittingProject, 'id' | 'createdAt'>) => {
@@ -382,7 +405,11 @@ function AppContent() {
             </TabsContent>
 
             <TabsContent value="garnlager">
-              <YarnInventory projects={projects} />
+              <YarnInventory 
+                projects={projects} 
+                standaloneYarns={standaloneYarns}
+                onUpdateStandaloneYarns={handleUpdateStandaloneYarns}
+              />
             </TabsContent>
 
             <TabsContent value="statistikk">

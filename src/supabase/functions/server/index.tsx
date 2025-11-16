@@ -227,4 +227,38 @@ app.post('/make-server-b06c9f7a/upload-image', async (c) => {
   }
 });
 
+// Get standalone yarns for a user
+app.get('/make-server-b06c9f7a/standalone-yarns', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const yarns = await kv.get(`standalone-yarns:${userId}`) || [];
+    return c.json({ yarns });
+  } catch (error) {
+    console.log('Error fetching standalone yarns:', error);
+    return c.json({ error: 'Failed to fetch standalone yarns' }, 500);
+  }
+});
+
+// Update standalone yarns for a user
+app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { yarns } = await c.req.json();
+    await kv.set(`standalone-yarns:${userId}`, yarns);
+    
+    return c.json({ yarns });
+  } catch (error) {
+    console.log('Error updating standalone yarns:', error);
+    return c.json({ error: 'Failed to update standalone yarns' }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

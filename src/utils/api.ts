@@ -1,5 +1,5 @@
 import { projectId, publicAnonKey } from './supabase/info.tsx';
-import type { KnittingProject } from '../types/knitting';
+import type { KnittingProject, Yarn } from '../types/knitting';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
 
@@ -108,4 +108,36 @@ export async function uploadImage(file: File, accessToken: string): Promise<stri
   
   const data = await response.json();
   return data.url;
+}
+
+export async function getStandaloneYarns(accessToken: string): Promise<Yarn[]> {
+  const response = await fetch(`${API_BASE}/standalone-yarns`, { 
+    headers: getHeaders(accessToken) 
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error fetching standalone yarns:', error);
+    throw new Error('Failed to fetch standalone yarns');
+  }
+  
+  const data = await response.json();
+  return data.yarns || [];
+}
+
+export async function updateStandaloneYarns(yarns: Yarn[], accessToken: string): Promise<Yarn[]> {
+  const response = await fetch(`${API_BASE}/standalone-yarns`, {
+    method: 'PUT',
+    headers: getHeaders(accessToken),
+    body: JSON.stringify({ yarns }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error updating standalone yarns:', error);
+    throw new Error('Failed to update standalone yarns');
+  }
+  
+  const data = await response.json();
+  return data.yarns;
 }

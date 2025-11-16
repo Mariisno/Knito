@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { KnittingProject, Yarn, Needle, ProjectStatus } from '../types/knitting';
+import type { KnittingProject, Yarn, Needle, ProjectStatus, Counter, LogEntry } from '../types/knitting';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -8,10 +8,11 @@ import { Progress } from './ui/progress';
 import { Slider } from './ui/slider';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock, RotateCcw, Send } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
+import { CounterWidget } from './CounterWidget';
 import { 
   getProgressColors, 
   getStatusSelectColors, 
@@ -54,6 +55,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [newLogEntry, setNewLogEntry] = useState('');
 
   // Sync editedProject when project prop changes
   useEffect(() => {
@@ -184,6 +186,60 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     onDelete(project.id);
   };
 
+  const handleAddCounter = () => {
+    const newCounter: Counter = {
+      id: Date.now().toString(),
+      label: 'Runder',
+      count: 0,
+    };
+    handleUpdate({ counters: [...(editedProject.counters || []), newCounter] });
+    toast.success('Teller lagt til');
+  };
+
+  const handleUpdateCounter = (updatedCounter: Counter) => {
+    const counters = (editedProject.counters || []).map(c => 
+      c.id === updatedCounter.id ? updatedCounter : c
+    );
+    handleUpdate({ counters });
+  };
+
+  const handleRemoveCounter = (counterId: string) => {
+    handleUpdate({ counters: (editedProject.counters || []).filter(c => c.id !== counterId) });
+    toast.success('Teller fjernet');
+  };
+
+  const handleResetTime = () => {
+    if (editedProject.currentTimeLog?.startTime) {
+      toast.error('Stopp tidtakeren først');
+      return;
+    }
+    handleUpdate({ timeSpentMinutes: 0 });
+    toast.success('Tid tilbakestilt');
+  };
+
+  const handleAddLogEntry = () => {
+    if (!newLogEntry.trim()) return;
+    
+    const logEntry: LogEntry = {
+      id: Date.now().toString(),
+      text: newLogEntry.trim(),
+      timestamp: new Date(),
+    };
+    
+    handleUpdate({ 
+      logEntries: [...(editedProject.logEntries || []), logEntry] 
+    });
+    setNewLogEntry('');
+    toast.success('Logg-innlegg lagt til');
+  };
+
+  const handleDeleteLogEntry = (logId: string) => {
+    handleUpdate({ 
+      logEntries: (editedProject.logEntries || []).filter(entry => entry.id !== logId) 
+    });
+    toast.success('Logg-innlegg slettet');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -289,7 +345,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               </div>
               {/* Timer Section */}
               <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock className="h-5 w-5 text-primary" />
@@ -308,26 +364,76 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                       )}
                     </div>
                   </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleToggleTimer}
+                      size="lg"
+                      className={editedProject.currentTimeLog?.startTime 
+                        ? "bg-destructive hover:bg-destructive/90" 
+                        : "bg-primary hover:bg-primary/90"}
+                    >
+                      {editedProject.currentTimeLog?.startTime ? (
+                        <>
+                          <Pause className="mr-2 h-5 w-5" />
+                          Stopp
+                        </>
+                      ) : (
+                        <>
+                          <Play className="mr-2 h-5 w-5" />
+                          Start
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {editedProject.timeSpentMinutes > 0 && (
+                  <div className="flex justify-end pt-2 border-t border-primary/10">
+                    <Button
+                      onClick={handleResetTime}
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      disabled={!!editedProject.currentTimeLog?.startTime}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Tilbakestill tid
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Counters Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-lg">Tellere</Label>
                   <Button
-                    onClick={handleToggleTimer}
-                    size="lg"
-                    className={editedProject.currentTimeLog?.startTime 
-                      ? "bg-destructive hover:bg-destructive/90" 
-                      : "bg-primary hover:bg-primary/90"}
+                    onClick={handleAddCounter}
+                    size="sm"
+                    variant="outline"
+                    className="border-purple-300 dark:border-purple-700"
                   >
-                    {editedProject.currentTimeLog?.startTime ? (
-                      <>
-                        <Pause className="mr-2 h-5 w-5" />
-                        Stopp
-                      </>
-                    ) : (
-                      <>
-                        <Play className="mr-2 h-5 w-5" />
-                        Start
-                      </>
-                    )}
+                    <Plus className="mr-2 h-4 w-4" />
+                    Legg til teller
                   </Button>
                 </div>
+
+                {(!editedProject.counters || editedProject.counters.length === 0) ? (
+                  <div className="text-center py-8 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 dark:from-purple-950/20 dark:via-pink-950/20 dark:to-rose-950/20 rounded-lg border-2 border-dashed border-purple-200 dark:border-purple-800">
+                    <p className="text-muted-foreground mb-2">Ingen tellere lagt til ennå</p>
+                    <p className="text-muted-foreground/60 text-sm">Legg til en teller for å holde styr på runder eller masker</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {editedProject.counters.map((counter) => (
+                      <CounterWidget
+                        key={counter.id}
+                        counter={counter}
+                        onUpdate={handleUpdateCounter}
+                        onRemove={handleRemoveCounter}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -354,14 +460,88 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           </Card>
 
           {/* Tabs for different sections */}
-          <Tabs defaultValue="recipe" className="w-full">
+          <Tabs defaultValue="notes" className="w-full">
             <TabsList className="grid w-full grid-cols-5 bg-card border border-border shadow-sm">
+              <TabsTrigger value="notes">Logg</TabsTrigger>
               <TabsTrigger value="recipe">Oppskrift</TabsTrigger>
-              <TabsTrigger value="notes">Notater</TabsTrigger>
               <TabsTrigger value="images">Bilder</TabsTrigger>
               <TabsTrigger value="yarn">Garn</TabsTrigger>
               <TabsTrigger value="needles">Pinner</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="notes">
+              <Card className="bg-card border-border shadow-lg">
+                <CardHeader>
+                  <CardTitle>Logg & Notater</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Add new log entry */}
+                  <div className="space-y-2">
+                    <Label htmlFor="newLogEntry">Nytt logg-innlegg</Label>
+                    <div className="flex gap-2">
+                      <Textarea
+                        id="newLogEntry"
+                        value={newLogEntry}
+                        onChange={(e) => setNewLogEntry(e.target.value)}
+                        placeholder="Skriv et nytt innlegg i loggen..."
+                        className="min-h-[80px] resize-none flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            handleAddLogEntry();
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={handleAddLogEntry}
+                        disabled={!newLogEntry.trim()}
+                        className="self-end"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Trykk Cmd/Ctrl+Enter for å legge til</p>
+                  </div>
+
+                  {/* Log entries list */}
+                  <div className="space-y-3">
+                    <Label>Logg-historikk</Label>
+                    {(!editedProject.logEntries || editedProject.logEntries.length === 0) ? (
+                      <p className="text-sm text-muted-foreground italic py-8 text-center">
+                        Ingen logg-innlegg ennå. Legg til ditt første innlegg ovenfor!
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                        {[...(editedProject.logEntries || [])].reverse().map((entry) => (
+                          <div
+                            key={entry.id}
+                            className="bg-accent/30 rounded-lg p-4 border border-border hover:border-primary/30 transition-colors group"
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="flex-1 space-y-1">
+                                <p className="text-sm whitespace-pre-wrap break-words">{entry.text}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(entry.timestamp), 'PPP \'kl.\' HH:mm', { locale: nb })}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteLogEntry(entry.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive shrink-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="recipe">
               <Card className="bg-card border-border shadow-lg">
@@ -375,36 +555,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                     placeholder="Skriv inn oppskriften her..."
                     className="min-h-[350px] resize-none"
                   />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="notes">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Notater</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notater</Label>
-                    <Textarea
-                      id="notes"
-                      value={editedProject.notes || ''}
-                      onChange={(e) => handleUpdate({ notes: e.target.value })}
-                      placeholder="Skriv notater her..."
-                      className="min-h-[200px] resize-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="otherInfo">Annen info</Label>
-                    <Textarea
-                      id="otherInfo"
-                      value={editedProject.otherInfo || ''}
-                      onChange={(e) => handleUpdate({ otherInfo: e.target.value })}
-                      placeholder="F.eks. størrelse, nålestørrelse, strikkefasthet..."
-                      className="min-h-[150px] resize-none"
-                    />
-                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

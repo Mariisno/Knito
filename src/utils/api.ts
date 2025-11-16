@@ -1,0 +1,111 @@
+import { projectId, publicAnonKey } from './supabase/info.tsx';
+import type { KnittingProject } from '../types/knitting';
+
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
+
+function getHeaders(accessToken?: string) {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${accessToken || publicAnonKey}`,
+  };
+}
+
+export async function signup(email: string, password: string, name: string) {
+  const response = await fetch(`${API_BASE}/auth/signup`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ email, password, name }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Error during signup:', error);
+    throw new Error(error.error || 'Failed to create account');
+  }
+  
+  return response.json();
+}
+
+export async function getAllProjects(accessToken: string): Promise<KnittingProject[]> {
+  const response = await fetch(`${API_BASE}/projects`, { 
+    headers: getHeaders(accessToken) 
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error fetching projects:', error);
+    throw new Error('Failed to fetch projects');
+  }
+  
+  const data = await response.json();
+  return data.projects || [];
+}
+
+export async function createProject(project: KnittingProject, accessToken: string): Promise<KnittingProject> {
+  const response = await fetch(`${API_BASE}/projects`, {
+    method: 'POST',
+    headers: getHeaders(accessToken),
+    body: JSON.stringify(project),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error creating project:', error);
+    throw new Error('Failed to create project');
+  }
+  
+  const data = await response.json();
+  return data.project;
+}
+
+export async function updateProject(id: string, updates: Partial<KnittingProject>, accessToken: string): Promise<KnittingProject> {
+  const response = await fetch(`${API_BASE}/projects/${id}`, {
+    method: 'PUT',
+    headers: getHeaders(accessToken),
+    body: JSON.stringify(updates),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error updating project:', error);
+    throw new Error('Failed to update project');
+  }
+  
+  const data = await response.json();
+  return data.project;
+}
+
+export async function deleteProject(id: string, accessToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/projects/${id}`, {
+    method: 'DELETE',
+    headers: getHeaders(accessToken),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error deleting project:', error);
+    throw new Error('Failed to delete project');
+  }
+}
+
+export async function uploadImage(file: File, accessToken: string): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch(`${API_BASE}/upload-image`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error uploading image:', error);
+    throw new Error('Failed to upload image');
+  }
+  
+  const data = await response.json();
+  return data.url;
+}

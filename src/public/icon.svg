@@ -1,0 +1,22 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="128" fill="#d97757"/>
+  
+  <!-- Knitting needle left -->
+  <line x1="120" y1="380" x2="200" y2="140" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="120" cy="390" r="8" fill="#ffffff"/>
+  
+  <!-- Knitting needle right -->
+  <line x1="392" y1="380" x2="312" y2="140" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="392" cy="390" r="8" fill="#ffffff"/>
+  
+  <!-- Yarn ball -->
+  <circle cx="256" cy="280" r="80" fill="#faf8f5"/>
+  <path d="M 256 200 Q 280 220 256 240 Q 232 260 256 280 Q 280 300 256 320 Q 232 340 256 360" stroke="#d97757" stroke-width="3" fill="none"/>
+  <path d="M 200 250 Q 220 260 240 250" stroke="#d97757" stroke-width="3" fill="none"/>
+  <path d="M 270 310 Q 290 300 310 310" stroke="#d97757" stroke-width="3" fill="none"/>
+  
+  <!-- Stitches on needles -->
+  <path d="M 180 200 L 190 195 L 200 200 L 210 195 L 220 200" stroke="#ffffff" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M 292 200 L 302 195 L 312 200 L 322 195 L 332 200" stroke="#ffffff" stroke-width="8" stroke-linecap="round" fill="none"/>
+</svg>

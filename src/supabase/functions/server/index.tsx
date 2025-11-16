@@ -1,0 +1,230 @@
+import { Hono } from 'npm:hono';
+import { cors } from 'npm:hono/cors';
+import { logger } from 'npm:hono/logger';
+import * as kv from './kv_store.tsx';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const app = new Hono();
+
+app.use('*', logger(console.log));
+app.use('*', cors());
+
+const supabaseAdmin = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+);
+
+// Create storage bucket on startup
+const bucketName = 'make-b06c9f7a-knitting-images';
+async function initStorage() {
+  try {
+    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+    if (!bucketExists) {
+      console.log('Creating storage bucket:', bucketName);
+      await supabaseAdmin.storage.createBucket(bucketName, { public: false });
+    }
+  } catch (error) {
+    console.log('Error initializing storage:', error);
+  }
+}
+initStorage();
+
+// Helper function to verify user from access token
+async function getUserFromToken(authHeader: string | null) {
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.substring(7);
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) {
+    return null;
+  }
+  return data.user.id;
+}
+
+// Sign up
+app.post('/make-server-b06c9f7a/auth/signup', async (c) => {
+  try {
+    const { email, password, name } = await c.req.json();
+    
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: { name },
+      // Automatically confirm the user's email since an email server hasn't been configured.
+      email_confirm: true
+    });
+
+    if (error) {
+      console.log('Error creating user during signup:', error);
+      return c.json({ error: error.message }, 400);
+    }
+
+    return c.json({ user: data.user });
+  } catch (error) {
+    console.log('Error in signup route:', error);
+    return c.json({ error: 'Failed to create account' }, 500);
+  }
+});
+
+// Get all projects for a user
+app.get('/make-server-b06c9f7a/projects', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const projects = await kv.getByPrefix(`project:${userId}:`);
+    return c.json({ projects });
+  } catch (error) {
+    console.log('Error fetching projects:', error);
+    return c.json({ error: 'Failed to fetch projects' }, 500);
+  }
+});
+
+// Get a single project
+app.get('/make-server-b06c9f7a/projects/:id', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const project = await kv.get(`project:${userId}:${id}`);
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    return c.json({ project });
+  } catch (error) {
+    console.log('Error fetching project:', error);
+    return c.json({ error: 'Failed to fetch project' }, 500);
+  }
+});
+
+// Create a new project
+app.post('/make-server-b06c9f7a/projects', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const project = await c.req.json();
+    
+    if (!project.id || !project.name) {
+      return c.json({ error: 'Project must have id and name' }, 400);
+    }
+    
+    await kv.set(`project:${userId}:${project.id}`, project);
+    return c.json({ project });
+  } catch (error) {
+    console.log('Error creating project:', error);
+    return c.json({ error: 'Failed to create project' }, 500);
+  }
+});
+
+// Update a project
+app.put('/make-server-b06c9f7a/projects/:id', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const updates = await c.req.json();
+    
+    const existing = await kv.get(`project:${userId}:${id}`);
+    if (!existing) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    const updated = { ...existing, ...updates };
+    await kv.set(`project:${userId}:${id}`, updated);
+    
+    return c.json({ project: updated });
+  } catch (error) {
+    console.log('Error updating project:', error);
+    return c.json({ error: 'Failed to update project' }, 500);
+  }
+});
+
+// Delete a project
+app.delete('/make-server-b06c9f7a/projects/:id', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const id = c.req.param('id');
+    
+    const existing = await kv.get(`project:${userId}:${id}`);
+    if (!existing) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    await kv.del(`project:${userId}:${id}`);
+    return c.json({ success: true });
+  } catch (error) {
+    console.log('Error deleting project:', error);
+    return c.json({ error: 'Failed to delete project' }, 500);
+  }
+});
+
+// Upload image
+app.post('/make-server-b06c9f7a/upload-image', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
+
+    // Upload to Supabase Storage
+    const arrayBuffer = await file.arrayBuffer();
+    const { data, error } = await supabaseAdmin.storage
+      .from(bucketName)
+      .upload(fileName, arrayBuffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (error) {
+      console.log('Error uploading file to storage:', error);
+      return c.json({ error: 'Failed to upload image' }, 500);
+    }
+
+    // Create signed URL (valid for 10 years)
+    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+      .from(bucketName)
+      .createSignedUrl(fileName, 60 * 60 * 24 * 365 * 10);
+
+    if (signedUrlError) {
+      console.log('Error creating signed URL:', signedUrlError);
+      return c.json({ error: 'Failed to create signed URL' }, 500);
+    }
+
+    return c.json({ url: signedUrlData.signedUrl, path: fileName });
+  } catch (error) {
+    console.log('Error in upload-image route:', error);
+    return c.json({ error: 'Failed to upload image' }, 500);
+  }
+});
+
+Deno.serve(app.fetch);

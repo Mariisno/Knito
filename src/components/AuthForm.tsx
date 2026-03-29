@@ -137,13 +137,14 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="username"
                   placeholder="din@epost.no"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="password">Passord</Label>
@@ -161,6 +162,7 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

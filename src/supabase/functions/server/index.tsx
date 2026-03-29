@@ -261,4 +261,93 @@ app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   }
 });
 
+// Get all patterns for a user
+app.get('/make-server-b06c9f7a/patterns', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const patterns = await kv.getByPrefix(`pattern:${userId}:`);
+    return c.json({ patterns });
+  } catch (error) {
+    console.log('Error fetching patterns:', error);
+    return c.json({ error: 'Failed to fetch patterns' }, 500);
+  }
+});
+
+// Create a new pattern
+app.post('/make-server-b06c9f7a/patterns', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const pattern = await c.req.json();
+    if (!pattern.id || !pattern.name) return c.json({ error: 'Pattern must have id and name' }, 400);
+    await kv.set(`pattern:${userId}:${pattern.id}`, pattern);
+    return c.json({ pattern });
+  } catch (error) {
+    console.log('Error creating pattern:', error);
+    return c.json({ error: 'Failed to create pattern' }, 500);
+  }
+});
+
+// Update a pattern
+app.put('/make-server-b06c9f7a/patterns/:id', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    const updates = await c.req.json();
+    const existing = await kv.get(`pattern:${userId}:${id}`);
+    if (!existing) return c.json({ error: 'Pattern not found' }, 404);
+    const updated = { ...existing, ...updates };
+    await kv.set(`pattern:${userId}:${id}`, updated);
+    return c.json({ pattern: updated });
+  } catch (error) {
+    console.log('Error updating pattern:', error);
+    return c.json({ error: 'Failed to update pattern' }, 500);
+  }
+});
+
+// Delete a pattern
+app.delete('/make-server-b06c9f7a/patterns/:id', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const id = c.req.param('id');
+    const existing = await kv.get(`pattern:${userId}:${id}`);
+    if (!existing) return c.json({ error: 'Pattern not found' }, 404);
+    await kv.del(`pattern:${userId}:${id}`);
+    return c.json({ success: true });
+  } catch (error) {
+    console.log('Error deleting pattern:', error);
+    return c.json({ error: 'Failed to delete pattern' }, 500);
+  }
+});
+
+// Get tools for a user
+app.get('/make-server-b06c9f7a/tools', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const tools = await kv.get(`tools:${userId}`) || [];
+    return c.json({ tools });
+  } catch (error) {
+    console.log('Error fetching tools:', error);
+    return c.json({ error: 'Failed to fetch tools' }, 500);
+  }
+});
+
+// Update tools for a user
+app.put('/make-server-b06c9f7a/tools', async (c) => {
+  try {
+    const userId = await getUserFromToken(c.req.header('Authorization'));
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+    const { tools } = await c.req.json();
+    await kv.set(`tools:${userId}`, tools);
+    return c.json({ tools });
+  } catch (error) {
+    console.log('Error updating tools:', error);
+    return c.json({ error: 'Failed to update tools' }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

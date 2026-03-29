@@ -8,6 +8,7 @@ import { StatisticsView } from './components/StatisticsView';
 import { PWAMeta } from './components/PWAMeta';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { DiagnosticTest } from './components/DiagnosticTest';
+import { PasswordResetAdmin } from './components/PasswordResetAdmin';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -311,7 +312,7 @@ function AppContent() {
     return (
       <>
         <Toaster />
-        <AuthForm onSignIn={handleSignIn} onSignUp={handleSignUp} />
+        <AuthForm onSignIn={handleSignIn} onSignUp={handleSignUp} supabase={supabase} />
       </>
     );
   }
@@ -484,6 +485,16 @@ function AppContent() {
 }
 
 export default function App() {
+  // Check if we should show admin password reset page
+  if (window.location.hash === '#admin-reset') {
+    return (
+      <ThemeProvider>
+        <Toaster />
+        <PasswordResetAdmin />
+      </ThemeProvider>
+    );
+  }
+
   // Show diagnostic page if SHOW_DIAGNOSTIC is true
   if (SHOW_DIAGNOSTIC) {
     return (

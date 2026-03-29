@@ -8,7 +8,16 @@ export function getSupabaseClient() {
   if (!supabaseInstance) {
     supabaseInstance = createClient(
       `https://${projectId}.supabase.co`,
-      publicAnonKey
+      publicAnonKey,
+      {
+        auth: {
+          // Use localStorage for persistent sessions (stays logged in)
+          storage: window.localStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true
+        }
+      }
     );
   }
   return supabaseInstance;

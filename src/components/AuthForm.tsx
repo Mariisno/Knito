@@ -6,14 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { getSupabaseClient } from '../utils/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface AuthFormProps {
   onSignIn: (email: string, password: string) => Promise<void>;
   onSignUp: (email: string, password: string, name: string) => Promise<void>;
+  supabase: SupabaseClient;
 }
 
-export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
+export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -22,8 +23,6 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-
-  const supabase = getSupabaseClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,17 +66,31 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/#reset-password`,
       });
 
       if (error) throw error;
 
-      toast.success('Sjekk e-posten din for å tilbakestille passordet!');
+      toast.success('Sjekk e-posten din for å tilbakestille passordet!', {
+        description: 'Hvis du ikke mottar e-post, sjekk at e-postserveren er konfigurert i Supabase.',
+        duration: 10000,
+      });
       setShowForgotPassword(false);
       setResetEmail('');
     } catch (error: any) {
       console.error('Password reset error:', error);
-      toast.error('Kunne ikke sende tilbakestillingslenke. Prøv igjen.');
+      
+      // Give helpful error messages
+      if (error.message?.includes('Email not confirmed')) {
+        toast.error('E-postadressen er ikke bekreftet.');
+      } else if (error.message?.includes('not found')) {
+        toast.error('Ingen bruker med denne e-postadressen.');
+      } else {
+        toast.error('Kunne ikke sende tilbakestillingslenke.', {
+          description: 'Sjekk at e-postserveren er konfigurert i Supabase.',
+          duration: 8000,
+        });
+      }
     } finally {
       setResetLoading(false);
     }

@@ -317,4 +317,53 @@ app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   }
 });
 
+// Admin: Reset password for a user (temporary development solution)
+app.post('/make-server-b06c9f7a/admin/reset-password', async (c) => {
+  try {
+    const { email, newPassword } = await c.req.json();
+    
+    if (!email || !newPassword) {
+      return c.json({ error: 'Email and newPassword are required' }, 400);
+    }
+
+    if (newPassword.length < 6) {
+      return c.json({ error: 'Password must be at least 6 characters' }, 400);
+    }
+
+    // Find user by email
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (userError) {
+      console.log('Error listing users:', userError);
+      return c.json({ error: 'Failed to find user' }, 500);
+    }
+
+    const user = userData.users.find(u => u.email === email);
+    
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Update password
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.log('Error updating password:', updateError);
+      return c.json({ error: 'Failed to update password' }, 500);
+    }
+
+    return c.json({ 
+      success: true, 
+      message: 'Password updated successfully',
+      email: user.email 
+    });
+  } catch (error) {
+    console.log('Error in reset-password route:', error);
+    return c.json({ error: 'Failed to reset password' }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

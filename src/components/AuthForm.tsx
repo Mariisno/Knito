@@ -18,6 +18,13 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Quick test login
+  const handleTestLogin = () => {
+    setEmail('test@strikke.no');
+    setPassword('test123456');
+    setIsSignUp(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -41,6 +48,8 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
 
     setLoading(true);
     try {
+      console.log(`Attempting to ${isSignUp ? 'sign up' : 'sign in'}...`);
+      
       if (isSignUp) {
         await onSignUp(email, password, name);
         toast.success('Konto opprettet! Logger inn...');
@@ -49,6 +58,8 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
         toast.success('Velkommen tilbake!');
       }
     } catch (error) {
+      console.error('Authentication error:', error);
+      
       const errorMessage = error instanceof Error ? error.message : 'Noe gikk galt';
       
       // Better error messages
@@ -57,6 +68,17 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
         setIsSignUp(false);
       } else if (errorMessage.includes('Invalid login credentials')) {
         toast.error('Feil e-post eller passord');
+      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('fetch')) {
+        toast.error('Kunne ikke koble til serveren. Sjekk internettforbindelsen din.');
+        console.error('Network error - Failed to fetch. This usually means:', {
+          possibleCauses: [
+            'Edge Function is not deployed',
+            'CORS issue',
+            'Network connectivity problem',
+            'Supabase project is paused'
+          ],
+          error
+        });
       } else {
         toast.error(errorMessage);
       }
@@ -144,6 +166,18 @@ export function AuthForm({ onSignIn, onSignUp }: AuthFormProps) {
                   ? 'Har du allerede en konto? Logg inn' 
                   : 'Har du ikke konto? Opprett en'
                 }
+              </button>
+            </div>
+
+            {/* Test login button */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleTestLogin}
+                className="text-muted-foreground hover:text-primary transition-colors"
+                disabled={loading}
+              >
+                Test login
               </button>
             </div>
           </form>

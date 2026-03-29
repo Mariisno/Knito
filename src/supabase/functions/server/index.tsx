@@ -31,16 +31,43 @@ async function initStorage() {
 initStorage();
 
 // Helper function to verify user from access token
-async function getUserFromToken(authHeader: string | null) {
-  if (!authHeader?.startsWith('Bearer ')) {
+async function getUserFromToken(c: any) {
+  const userToken = c.req.header('X-User-Token');
+  
+  if (!userToken) {
+    console.log('No X-User-Token header');
     return null;
   }
-  const token = authHeader.substring(7);
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !data.user) {
+  
+  try {
+    // Parse JWT token manually to extract user ID
+    // JWT format: header.payload.signature
+    const parts = userToken.split('.');
+    if (parts.length !== 3) {
+      console.log('Invalid JWT format - not 3 parts');
+      return null;
+    }
+    
+    // Decode the payload (second part)
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    console.log('JWT payload sub (user ID):', payload.sub);
+    
+    if (!payload.sub) {
+      console.log('No sub (user ID) in JWT payload');
+      return null;
+    }
+    
+    // Verify the token is not expired
+    if (payload.exp && payload.exp < Date.now() / 1000) {
+      console.log('JWT token has expired');
+      return null;
+    }
+    
+    return payload.sub;
+  } catch (error) {
+    console.log('Exception in getUserFromToken:', error);
     return null;
   }
-  return data.user.id;
 }
 
 // Sign up
@@ -71,11 +98,15 @@ app.post('/make-server-b06c9f7a/auth/signup', async (c) => {
 // Get all projects for a user
 app.get('/make-server-b06c9f7a/projects', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    console.log('GET /projects - X-User-Token:', c.req.header('X-User-Token')?.substring(0, 30) + '...');
+    
+    const userId = await getUserFromToken(c);
     if (!userId) {
+      console.log('GET /projects - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
+    console.log('GET /projects - userId:', userId);
     const projects = await kv.getByPrefix(`project:${userId}:`);
     return c.json({ projects });
   } catch (error) {
@@ -87,7 +118,7 @@ app.get('/make-server-b06c9f7a/projects', async (c) => {
 // Get a single project
 app.get('/make-server-b06c9f7a/projects/:id', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    const userId = await getUserFromToken(c);
     if (!userId) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -109,7 +140,7 @@ app.get('/make-server-b06c9f7a/projects/:id', async (c) => {
 // Create a new project
 app.post('/make-server-b06c9f7a/projects', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    const userId = await getUserFromToken(c);
     if (!userId) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -131,7 +162,7 @@ app.post('/make-server-b06c9f7a/projects', async (c) => {
 // Update a project
 app.put('/make-server-b06c9f7a/projects/:id', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    const userId = await getUserFromToken(c);
     if (!userId) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -157,7 +188,7 @@ app.put('/make-server-b06c9f7a/projects/:id', async (c) => {
 // Delete a project
 app.delete('/make-server-b06c9f7a/projects/:id', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    const userId = await getUserFromToken(c);
     if (!userId) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -180,7 +211,7 @@ app.delete('/make-server-b06c9f7a/projects/:id', async (c) => {
 // Upload image
 app.post('/make-server-b06c9f7a/upload-image', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    const userId = await getUserFromToken(c);
     if (!userId) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -230,11 +261,15 @@ app.post('/make-server-b06c9f7a/upload-image', async (c) => {
 // Get standalone yarns for a user
 app.get('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    console.log('GET /standalone-yarns - X-User-Token:', c.req.header('X-User-Token')?.substring(0, 30) + '...');
+    
+    const userId = await getUserFromToken(c);
     if (!userId) {
+      console.log('GET /standalone-yarns - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
+    console.log('GET /standalone-yarns - userId:', userId);
     const yarns = await kv.get(`standalone-yarns:${userId}`) || [];
     return c.json({ yarns });
   } catch (error) {
@@ -246,7 +281,7 @@ app.get('/make-server-b06c9f7a/standalone-yarns', async (c) => {
 // Update standalone yarns for a user
 app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
+    const userId = await getUserFromToken(c);
     if (!userId) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -258,95 +293,6 @@ app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   } catch (error) {
     console.log('Error updating standalone yarns:', error);
     return c.json({ error: 'Failed to update standalone yarns' }, 500);
-  }
-});
-
-// Get all patterns for a user
-app.get('/make-server-b06c9f7a/patterns', async (c) => {
-  try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
-    const patterns = await kv.getByPrefix(`pattern:${userId}:`);
-    return c.json({ patterns });
-  } catch (error) {
-    console.log('Error fetching patterns:', error);
-    return c.json({ error: 'Failed to fetch patterns' }, 500);
-  }
-});
-
-// Create a new pattern
-app.post('/make-server-b06c9f7a/patterns', async (c) => {
-  try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
-    const pattern = await c.req.json();
-    if (!pattern.id || !pattern.name) return c.json({ error: 'Pattern must have id and name' }, 400);
-    await kv.set(`pattern:${userId}:${pattern.id}`, pattern);
-    return c.json({ pattern });
-  } catch (error) {
-    console.log('Error creating pattern:', error);
-    return c.json({ error: 'Failed to create pattern' }, 500);
-  }
-});
-
-// Update a pattern
-app.put('/make-server-b06c9f7a/patterns/:id', async (c) => {
-  try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    const updates = await c.req.json();
-    const existing = await kv.get(`pattern:${userId}:${id}`);
-    if (!existing) return c.json({ error: 'Pattern not found' }, 404);
-    const updated = { ...existing, ...updates };
-    await kv.set(`pattern:${userId}:${id}`, updated);
-    return c.json({ pattern: updated });
-  } catch (error) {
-    console.log('Error updating pattern:', error);
-    return c.json({ error: 'Failed to update pattern' }, 500);
-  }
-});
-
-// Delete a pattern
-app.delete('/make-server-b06c9f7a/patterns/:id', async (c) => {
-  try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
-    const id = c.req.param('id');
-    const existing = await kv.get(`pattern:${userId}:${id}`);
-    if (!existing) return c.json({ error: 'Pattern not found' }, 404);
-    await kv.del(`pattern:${userId}:${id}`);
-    return c.json({ success: true });
-  } catch (error) {
-    console.log('Error deleting pattern:', error);
-    return c.json({ error: 'Failed to delete pattern' }, 500);
-  }
-});
-
-// Get tools for a user
-app.get('/make-server-b06c9f7a/tools', async (c) => {
-  try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
-    const tools = await kv.get(`tools:${userId}`) || [];
-    return c.json({ tools });
-  } catch (error) {
-    console.log('Error fetching tools:', error);
-    return c.json({ error: 'Failed to fetch tools' }, 500);
-  }
-});
-
-// Update tools for a user
-app.put('/make-server-b06c9f7a/tools', async (c) => {
-  try {
-    const userId = await getUserFromToken(c.req.header('Authorization'));
-    if (!userId) return c.json({ error: 'Unauthorized' }, 401);
-    const { tools } = await c.req.json();
-    await kv.set(`tools:${userId}`, tools);
-    return c.json({ tools });
-  } catch (error) {
-    console.log('Error updating tools:', error);
-    return c.json({ error: 'Failed to update tools' }, 500);
   }
 });
 

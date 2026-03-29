@@ -56,39 +56,3 @@ export interface KnittingProject {
   category?: string; // e.g. "Sokker", "Genser", "Skjerf"
   counters?: Counter[]; // Row/stitch counters
 }
-
-// ── Pattern Library ──────────────────────────────────────────────────────────
-
-export type PatternDifficulty = 'Lett' | 'Middels' | 'Vanskelig';
-
-export type PatternCategory =
-  | 'Sokker' | 'Genser' | 'Skjerf' | 'Lue' | 'Votter'
-  | 'Pledd' | 'Babytøy' | 'Småting' | 'Annet';
-
-export interface KnittingPattern {
-  id: string;
-  name: string;
-  designer?: string;
-  url?: string;
-  difficulty?: PatternDifficulty;
-  category?: PatternCategory;
-  notes?: string;
-  createdAt: Date;
-}
-
-// ── Tool Inventory ───────────────────────────────────────────────────────────
-
-export type ToolType =
-  | 'Rundpinne' | 'Strømpepinne' | 'Heklenål'
-  | 'Nålespiss' | 'Strikkemerke' | 'Annet';
-
-export interface KnittingTool {
-  id: string;
-  name: string;
-  type: ToolType;
-  size?: string;
-  length?: string;
-  material?: string;
-  quantity?: number;
-  notes?: string;
-}

@@ -5,10 +5,9 @@ import { AddProjectDialog } from './components/AddProjectDialog';
 import { AuthForm } from './components/AuthForm';
 import { YarnInventory } from './components/YarnInventory';
 import { StatisticsView } from './components/StatisticsView';
-import { PatternLibrary } from './components/PatternLibrary';
-import { ToolInventory } from './components/ToolInventory';
 import { PWAMeta } from './components/PWAMeta';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
+import { DiagnosticTest } from './components/DiagnosticTest';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -16,21 +15,19 @@ import { Plus, Loader2, LogOut, Activity, CheckCircle2, Clock, PauseCircle, Moon
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import * as api from './utils/api';
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from './utils/supabase/info.tsx';
-import type { KnittingProject, Yarn, KnittingPattern, KnittingTool } from './types/knitting';
+import { getSupabaseClient } from './utils/supabase/client';
+import { projectId } from './utils/supabase/info.tsx';
+import type { KnittingProject, Yarn } from './types/knitting';
 
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
+const supabase = getSupabaseClient();
+
+// DIAGNOSTIC MODE - Set to false to return to normal app
+const SHOW_DIAGNOSTIC = false;
 
 function AppContent() {
   const { theme, toggleTheme } = useTheme();
   const [projects, setProjects] = useState<KnittingProject[]>([]);
   const [standaloneYarns, setStandaloneYarns] = useState<Yarn[]>([]);
-  const [patterns, setPatterns] = useState<KnittingPattern[]>([]);
-  const [tools, setTools] = useState<KnittingTool[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -123,52 +120,68 @@ function AppContent() {
     
     try {
       setLoading(true);
+      console.log('Loading projects with access token:', accessToken?.substring(0, 20) + '...');
+      
       const [projectsData, yarnsData] = await Promise.all([
         api.getAllProjects(accessToken),
         api.getStandaloneYarns(accessToken),
       ]);
       setProjects(projectsData);
       setStandaloneYarns(yarnsData);
+      console.log('Successfully loaded projects and yarns');
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Kunne ikke laste data');
     } finally {
       setLoading(false);
     }
-
-    try {
-      const [patternsData, toolsData] = await Promise.all([
-        api.getAllPatterns(accessToken),
-        api.getTools(accessToken),
-      ]);
-      setPatterns(patternsData);
-      setTools(toolsData);
-    } catch (error) {
-      console.error('Failed to load patterns/tools:', error);
-    }
   };
 
   const handleSignIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-
-    if (data.session?.user && data.session.access_token) {
-      setUser({
-        id: data.session.user.id,
-        email: data.session.user.email || '',
-        name: data.session.user.user_metadata?.name,
+    try {
+      console.log('Starting sign in process...');
+      console.log('Supabase URL:', `https://${projectId}.supabase.co`);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      setAccessToken(data.session.access_token);
+
+      if (error) {
+        console.error('Sign in error from Supabase:', error);
+        throw error;
+      }
+
+      if (data.session?.user && data.session.access_token) {
+        console.log('Sign in successful!');
+        setUser({
+          id: data.session.user.id,
+          email: data.session.user.email || '',
+          name: data.session.user.user_metadata?.name,
+        });
+        setAccessToken(data.session.access_token);
+      } else {
+        console.error('No session or access token returned');
+        throw new Error('Ingen session returnert');
+      }
+    } catch (error) {
+      console.error('Error in handleSignIn:', error);
+      throw error;
     }
   };
 
   const handleSignUp = async (email: string, password: string, name: string) => {
-    await api.signup(email, password, name);
-    await handleSignIn(email, password);
+    try {
+      console.log('Starting sign up process...');
+      console.log('API Base URL:', `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`);
+      
+      await api.signup(email, password, name);
+      console.log('Sign up successful, now signing in...');
+      await handleSignIn(email, password);
+    } catch (error) {
+      console.error('Error in handleSignUp:', error);
+      throw error;
+    }
   };
 
   const handleSignOut = async () => {
@@ -177,8 +190,6 @@ function AppContent() {
     setAccessToken(null);
     setProjects([]);
     setStandaloneYarns([]);
-    setPatterns([]);
-    setTools([]);
     toast.success('Du er nå logget ut');
   };
 
@@ -196,66 +207,6 @@ function AppContent() {
       // Rollback on error
       setStandaloneYarns(previousYarns);
       toast.error('Kunne ikke lagre restegarn. Prøv igjen.');
-    }
-  };
-
-  const handleCreatePattern = async (pattern: KnittingPattern) => {
-    if (!accessToken) return;
-
-    const previousPatterns = patterns;
-    setPatterns([...patterns, pattern]);
-
-    try {
-      await api.createPattern(pattern, accessToken);
-    } catch (error) {
-      console.error('Failed to create pattern:', error);
-      setPatterns(previousPatterns);
-      toast.error('Kunne ikke lagre oppskrift. Prøv igjen.');
-    }
-  };
-
-  const handleUpdatePattern = async (id: string, updates: Partial<KnittingPattern>) => {
-    if (!accessToken) return;
-
-    const previousPatterns = patterns;
-    setPatterns(patterns.map(p => p.id === id ? { ...p, ...updates } : p));
-
-    try {
-      await api.updatePattern(id, updates, accessToken);
-    } catch (error) {
-      console.error('Failed to update pattern:', error);
-      setPatterns(previousPatterns);
-      toast.error('Kunne ikke lagre endringer. Prøv igjen.');
-    }
-  };
-
-  const handleDeletePattern = async (id: string) => {
-    if (!accessToken) return;
-
-    const previousPatterns = patterns;
-    setPatterns(patterns.filter(p => p.id !== id));
-
-    try {
-      await api.deletePattern(id, accessToken);
-    } catch (error) {
-      console.error('Failed to delete pattern:', error);
-      setPatterns(previousPatterns);
-      toast.error('Kunne ikke slette oppskrift. Prøv igjen.');
-    }
-  };
-
-  const handleUpdateTools = async (updatedTools: KnittingTool[]) => {
-    if (!accessToken) return;
-
-    const previousTools = tools;
-    setTools(updatedTools);
-
-    try {
-      await api.updateTools(updatedTools, accessToken);
-    } catch (error) {
-      console.error('Failed to update tools:', error);
-      setTools(previousTools);
-      toast.error('Kunne ikke lagre verktøy. Prøv igjen.');
     }
   };
 
@@ -399,7 +350,7 @@ function AppContent() {
 
           {/* Statistics Cards - Only show if user has projects */}
           {projects.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
               <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200/50 dark:border-amber-800/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
@@ -469,8 +420,6 @@ function AppContent() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="bg-card border border-border">
               <TabsTrigger value="prosjekter">Prosjekter</TabsTrigger>
-              <TabsTrigger value="oppskrifter">Oppskrifter</TabsTrigger>
-              <TabsTrigger value="verktoy">Verktøy</TabsTrigger>
               <TabsTrigger value="garnlager">Garnlager</TabsTrigger>
               <TabsTrigger value="statistikk">Statistikk</TabsTrigger>
             </TabsList>
@@ -483,25 +432,9 @@ function AppContent() {
               />
             </TabsContent>
 
-            <TabsContent value="oppskrifter">
-              <PatternLibrary
-                patterns={patterns}
-                onCreatePattern={handleCreatePattern}
-                onUpdatePattern={handleUpdatePattern}
-                onDeletePattern={handleDeletePattern}
-              />
-            </TabsContent>
-
-            <TabsContent value="verktoy">
-              <ToolInventory
-                tools={tools}
-                onUpdateTools={handleUpdateTools}
-              />
-            </TabsContent>
-
             <TabsContent value="garnlager">
-              <YarnInventory
-                projects={projects}
+              <YarnInventory 
+                projects={projects} 
                 standaloneYarns={standaloneYarns}
                 onUpdateStandaloneYarns={handleUpdateStandaloneYarns}
               />
@@ -540,6 +473,15 @@ function AppContent() {
 }
 
 export default function App() {
+  // Show diagnostic page if SHOW_DIAGNOSTIC is true
+  if (SHOW_DIAGNOSTIC) {
+    return (
+      <ThemeProvider>
+        <DiagnosticTest />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <AppContent />

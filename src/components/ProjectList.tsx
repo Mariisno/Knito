@@ -103,7 +103,7 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
           </div>
 
           {/* Sort */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="ml-auto flex gap-2">
             <Button
               variant={sortBy === 'date' ? 'default' : 'outline'}
               size="sm"

@@ -1,12 +1,15 @@
 import { projectId, publicAnonKey } from './supabase/info.tsx';
-import type { KnittingProject, Yarn, KnittingPattern, KnittingTool } from '../types/knitting';
+import type { KnittingProject, Yarn } from '../types/knitting';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
 
 function getHeaders(accessToken?: string) {
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken || publicAnonKey}`,
+    // Always use publicAnonKey for Edge Functions
+    'Authorization': `Bearer ${publicAnonKey}`,
+    // Send user ID in a custom header if we have an access token
+    ...(accessToken ? { 'X-User-Token': accessToken } : {}),
   };
 }
 
@@ -27,13 +30,20 @@ export async function signup(email: string, password: string, name: string) {
 }
 
 export async function getAllProjects(accessToken: string): Promise<KnittingProject[]> {
-  const response = await fetch(`${API_BASE}/projects`, { 
+  console.log('getAllProjects called with token:', accessToken?.substring(0, 20));
+  const url = `${API_BASE}/projects`;
+  console.log('Fetching from:', url);
+  
+  const response = await fetch(url, { 
     headers: getHeaders(accessToken) 
   });
   
+  console.log('Response status:', response.status);
+  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+  
   if (!response.ok) {
-    const error = await response.text();
-    console.error('Error fetching projects:', error);
+    const errorText = await response.text();
+    console.error('Error fetching projects:', errorText);
     throw new Error('Failed to fetch projects');
   }
   
@@ -95,7 +105,8 @@ export async function uploadImage(file: File, accessToken: string): Promise<stri
   const response = await fetch(`${API_BASE}/upload-image`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${publicAnonKey}`,
+      'X-User-Token': accessToken,
     },
     body: formData,
   });
@@ -131,107 +142,13 @@ export async function updateStandaloneYarns(yarns: Yarn[], accessToken: string):
     headers: getHeaders(accessToken),
     body: JSON.stringify({ yarns }),
   });
-
+  
   if (!response.ok) {
     const error = await response.text();
     console.error('Error updating standalone yarns:', error);
     throw new Error('Failed to update standalone yarns');
   }
-
+  
   const data = await response.json();
   return data.yarns;
-}
-
-export async function getAllPatterns(accessToken: string): Promise<KnittingPattern[]> {
-  const response = await fetch(`${API_BASE}/patterns`, {
-    headers: getHeaders(accessToken),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error fetching patterns:', error);
-    throw new Error('Failed to fetch patterns');
-  }
-
-  const data = await response.json();
-  return data.patterns || [];
-}
-
-export async function createPattern(pattern: KnittingPattern, accessToken: string): Promise<KnittingPattern> {
-  const response = await fetch(`${API_BASE}/patterns`, {
-    method: 'POST',
-    headers: getHeaders(accessToken),
-    body: JSON.stringify(pattern),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error creating pattern:', error);
-    throw new Error('Failed to create pattern');
-  }
-
-  const data = await response.json();
-  return data.pattern;
-}
-
-export async function updatePattern(id: string, updates: Partial<KnittingPattern>, accessToken: string): Promise<KnittingPattern> {
-  const response = await fetch(`${API_BASE}/patterns/${id}`, {
-    method: 'PUT',
-    headers: getHeaders(accessToken),
-    body: JSON.stringify(updates),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error updating pattern:', error);
-    throw new Error('Failed to update pattern');
-  }
-
-  const data = await response.json();
-  return data.pattern;
-}
-
-export async function deletePattern(id: string, accessToken: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/patterns/${id}`, {
-    method: 'DELETE',
-    headers: getHeaders(accessToken),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error deleting pattern:', error);
-    throw new Error('Failed to delete pattern');
-  }
-}
-
-export async function getTools(accessToken: string): Promise<KnittingTool[]> {
-  const response = await fetch(`${API_BASE}/tools`, {
-    headers: getHeaders(accessToken),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error fetching tools:', error);
-    throw new Error('Failed to fetch tools');
-  }
-
-  const data = await response.json();
-  return data.tools || [];
-}
-
-export async function updateTools(tools: KnittingTool[], accessToken: string): Promise<KnittingTool[]> {
-  const response = await fetch(`${API_BASE}/tools`, {
-    method: 'PUT',
-    headers: getHeaders(accessToken),
-    body: JSON.stringify({ tools }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error updating tools:', error);
-    throw new Error('Failed to update tools');
-  }
-
-  const data = await response.json();
-  return data.tools;
 }

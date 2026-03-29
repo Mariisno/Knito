@@ -123,21 +123,28 @@ function AppContent() {
     
     try {
       setLoading(true);
-      const [projectsData, yarnsData, patternsData, toolsData] = await Promise.all([
+      const [projectsData, yarnsData] = await Promise.all([
         api.getAllProjects(accessToken),
         api.getStandaloneYarns(accessToken),
-        api.getAllPatterns(accessToken),
-        api.getTools(accessToken),
       ]);
       setProjects(projectsData);
       setStandaloneYarns(yarnsData);
-      setPatterns(patternsData);
-      setTools(toolsData);
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Kunne ikke laste data');
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const [patternsData, toolsData] = await Promise.all([
+        api.getAllPatterns(accessToken),
+        api.getTools(accessToken),
+      ]);
+      setPatterns(patternsData);
+      setTools(toolsData);
+    } catch (error) {
+      console.error('Failed to load patterns/tools:', error);
     }
   };
 

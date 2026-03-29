@@ -65,13 +65,8 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
     setResetLoading(true);
 
     try {
-      // Use production URL if deployed, otherwise localhost
-      const redirectUrl = window.location.origin.includes('localhost')
-        ? `${window.location.origin}/#reset-password`
-        : 'https://knito.vercel.app/#reset-password';
-
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: redirectUrl,
+        redirectTo: window.location.origin,
       });
 
       if (error) throw error;

@@ -36,6 +36,7 @@ function AppContent() {
   const [user, setUser] = useState<{ id: string; email: string; name?: string } | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('prosjekter');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
@@ -54,9 +55,17 @@ function AppContent() {
     return { total, active, completed, paused, avgProgress, totalTime, totalYarns };
   }, [projects, standaloneYarns]);
 
-  // Check for existing session on mount
+  // Check for existing session on mount + listen for PASSWORD_RECOVERY event
   useEffect(() => {
     checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Load projects when user changes
@@ -487,7 +496,7 @@ function AppContent() {
 
 export default function App() {
   // Check if we should show password reset flow (from email link)
-  if (window.location.hash.includes('access_token') || window.location.hash === '#reset-password') {
+  if (showPasswordReset || window.location.hash.includes('access_token')) {
     return (
       <ThemeProvider>
         <Toaster />

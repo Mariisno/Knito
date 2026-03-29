@@ -65,14 +65,19 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
     setResetLoading(true);
 
     try {
+      // Use production URL if deployed, otherwise localhost
+      const redirectUrl = window.location.origin.includes('localhost')
+        ? `${window.location.origin}/#reset-password`
+        : 'https://knito.vercel.app/#reset-password';
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/#reset-password`,
+        redirectTo: redirectUrl,
       });
 
       if (error) throw error;
 
       toast.success('Sjekk e-posten din for å tilbakestille passordet!', {
-        description: 'Hvis du ikke mottar e-post, sjekk at e-postserveren er konfigurert i Supabase.',
+        description: 'Lenken er gyldig i 1 time.',
         duration: 10000,
       });
       setShowForgotPassword(false);

@@ -9,6 +9,7 @@ import { PWAMeta } from './components/PWAMeta';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { DiagnosticTest } from './components/DiagnosticTest';
 import { PasswordResetAdmin } from './components/PasswordResetAdmin';
+import { PasswordResetFlow } from './components/PasswordResetFlow';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -485,6 +486,16 @@ function AppContent() {
 }
 
 export default function App() {
+  // Check if we should show password reset flow (from email link)
+  if (window.location.hash.includes('access_token') || window.location.hash === '#reset-password') {
+    return (
+      <ThemeProvider>
+        <Toaster />
+        <PasswordResetFlow supabase={supabase} />
+      </ThemeProvider>
+    );
+  }
+
   // Check if we should show admin password reset page
   if (window.location.hash === '#admin-reset') {
     return (

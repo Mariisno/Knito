@@ -20,28 +20,33 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
   const [checkingToken, setCheckingToken] = useState(true);
 
   useEffect(() => {
-    // Check if we have a valid recovery token
-    const checkRecoveryToken = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (session && session.user) {
-          setValidToken(true);
-        } else {
+    // Listen for PASSWORD_RECOVERY or SIGNED_IN events from the hash token.
+    // We can't rely on getSession() here because Supabase processes the hash
+    // asynchronously — the session may not exist yet when the component mounts.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        setValidToken(true);
+        setCheckingToken(false);
+      }
+    });
+
+    // Fallback: if no event fires within 5 seconds the token is invalid/expired
+    const timeout = setTimeout(() => {
+      setCheckingToken((prev) => {
+        if (prev) {
           toast.error('Ugyldig eller utløpt tilbakestillingslenke', {
             description: 'Vennligst be om en ny lenke.',
             duration: 8000,
           });
         }
-      } catch (error) {
-        console.error('Error checking recovery token:', error);
-        toast.error('Kunne ikke verifisere lenken');
-      } finally {
-        setCheckingToken(false);
-      }
-    };
+        return false;
+      });
+    }, 5000);
 
-    checkRecoveryToken();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [supabase]);
 
   const handleResetPassword = async (e: React.FormEvent) => {

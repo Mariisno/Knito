@@ -52,6 +52,8 @@ export async function getAllProjects(accessToken: string): Promise<KnittingProje
 }
 
 export async function createProject(project: KnittingProject, accessToken: string): Promise<KnittingProject> {
+  console.log('Creating project:', JSON.stringify(project, null, 2));
+  
   const response = await fetch(`${API_BASE}/projects`, {
     method: 'POST',
     headers: getHeaders(accessToken),
@@ -65,10 +67,14 @@ export async function createProject(project: KnittingProject, accessToken: strin
   }
   
   const data = await response.json();
+  console.log('Project created successfully:', data.project);
   return data.project;
 }
 
 export async function updateProject(id: string, updates: Partial<KnittingProject>, accessToken: string): Promise<KnittingProject> {
+  console.log('Updating project:', id);
+  console.log('Updates:', JSON.stringify(updates, null, 2));
+  
   const response = await fetch(`${API_BASE}/projects/${id}`, {
     method: 'PUT',
     headers: getHeaders(accessToken),
@@ -82,6 +88,7 @@ export async function updateProject(id: string, updates: Partial<KnittingProject
   }
   
   const data = await response.json();
+  console.log('Project updated successfully:', data.project);
   return data.project;
 }
 

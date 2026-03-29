@@ -140,18 +140,28 @@ app.get('/make-server-b06c9f7a/projects/:id', async (c) => {
 // Create a new project
 app.post('/make-server-b06c9f7a/projects', async (c) => {
   try {
+    console.log('POST /projects - Starting project creation...');
+    
     const userId = await getUserFromToken(c);
     if (!userId) {
+      console.log('POST /projects - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
     const project = await c.req.json();
+    console.log('POST /projects - Received project:', JSON.stringify(project, null, 2));
     
     if (!project.id || !project.name) {
+      console.log('POST /projects - Missing id or name');
       return c.json({ error: 'Project must have id and name' }, 400);
     }
     
-    await kv.set(`project:${userId}:${project.id}`, project);
+    const key = `project:${userId}:${project.id}`;
+    console.log('POST /projects - Saving to key:', key);
+    
+    await kv.set(key, project);
+    console.log('POST /projects - Project saved successfully');
+    
     return c.json({ project });
   } catch (error) {
     console.log('Error creating project:', error);
@@ -162,21 +172,32 @@ app.post('/make-server-b06c9f7a/projects', async (c) => {
 // Update a project
 app.put('/make-server-b06c9f7a/projects/:id', async (c) => {
   try {
+    console.log('PUT /projects/:id - Starting project update...');
+    
     const userId = await getUserFromToken(c);
     if (!userId) {
+      console.log('PUT /projects/:id - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
     const id = c.req.param('id');
     const updates = await c.req.json();
+    console.log('PUT /projects/:id - Project ID:', id);
+    console.log('PUT /projects/:id - Updates:', JSON.stringify(updates, null, 2));
     
-    const existing = await kv.get(`project:${userId}:${id}`);
+    const key = `project:${userId}:${id}`;
+    const existing = await kv.get(key);
+    
     if (!existing) {
+      console.log('PUT /projects/:id - Project not found at key:', key);
       return c.json({ error: 'Project not found' }, 404);
     }
     
+    console.log('PUT /projects/:id - Existing project:', JSON.stringify(existing, null, 2));
+    
     const updated = { ...existing, ...updates };
-    await kv.set(`project:${userId}:${id}`, updated);
+    await kv.set(key, updated);
+    console.log('PUT /projects/:id - Project updated successfully');
     
     return c.json({ project: updated });
   } catch (error) {

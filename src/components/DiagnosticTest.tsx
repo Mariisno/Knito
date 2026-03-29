@@ -21,6 +21,10 @@ export function DiagnosticTest() {
     { name: '3. Edge Functions-tilkobling', status: 'idle' },
     { name: '4. Opprett testkonto', status: 'idle' },
     { name: '5. Logg inn med testkonto', status: 'idle' },
+    { name: '6. Lagre testprosjekt i database', status: 'idle' },
+    { name: '7. Hent testprosjekt fra database', status: 'idle' },
+    { name: '8. Oppdater testprosjekt i database', status: 'idle' },
+    { name: '9. Slett testprosjekt fra database', status: 'idle' },
   ]);
   const [running, setRunning] = useState(false);
 
@@ -33,10 +37,12 @@ export function DiagnosticTest() {
     const supabase = getSupabaseClient();
     const testEmail = `test-${Date.now()}@example.com`;
     const testPassword = 'test123456';
+    const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
+    let testProjectId = '';
 
     // Test 1: Check configuration
     updateTest(0, { status: 'running' });
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     if (!projectId || !publicAnonKey) {
       updateTest(0, { 
@@ -72,15 +78,12 @@ export function DiagnosticTest() {
     // Test 3: Test Edge Functions
     updateTest(2, { status: 'running' });
     try {
-      const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
       const response = await fetch(`${API_BASE}/projects`, {
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
           'Content-Type': 'application/json',
         },
       });
-      
-      const responseText = await response.text();
       
       if (response.status === 401) {
         updateTest(2, { 
@@ -95,6 +98,7 @@ export function DiagnosticTest() {
           details: { status: response.status }
         });
       } else {
+        const responseText = await response.text();
         throw new Error(`HTTP ${response.status}: ${responseText}`);
       }
     } catch (error) {
@@ -110,7 +114,6 @@ export function DiagnosticTest() {
     // Test 4: Create test account via Edge Function
     updateTest(3, { status: 'running' });
     try {
-      const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
       const response = await fetch(`${API_BASE}/auth/signup`, {
         method: 'POST',
         headers: {
@@ -147,6 +150,7 @@ export function DiagnosticTest() {
 
     // Test 5: Sign in with test account
     updateTest(4, { status: 'running' });
+    let accessToken = '';
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: testEmail,
@@ -159,18 +163,16 @@ export function DiagnosticTest() {
         throw new Error('Ingen access token returnert');
       }
 
+      accessToken = data.session.access_token;
+
       updateTest(4, { 
         status: 'success', 
         message: 'Innlogging fungerer!',
         details: { 
           userId: data.user?.id,
-          hasAccessToken: !!data.session?.access_token 
+          hasAccessToken: !!accessToken
         }
       });
-
-      // Clean up: sign out
-      await supabase.auth.signOut();
-
     } catch (error) {
       updateTest(4, { 
         status: 'error', 
@@ -181,6 +183,169 @@ export function DiagnosticTest() {
       return;
     }
 
+    // Test 6: Store test project in database via API
+    updateTest(5, { status: 'running' });
+    try {
+      testProjectId = Date.now().toString();
+      const testProject = {
+        id: testProjectId,
+        name: 'Test Project',
+        progress: 0,
+        status: 'Planlagt',
+        images: [],
+        yarns: [],
+        needles: [],
+        counters: [],
+        createdAt: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${API_BASE}/projects`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testProject),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const responseData = await response.json();
+
+      updateTest(5, { 
+        status: 'success', 
+        message: 'Testprosjekt lagret i database',
+        details: { projectId: responseData.project?.id || testProjectId }
+      });
+    } catch (error) {
+      updateTest(5, { 
+        status: 'error', 
+        message: 'Kunne ikke lagre testprosjekt i database',
+        details: error instanceof Error ? error.message : String(error)
+      });
+      await supabase.auth.signOut();
+      setRunning(false);
+      return;
+    }
+
+    // Test 7: Retrieve test project from database
+    updateTest(6, { status: 'running' });
+    try {
+      const response = await fetch(`${API_BASE}/projects`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      const projects = responseData.projects || [];
+
+      if (projects.length === 0) {
+        throw new Error('Ingen prosjekter funnet');
+      }
+
+      updateTest(6, { 
+        status: 'success', 
+        message: `Hentet ${projects.length} prosjekt(er) fra database`,
+        details: { projectCount: projects.length }
+      });
+    } catch (error) {
+      updateTest(6, { 
+        status: 'error', 
+        message: 'Kunne ikke hente testprosjekt fra database',
+        details: error instanceof Error ? error.message : String(error)
+      });
+      await supabase.auth.signOut();
+      setRunning(false);
+      return;
+    }
+
+    // Test 8: Update test project in database
+    updateTest(7, { status: 'running' });
+    try {
+      const response = await fetch(`${API_BASE}/projects/${testProjectId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notes: 'Updated test project for diagnostics',
+          progress: 50,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const responseData = await response.json();
+
+      updateTest(7, { 
+        status: 'success', 
+        message: 'Testprosjekt oppdatert i database',
+        details: { projectId: responseData.project?.id || testProjectId }
+      });
+    } catch (error) {
+      updateTest(7, { 
+        status: 'error', 
+        message: 'Kunne ikke oppdatere testprosjekt i database',
+        details: error instanceof Error ? error.message : String(error)
+      });
+      await supabase.auth.signOut();
+      setRunning(false);
+      return;
+    }
+
+    // Test 9: Delete test project from database
+    updateTest(8, { status: 'running' });
+    try {
+      const response = await fetch(`${API_BASE}/projects/${testProjectId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      updateTest(8, { 
+        status: 'success', 
+        message: 'Testprosjekt slettet fra database',
+        details: { projectId: testProjectId }
+      });
+    } catch (error) {
+      updateTest(8, { 
+        status: 'error', 
+        message: 'Kunne ikke slette testprosjekt fra database',
+        details: error instanceof Error ? error.message : String(error)
+      });
+      await supabase.auth.signOut();
+      setRunning(false);
+      return;
+    }
+
+    // Clean up: sign out
+    await supabase.auth.signOut();
     setRunning(false);
   };
 
@@ -205,11 +370,11 @@ export function DiagnosticTest() {
       <div className="max-w-3xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">🔧 Diagnostikk for Strikke-app</CardTitle>
+            <CardTitle className="text-2xl">🔧 Database Diagnostikk</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Denne testen verifiserer at alle systemkomponenter fungerer korrekt.
+              Denne testen verifiserer at alle systemkomponenter fungerer korrekt, inkludert database-lagring.
             </p>
             
             <Button 
@@ -230,10 +395,10 @@ export function DiagnosticTest() {
             {allPassed && (
               <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
                 <p className="text-green-800 dark:text-green-200 font-medium">
-                  ✅ Alle tester bestått! Systemet fungerer som det skal.
+                  ✅ Alle tester bestått! Database-lagring fungerer perfekt.
                 </p>
                 <p className="text-green-700 dark:text-green-300 mt-2">
-                  Hvis du fortsatt har problemer med å logge inn, prøv å refreshe siden eller sjekk at du bruker riktig e-post og passord.
+                  Du kan nå bruke appen med full sikkerhet for at alle data lagres korrekt.
                 </p>
               </div>
             )}
@@ -283,37 +448,24 @@ export function DiagnosticTest() {
 
         <Card>
           <CardHeader>
-            <CardTitle>📝 Feilsøkingsinstruksjoner</CardTitle>
+            <CardTitle>📋 Hva testes?</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="font-medium mb-2">Hvis Edge Functions feiler:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Sjekk at Edge Function er deployet i Supabase Dashboard</li>
-                <li>Gå til: Supabase Dashboard → Edge Functions</li>
-                <li>Deploy funksjonen 'server' hvis den ikke er deployet</li>
-                <li>Sjekk logs for eventuelle feilmeldinger</li>
-              </ol>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-2">Hvis testkonto-opprettelse feiler:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Sjekk at SUPABASE_SERVICE_ROLE_KEY er satt som secret</li>
-                <li>Verifiser at Edge Function har riktige miljøvariabler</li>
-                <li>Sjekk Edge Function logs i Supabase Dashboard</li>
-              </ol>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-2">Hvis innlogging feiler:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Sjekk at du bruker riktig e-post og passord</li>
-                <li>Passordet må være minst 6 tegn</li>
-                <li>Sjekk at bruker er opprettet i Supabase Auth</li>
-                <li>Prøv å refreshe siden</li>
-              </ol>
-            </div>
+          <CardContent className="space-y-4 text-muted-foreground">
+            <p>Denne diagnostikken tester hele database-flyten:</p>
+            <ol className="list-decimal list-inside space-y-2">
+              <li><strong>Konfigurasjon:</strong> Sjekker at Supabase er konfigurert</li>
+              <li><strong>Tilkobling:</strong> Verifiserer at appen kan koble til Supabase</li>
+              <li><strong>Edge Functions:</strong> Tester at server-APIet fungerer</li>
+              <li><strong>Brukeropprettelse:</strong> Oppretter en testkonto</li>
+              <li><strong>Autentisering:</strong> Logger inn med testkontoen</li>
+              <li><strong>CREATE:</strong> Lagrer et testprosjekt i KV-store</li>
+              <li><strong>READ:</strong> Henter prosjektet tilbake fra databasen</li>
+              <li><strong>UPDATE:</strong> Oppdaterer prosjektet i databasen</li>
+              <li><strong>DELETE:</strong> Sletter prosjektet fra databasen</li>
+            </ol>
+            <p className="mt-4 text-foreground font-medium">
+              Hvis alle tester er grønne, betyr det at alle CRUD-operasjoner fungerer og data lagres permanent i databasen! 🎉
+            </p>
           </CardContent>
         </Card>
       </div>

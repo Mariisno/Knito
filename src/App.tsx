@@ -211,7 +211,11 @@ function AppContent() {
   };
 
   const handleAddProject = async (project: Omit<KnittingProject, 'id' | 'createdAt'>) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      console.error('No access token available');
+      toast.error('Du må være logget inn for å opprette prosjekter');
+      return;
+    }
 
     const newProject: KnittingProject = {
       ...project,
@@ -221,15 +225,22 @@ function AppContent() {
       createdAt: new Date()
     };
     
+    console.log('handleAddProject - Creating new project:', newProject);
+    
     // Optimistic update
     setProjects([...projects, newProject]);
     setIsAddDialogOpen(false);
     toast.success('Prosjekt opprettet');
     
     try {
-      await api.createProject(newProject, accessToken);
+      console.log('handleAddProject - Calling api.createProject...');
+      const savedProject = await api.createProject(newProject, accessToken);
+      console.log('handleAddProject - Project saved successfully:', savedProject);
+      
+      // Update with the saved version (in case backend modified anything)
+      setProjects(prev => prev.map(p => p.id === newProject.id ? savedProject : p));
     } catch (error) {
-      console.error('Failed to create project:', error);
+      console.error('handleAddProject - Failed to create project:', error);
       // Rollback on error
       setProjects(projects);
       toast.error('Kunne ikke lagre prosjekt. Prøv igjen.');

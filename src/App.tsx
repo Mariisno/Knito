@@ -490,6 +490,7 @@ export default function App() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      console.log('Main App Auth Event:', event);
       if (event === 'PASSWORD_RECOVERY') {
         setShowPasswordReset(true);
       }
@@ -497,7 +498,12 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (showPasswordReset || window.location.hash.includes('access_token')) {
+  // Check if we should show password reset based on URL hash or state
+  const isResetFlow = showPasswordReset || 
+                      window.location.hash.includes('type=recovery') || 
+                      window.location.hash.includes('access_token');
+
+  if (isResetFlow) {
     return (
       <ThemeProvider>
         <Toaster />

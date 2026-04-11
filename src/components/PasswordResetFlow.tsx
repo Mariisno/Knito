@@ -20,28 +20,38 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
   const [checkingToken, setCheckingToken] = useState(true);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY or SIGNED_IN events from the hash token.
-    // We can't rely on getSession() here because Supabase processes the hash
-    // asynchronously — the session may not exist yet when the component mounts.
+    // 1. Immediate check: does the URL have the recovery hash or do we already have a session?
+    const checkInitialStatus = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const isRecoveryHash = window.location.hash.includes('type=recovery') || 
+                            window.location.hash.includes('access_token');
+      
+      if (session || isRecoveryHash) {
+        setValidToken(true);
+        setCheckingToken(false);
+      }
+    };
+
+    checkInitialStatus();
+
+    // 2. Event listener: Listen for PASSWORD_RECOVERY or SIGNED_IN events.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event in ResetFlow:', event, !!session);
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setValidToken(true);
         setCheckingToken(false);
       }
     });
 
-    // Fallback: if no event fires within 5 seconds the token is invalid/expired
+    // Fallback: if no valid state found within 3 seconds, show error
     const timeout = setTimeout(() => {
       setCheckingToken((prev) => {
         if (prev) {
-          toast.error('Ugyldig eller utløpt tilbakestillingslenke', {
-            description: 'Vennligst be om en ny lenke.',
-            duration: 8000,
-          });
+          console.log('Reset timeout reached - no valid session or recovery event');
         }
         return false;
       });
-    }, 5000);
+    }, 3000);
 
     return () => {
       subscription.unsubscribe();

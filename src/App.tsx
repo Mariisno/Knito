@@ -500,6 +500,7 @@ export default function App() {
 
   // Check if we should show password reset based on URL hash or state
   const isResetFlow = showPasswordReset || 
+                      window.location.hash.includes('reset-password') || 
                       window.location.hash.includes('type=recovery') || 
                       window.location.hash.includes('access_token');
 

@@ -15,6 +15,16 @@ export interface Needle {
   type: string;
   length?: string;
   material?: string;
+  inventoryNeedleId?: string; // links to NeedleInventoryItem.id if chosen from inventory
+}
+
+export interface NeedleInventoryItem {
+  id: string;
+  size: string;       // e.g. "4mm"
+  type: string;       // e.g. "Rundpinne", "Strømpepinne"
+  length?: string;    // e.g. "80cm"
+  material?: string;  // e.g. "Bambus", "Metall"
+  quantity: number;   // how many the user owns
 }
 
 export type ProjectStatus = 'Aktiv' | 'Fullført' | 'Planlagt' | 'På vent';

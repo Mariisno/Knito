@@ -317,6 +317,40 @@ app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   }
 });
 
+// Get needle inventory for a user
+app.get('/make-server-b06c9f7a/needle-inventory', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const needles = await kv.get(`needle-inventory:${userId}`) || [];
+    return c.json({ needles });
+  } catch (error) {
+    console.log('Error fetching needle inventory:', error);
+    return c.json({ error: 'Failed to fetch needle inventory' }, 500);
+  }
+});
+
+// Update needle inventory for a user
+app.put('/make-server-b06c9f7a/needle-inventory', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { needles } = await c.req.json();
+    await kv.set(`needle-inventory:${userId}`, needles);
+    
+    return c.json({ needles });
+  } catch (error) {
+    console.log('Error updating needle inventory:', error);
+    return c.json({ error: 'Failed to update needle inventory' }, 500);
+  }
+});
+
 // Admin: Reset password for a user (temporary development solution)
 app.post('/make-server-b06c9f7a/admin/reset-password', async (c) => {
   try {

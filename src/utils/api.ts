@@ -1,5 +1,5 @@
 import { projectId, publicAnonKey } from './supabase/info.tsx';
-import type { KnittingProject, Yarn } from '../types/knitting';
+import type { KnittingProject, Yarn, NeedleInventoryItem } from '../types/knitting';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
 
@@ -158,4 +158,35 @@ export async function updateStandaloneYarns(yarns: Yarn[], accessToken: string):
   
   const data = await response.json();
   return data.yarns;
+}
+export async function getNeedleInventory(accessToken: string): Promise<NeedleInventoryItem[]> {
+  const response = await fetch(\/needle-inventory, { 
+    headers: getHeaders(accessToken) 
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error fetching needle inventory:', error);
+    throw new Error('Failed to fetch needle inventory');
+  }
+  
+  const data = await response.json();
+  return data.needles || [];
+}
+
+export async function updateNeedleInventory(needles: NeedleInventoryItem[], accessToken: string): Promise<NeedleInventoryItem[]> {
+  const response = await fetch(\/needle-inventory, {
+    method: 'PUT',
+    headers: getHeaders(accessToken),
+    body: JSON.stringify({ needles }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error updating needle inventory:', error);
+    throw new Error('Failed to update needle inventory');
+  }
+  
+  const data = await response.json();
+  return data.needles;
 }

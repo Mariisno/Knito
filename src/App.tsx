@@ -4,6 +4,7 @@ import { ProjectDetail } from './components/ProjectDetail';
 import { AddProjectDialog } from './components/AddProjectDialog';
 import { AuthForm } from './components/AuthForm';
 import { YarnInventory } from './components/YarnInventory';
+import { NeedleInventory } from './components/NeedleInventory';
 import { StatisticsView } from './components/StatisticsView';
 import { PWAMeta } from './components/PWAMeta';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
@@ -30,6 +31,7 @@ function AppContent() {
   const { theme, toggleTheme } = useTheme();
   const [projects, setProjects] = useState<KnittingProject[]>([]);
   const [standaloneYarns, setStandaloneYarns] = useState<Yarn[]>([]);
+  const [needleInventory, setNeedleInventory] = useState<api.NeedleInventoryItem[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -124,18 +126,37 @@ function AppContent() {
       setLoading(true);
       console.log('Loading projects with access token:', accessToken?.substring(0, 20) + '...');
       
-      const [projectsData, yarnsData] = await Promise.all([
+      const [projectsData, yarnsData, needlesData] = await Promise.all([
         api.getAllProjects(accessToken),
         api.getStandaloneYarns(accessToken),
+        api.getNeedleInventory(accessToken),
       ]);
       setProjects(projectsData);
       setStandaloneYarns(yarnsData);
-      console.log('Successfully loaded projects and yarns');
+      setNeedleInventory(needlesData);
+      console.log('Successfully loaded projects, yarns and needles');
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Kunne ikke laste data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateNeedleInventory = async (needles: api.NeedleInventoryItem[]) => {
+    if (!accessToken) return;
+
+    // Optimistic update
+    const previousNeedles = needleInventory;
+    setNeedleInventory(needles);
+
+    try {
+      await api.updateNeedleInventory(needles, accessToken);
+    } catch (error) {
+      console.error('Failed to update needle inventory:', error);
+      // Rollback on error
+      setNeedleInventory(previousNeedles);
+      toast.error('Kunne ikke lagre verktøy. Prøv igjen.');
     }
   };
 
@@ -481,6 +502,9 @@ function AppContent() {
           accessToken={accessToken!}
         />
       )}
+      <footer className="text-center py-4 text-sm text-muted-foreground">
+        v1.0.0 - Oppdatert: 11. april 2026
+      </footer>
     </div>
   );
 }

@@ -160,7 +160,7 @@ export async function updateStandaloneYarns(yarns: Yarn[], accessToken: string):
   return data.yarns;
 }
 export async function getNeedleInventory(accessToken: string): Promise<NeedleInventoryItem[]> {
-  const response = await fetch(\/needle-inventory, { 
+  const response = await fetch(`${API_BASE}/needle-inventory`, { 
     headers: getHeaders(accessToken) 
   });
   
@@ -175,7 +175,7 @@ export async function getNeedleInventory(accessToken: string): Promise<NeedleInv
 }
 
 export async function updateNeedleInventory(needles: NeedleInventoryItem[], accessToken: string): Promise<NeedleInventoryItem[]> {
-  const response = await fetch(\/needle-inventory, {
+  const response = await fetch(`${API_BASE}/needle-inventory`, {
     method: 'PUT',
     headers: getHeaders(accessToken),
     body: JSON.stringify({ needles }),

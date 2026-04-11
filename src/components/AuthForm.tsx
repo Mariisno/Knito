@@ -57,7 +57,8 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!resetEmail.trim()) {
+    const normalizedEmail = resetEmail.trim().toLowerCase();
+    if (!normalizedEmail) {
       toast.error('Vennligst skriv inn e-postadressen din');
       return;
     }
@@ -65,7 +66,7 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
     setResetLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/#reset-password`,
       });
 

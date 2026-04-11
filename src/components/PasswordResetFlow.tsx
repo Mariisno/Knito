@@ -20,13 +20,12 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
   const [checkingToken, setCheckingToken] = useState(true);
 
   useEffect(() => {
-    // 1. Immediate check: does the URL have the recovery hash or do we already have a session?
+    // 1. Immediate check: do we already have a session?
     const checkInitialStatus = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      const isRecoveryHash = window.location.hash.includes('type=recovery') || 
-                            window.location.hash.includes('access_token');
       
-      if (session || isRecoveryHash) {
+      if (session) {
+        console.log('Session found on mount');
         setValidToken(true);
         setCheckingToken(false);
       }
@@ -35,6 +34,7 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
     checkInitialStatus();
 
     // 2. Event listener: Listen for PASSWORD_RECOVERY or SIGNED_IN events.
+    // This is the most reliable way as Supabase SDK processes the hash and fires these.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth event in ResetFlow:', event, !!session);
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
@@ -43,15 +43,23 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
       }
     });
 
-    // Fallback: if no valid state found within 3 seconds, show error
+    // Fallback: if no valid session found within 5 seconds, show error.
+    // We give it more time because sometimes the SDK is slow to process the hash.
     const timeout = setTimeout(() => {
       setCheckingToken((prev) => {
         if (prev) {
-          console.log('Reset timeout reached - no valid session or recovery event');
+          console.log('Reset timeout reached - checking if we have a hash but no session');
+          const hasTokens = window.location.hash.includes('access_token');
+          if (hasTokens) {
+            toast.error('Kunne ikke verifisere sesjonen din automatisk.', {
+              description: 'Prøv å laste siden på nytt (F5).',
+              duration: 10000,
+            });
+          }
         }
         return false;
       });
-    }, 3000);
+    }, 5000);
 
     return () => {
       subscription.unsubscribe();
@@ -80,6 +88,12 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
     setLoading(true);
 
     try {
+      // Double check session right before update
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Sesjonen din har utløpt eller ble ikke funnet. Vennligst last siden på nytt eller be om ny lenke.');
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });

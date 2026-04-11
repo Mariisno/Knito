@@ -189,7 +189,9 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
                 <Label htmlFor="newPassword">Nytt passord</Label>
                 <Input
                   id="newPassword"
+                  name="new-password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Minst 6 tegn"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -202,7 +204,9 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
                 <Label htmlFor="confirmPassword">Bekreft passord</Label>
                 <Input
                   id="confirmPassword"
+                  name="confirm-password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Skriv inn passordet igjen"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}

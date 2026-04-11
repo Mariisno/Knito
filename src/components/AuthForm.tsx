@@ -161,6 +161,7 @@ export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
                 </div>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
                   placeholder="••••••••"

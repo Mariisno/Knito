@@ -21,51 +21,27 @@ async function initStorage() {
     const { data: buckets } = await supabaseAdmin.storage.listBuckets();
     const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
     if (!bucketExists) {
-      console.log('Creating storage bucket:', bucketName);
       await supabaseAdmin.storage.createBucket(bucketName, { public: false });
     }
   } catch (error) {
-    console.log('Error initializing storage:', error);
+    console.error('Error initializing storage:', error);
   }
 }
 initStorage();
 
-// Helper function to verify user from access token
+// Verify user from access token using Supabase's signature verification
 async function getUserFromToken(c: any) {
   const userToken = c.req.header('X-User-Token');
-  
+
   if (!userToken) {
-    console.log('No X-User-Token header');
     return null;
   }
-  
+
   try {
-    // Parse JWT token manually to extract user ID
-    // JWT format: header.payload.signature
-    const parts = userToken.split('.');
-    if (parts.length !== 3) {
-      console.log('Invalid JWT format - not 3 parts');
-      return null;
-    }
-    
-    // Decode the payload (second part)
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    console.log('JWT payload sub (user ID):', payload.sub);
-    
-    if (!payload.sub) {
-      console.log('No sub (user ID) in JWT payload');
-      return null;
-    }
-    
-    // Verify the token is not expired
-    if (payload.exp && payload.exp < Date.now() / 1000) {
-      console.log('JWT token has expired');
-      return null;
-    }
-    
-    return payload.sub;
-  } catch (error) {
-    console.log('Exception in getUserFromToken:', error);
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(userToken);
+    if (error || !user) return null;
+    return user.id;
+  } catch {
     return null;
   }
 }
@@ -84,13 +60,12 @@ app.post('/make-server-b06c9f7a/auth/signup', async (c) => {
     });
 
     if (error) {
-      console.log('Error creating user during signup:', error);
       return c.json({ error: error.message }, 400);
     }
 
     return c.json({ user: data.user });
   } catch (error) {
-    console.log('Error in signup route:', error);
+    console.error('Error in signup route:', error);
     return c.json({ error: 'Failed to create account' }, 500);
   }
 });
@@ -98,19 +73,15 @@ app.post('/make-server-b06c9f7a/auth/signup', async (c) => {
 // Get all projects for a user
 app.get('/make-server-b06c9f7a/projects', async (c) => {
   try {
-    console.log('GET /projects - X-User-Token:', c.req.header('X-User-Token')?.substring(0, 30) + '...');
-    
     const userId = await getUserFromToken(c);
     if (!userId) {
-      console.log('GET /projects - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    console.log('GET /projects - userId:', userId);
     const projects = await kv.getByPrefix(`project:${userId}:`);
     return c.json({ projects });
   } catch (error) {
-    console.log('Error fetching projects:', error);
+    console.error('Error fetching projects:', error);
     return c.json({ error: 'Failed to fetch projects' }, 500);
   }
 });
@@ -132,7 +103,7 @@ app.get('/make-server-b06c9f7a/projects/:id', async (c) => {
     
     return c.json({ project });
   } catch (error) {
-    console.log('Error fetching project:', error);
+    console.error('Error fetching project:', error);
     return c.json({ error: 'Failed to fetch project' }, 500);
   }
 });
@@ -140,31 +111,23 @@ app.get('/make-server-b06c9f7a/projects/:id', async (c) => {
 // Create a new project
 app.post('/make-server-b06c9f7a/projects', async (c) => {
   try {
-    console.log('POST /projects - Starting project creation...');
-    
     const userId = await getUserFromToken(c);
     if (!userId) {
-      console.log('POST /projects - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
     const project = await c.req.json();
-    console.log('POST /projects - Received project:', JSON.stringify(project, null, 2));
-    
+
     if (!project.id || !project.name) {
-      console.log('POST /projects - Missing id or name');
       return c.json({ error: 'Project must have id and name' }, 400);
     }
-    
+
     const key = `project:${userId}:${project.id}`;
-    console.log('POST /projects - Saving to key:', key);
-    
     await kv.set(key, project);
-    console.log('POST /projects - Project saved successfully');
-    
+
     return c.json({ project });
   } catch (error) {
-    console.log('Error creating project:', error);
+    console.error('Error creating project:', error);
     return c.json({ error: 'Failed to create project' }, 500);
   }
 });
@@ -172,36 +135,27 @@ app.post('/make-server-b06c9f7a/projects', async (c) => {
 // Update a project
 app.put('/make-server-b06c9f7a/projects/:id', async (c) => {
   try {
-    console.log('PUT /projects/:id - Starting project update...');
-    
     const userId = await getUserFromToken(c);
     if (!userId) {
-      console.log('PUT /projects/:id - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
     const id = c.req.param('id');
     const updates = await c.req.json();
-    console.log('PUT /projects/:id - Project ID:', id);
-    console.log('PUT /projects/:id - Updates:', JSON.stringify(updates, null, 2));
-    
+
     const key = `project:${userId}:${id}`;
     const existing = await kv.get(key);
-    
+
     if (!existing) {
-      console.log('PUT /projects/:id - Project not found at key:', key);
       return c.json({ error: 'Project not found' }, 404);
     }
-    
-    console.log('PUT /projects/:id - Existing project:', JSON.stringify(existing, null, 2));
-    
+
     const updated = { ...existing, ...updates };
     await kv.set(key, updated);
-    console.log('PUT /projects/:id - Project updated successfully');
-    
+
     return c.json({ project: updated });
   } catch (error) {
-    console.log('Error updating project:', error);
+    console.error('Error updating project:', error);
     return c.json({ error: 'Failed to update project' }, 500);
   }
 });
@@ -224,7 +178,7 @@ app.delete('/make-server-b06c9f7a/projects/:id', async (c) => {
     await kv.del(`project:${userId}:${id}`);
     return c.json({ success: true });
   } catch (error) {
-    console.log('Error deleting project:', error);
+    console.error('Error deleting project:', error);
     return c.json({ error: 'Failed to delete project' }, 500);
   }
 });
@@ -258,7 +212,6 @@ app.post('/make-server-b06c9f7a/upload-image', async (c) => {
       });
 
     if (error) {
-      console.log('Error uploading file to storage:', error);
       return c.json({ error: 'Failed to upload image' }, 500);
     }
 
@@ -268,13 +221,12 @@ app.post('/make-server-b06c9f7a/upload-image', async (c) => {
       .createSignedUrl(fileName, 60 * 60 * 24 * 365 * 10);
 
     if (signedUrlError) {
-      console.log('Error creating signed URL:', signedUrlError);
       return c.json({ error: 'Failed to create signed URL' }, 500);
     }
 
     return c.json({ url: signedUrlData.signedUrl, path: fileName });
   } catch (error) {
-    console.log('Error in upload-image route:', error);
+    console.error('Error in upload-image route:', error);
     return c.json({ error: 'Failed to upload image' }, 500);
   }
 });
@@ -282,19 +234,15 @@ app.post('/make-server-b06c9f7a/upload-image', async (c) => {
 // Get standalone yarns for a user
 app.get('/make-server-b06c9f7a/standalone-yarns', async (c) => {
   try {
-    console.log('GET /standalone-yarns - X-User-Token:', c.req.header('X-User-Token')?.substring(0, 30) + '...');
-    
     const userId = await getUserFromToken(c);
     if (!userId) {
-      console.log('GET /standalone-yarns - No userId, returning 401');
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    console.log('GET /standalone-yarns - userId:', userId);
     const yarns = await kv.get(`standalone-yarns:${userId}`) || [];
     return c.json({ yarns });
   } catch (error) {
-    console.log('Error fetching standalone yarns:', error);
+    console.error('Error fetching standalone yarns:', error);
     return c.json({ error: 'Failed to fetch standalone yarns' }, 500);
   }
 });
@@ -312,7 +260,7 @@ app.put('/make-server-b06c9f7a/standalone-yarns', async (c) => {
     
     return c.json({ yarns });
   } catch (error) {
-    console.log('Error updating standalone yarns:', error);
+    console.error('Error updating standalone yarns:', error);
     return c.json({ error: 'Failed to update standalone yarns' }, 500);
   }
 });
@@ -328,7 +276,7 @@ app.get('/make-server-b06c9f7a/needle-inventory', async (c) => {
     const needles = await kv.get(`needle-inventory:${userId}`) || [];
     return c.json({ needles });
   } catch (error) {
-    console.log('Error fetching needle inventory:', error);
+    console.error('Error fetching needle inventory:', error);
     return c.json({ error: 'Failed to fetch needle inventory' }, 500);
   }
 });
@@ -346,7 +294,7 @@ app.put('/make-server-b06c9f7a/needle-inventory', async (c) => {
     
     return c.json({ needles });
   } catch (error) {
-    console.log('Error updating needle inventory:', error);
+    console.error('Error updating needle inventory:', error);
     return c.json({ error: 'Failed to update needle inventory' }, 500);
   }
 });
@@ -368,7 +316,7 @@ app.post('/make-server-b06c9f7a/admin/reset-password', async (c) => {
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers();
     
     if (userError) {
-      console.log('Error listing users:', userError);
+      console.error('Error listing users:', userError);
       return c.json({ error: 'Failed to find user' }, 500);
     }
 
@@ -385,7 +333,7 @@ app.post('/make-server-b06c9f7a/admin/reset-password', async (c) => {
     );
 
     if (updateError) {
-      console.log('Error updating password:', updateError);
+      console.error('Error updating password:', updateError);
       return c.json({ error: 'Failed to update password' }, 500);
     }
 
@@ -395,7 +343,7 @@ app.post('/make-server-b06c9f7a/admin/reset-password', async (c) => {
       email: user.email 
     });
   } catch (error) {
-    console.log('Error in reset-password route:', error);
+    console.error('Error in reset-password route:', error);
     return c.json({ error: 'Failed to reset password' }, 500);
   }
 });

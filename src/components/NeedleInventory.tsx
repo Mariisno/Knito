@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from 'sonner@2.0.3';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface NeedleInventoryProps {
   projects: KnittingProject[];
@@ -62,7 +63,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
     }
 
     const needle: NeedleInventoryItem = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       size: newNeedle.size.trim(),
       type: newNeedle.type.trim(),
       length: newNeedle.length?.trim(),
@@ -130,20 +131,23 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                 <div className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="needleType">Type *</Label>
-                      <select
-                        id="needleType"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      <Label>Type *</Label>
+                      <Select
                         value={newNeedle.type}
-                        onChange={(e) => setNewNeedle({ ...newNeedle, type: e.target.value })}
+                        onValueChange={(value) => setNewNeedle({ ...newNeedle, type: value })}
                       >
-                        <option value="Rundpinne">Rundpinne</option>
-                        <option value="Strømpepinne">Strømpepinne</option>
-                        <option value="Settpinner">Settpinner</option>
-                        <option value="Utskiftbar">Utskiftbar</option>
-                        <option value="Heklenål">Heklenål</option>
-                        <option value="Annet">Annet</option>
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Rundpinne">Rundpinne</SelectItem>
+                          <SelectItem value="Strømpepinne">Strømpepinne</SelectItem>
+                          <SelectItem value="Settpinner">Settpinner</SelectItem>
+                          <SelectItem value="Utskiftbar">Utskiftbar</SelectItem>
+                          <SelectItem value="Heklenål">Heklenål</SelectItem>
+                          <SelectItem value="Annet">Annet</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="needleSize">Størrelse *</Label>

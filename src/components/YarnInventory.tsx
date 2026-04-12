@@ -55,7 +55,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     }
 
     const yarn: Yarn = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name: newYarn.name.trim(),
       brand: newYarn.brand?.trim(),
       color: newYarn.color?.trim(),

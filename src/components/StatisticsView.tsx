@@ -1,64 +1,14 @@
 import type { KnittingProject } from '../types/knitting';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Activity, CheckCircle2, Clock, PauseCircle, Calendar, Package, TrendingUp, Award } from 'lucide-react';
-import { useMemo } from 'react';
+import { useProjectStats } from '../hooks/useProjectStats';
 
 interface StatisticsViewProps {
   projects: KnittingProject[];
 }
 
 export function StatisticsView({ projects }: StatisticsViewProps) {
-  const stats = useMemo(() => {
-    const total = projects.length;
-    const active = projects.filter(p => p.status === 'Aktiv').length;
-    const completed = projects.filter(p => p.status === 'Fullført').length;
-    const paused = projects.filter(p => p.status === 'På vent').length;
-    const planned = projects.filter(p => p.status === 'Planlagt').length;
-    
-    const avgProgress = total > 0 
-      ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / total)
-      : 0;
-    
-    const totalTime = projects.reduce((sum, p) => sum + (p.timeSpentMinutes || 0), 0);
-    const totalYarns = projects.reduce((sum, p) => sum + p.yarns.length, 0);
-    
-    // Projects by category
-    const categories = new Map<string, number>();
-    projects.forEach(p => {
-      if (p.category) {
-        categories.set(p.category, (categories.get(p.category) || 0) + 1);
-      }
-    });
-    
-    // Completion rate
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    
-    // Projects this year
-    const thisYear = new Date().getFullYear();
-    const projectsThisYear = projects.filter(p => 
-      new Date(p.createdAt).getFullYear() === thisYear
-    ).length;
-    
-    // Average time per project
-    const avgTimePerProject = completed > 0 
-      ? Math.round(projects.filter(p => p.status === 'Fullført').reduce((sum, p) => sum + (p.timeSpentMinutes || 0), 0) / completed)
-      : 0;
-    
-    return {
-      total,
-      active,
-      completed,
-      paused,
-      planned,
-      avgProgress,
-      totalTime,
-      totalYarns,
-      categories: Array.from(categories.entries()).sort((a, b) => b[1] - a[1]),
-      completionRate,
-      projectsThisYear,
-      avgTimePerProject,
-    };
-  }, [projects]);
+  const stats = useProjectStats(projects);
 
   if (projects.length === 0) {
     return (

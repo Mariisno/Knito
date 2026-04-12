@@ -70,9 +70,7 @@ export function PWAMeta() {
 
     // Register service worker for PWA
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(() => console.log('Service Worker registered'))
-        .catch((error) => console.log('Service Worker registration failed:', error));
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   }, []);
   

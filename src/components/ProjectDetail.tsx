@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import type { KnittingProject, Yarn, Needle, ProjectStatus, Counter, LogEntry } from '../types/knitting';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -57,11 +58,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [currentTime, setCurrentTime] = useState(new Date());
   const [newLogEntry, setNewLogEntry] = useState('');
 
-  // Sync editedProject when project prop changes
-  useEffect(() => {
-    setEditedProject(project);
-  }, [project]);
-
   // Update current time every second when timer is running
   useEffect(() => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
@@ -72,11 +68,27 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     }
   }, [editedProject.currentTimeLog]);
 
+  // Debounced version of onUpdate for text fields and slider
+  const debouncedOnUpdate = useDebouncedCallback(
+    (updated: KnittingProject) => onUpdate(updated),
+    500,
+  );
+
+  // Immediate update: updates local state + calls API immediately
   const handleUpdate = (updates: Partial<KnittingProject>) => {
     const updated = { ...editedProject, ...updates };
     setEditedProject(updated);
     onUpdate(updated);
   };
+
+  // Debounced update: updates local state immediately, debounces the API call
+  const handleDebouncedUpdate = useCallback((updates: Partial<KnittingProject>) => {
+    setEditedProject(prev => {
+      const updated = { ...prev, ...updates };
+      debouncedOnUpdate(updated);
+      return updated;
+    });
+  }, [debouncedOnUpdate]);
 
   const handleToggleTimer = () => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
@@ -116,7 +128,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handleAddYarn = () => {
     if (newYarn.name?.trim()) {
       const yarn: Yarn = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         name: newYarn.name,
         brand: newYarn.brand,
         color: newYarn.color,
@@ -136,7 +148,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handleAddNeedle = () => {
     if (newNeedle.size?.trim() && newNeedle.type?.trim()) {
       const needle: Needle = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         size: newNeedle.size,
         type: newNeedle.type,
         length: newNeedle.length,
@@ -188,7 +200,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
   const handleAddCounter = () => {
     const newCounter: Counter = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       label: 'Runder',
       count: 0,
     };
@@ -221,7 +233,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     if (!newLogEntry.trim()) return;
     
     const logEntry: LogEntry = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       text: newLogEntry.trim(),
       timestamp: new Date(),
     };
@@ -263,7 +275,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             <CardHeader className="pb-4">
               <Input
                 value={editedProject.name}
-                onChange={(e) => handleUpdate({ name: e.target.value })}
+                onChange={(e) => handleDebouncedUpdate({ name: e.target.value })}
                 className="border-0 p-0 text-card-foreground focus:ring-0 text-2xl"
               />
               {editedProject.category && (
@@ -450,7 +462,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 />
                 <Slider
                   value={[editedProject.progress]}
-                  onValueChange={([value]) => handleUpdate({ progress: value })}
+                  onValueChange={([value]) => handleDebouncedUpdate({ progress: value })}
                   max={100}
                   step={1}
                   className="cursor-pointer"
@@ -551,7 +563,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 <CardContent>
                   <Textarea
                     value={editedProject.recipe || ''}
-                    onChange={(e) => handleUpdate({ recipe: e.target.value })}
+                    onChange={(e) => handleDebouncedUpdate({ recipe: e.target.value })}
                     placeholder="Skriv inn oppskriften her..."
                     className="min-h-[350px] resize-none"
                   />

@@ -29,20 +29,8 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject }: AddProjec
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('AddProjectDialog - handleSubmit called');
-    console.log('AddProjectDialog - name:', name);
-    
+
     if (name.trim()) {
-      console.log('AddProjectDialog - Calling onAddProject with:', {
-        name: name.trim(),
-        progress: 0,
-        status: 'Planlagt',
-        images: [],
-        yarns: [],
-        needles: [],
-        counters: [],
-      });
-      
       onAddProject({
         name: name.trim(),
         progress: 0,
@@ -54,14 +42,10 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject }: AddProjec
       });
       setName('');
       setShowTemplates(false);
-    } else {
-      console.log('AddProjectDialog - Name is empty, not submitting');
     }
   };
 
   const handleTemplateSelect = (template: typeof PROJECT_TEMPLATES[0]) => {
-    console.log('AddProjectDialog - Template selected:', template);
-    
     onAddProject({
       name: template.name,
       category: template.category,

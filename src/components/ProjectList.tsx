@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { ProjectCard } from './ProjectCard';
 import { Package2, Sparkles, Search } from 'lucide-react';
@@ -15,6 +15,7 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Aktiv');
   const [sortBy, setSortBy] = useState<'name' | 'progress' | 'date'>('date');
+  const [isPending, startTransition] = useTransition();
 
   // Filter and sort projects
   const filteredProjects = useMemo(() => {
@@ -31,7 +32,9 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
     }
 
     // Apply status filter
-    if (statusFilter !== 'Alle') {
+    if (statusFilter === 'Alle') {
+      filtered = filtered.filter(project => project.status !== 'Arkivert');
+    } else {
       filtered = filtered.filter(project => project.status === statusFilter);
     }
 
@@ -61,9 +64,14 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
         <p className="text-muted-foreground max-w-md mx-auto">
           Kom i gang med ditt første strikkeprosjekt ved å klikke på "Nytt prosjekt" knappen
         </p>
-        <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground/60">
-          <Sparkles className="w-4 h-4" />
-          <span>Tips: Du kan legge til bilder, oppskrifter og notater til hvert prosjekt</span>
+        <div className="mt-8 space-y-2 text-muted-foreground/60">
+          <div className="flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            <span>Tips: Du kan legge til bilder, oppskrifter, tellere og tidssporing til hvert prosjekt</span>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <span>Bruk velg-fra-mal for rask oppretting, eller trykk <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border text-xs">N</kbd> for nytt prosjekt</span>
+          </div>
         </div>
       </div>
     );
@@ -80,7 +88,7 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
             type="text"
             placeholder="Søk etter prosjekt, oppskrift eller notater..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { const v = e.target.value; startTransition(() => setSearchQuery(v)); }}
             className="pl-10"
           />
         </div>
@@ -89,12 +97,12 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
         <div className="flex flex-wrap gap-3">
           {/* Status Filter */}
           <div className="flex gap-2 flex-wrap">
-            {(['Alle', 'Aktiv', 'Planlagt', 'På vent', 'Fullført'] as const).map((status) => (
+            {(['Alle', 'Aktiv', 'Planlagt', 'På vent', 'Fullført', 'Arkivert'] as const).map((status) => (
               <Button
                 key={status}
                 variant={statusFilter === status ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setStatusFilter(status)}
+                onClick={() => startTransition(() => setStatusFilter(status))}
                 className={statusFilter === status ? 'shadow-md' : ''}
               >
                 {status}
@@ -107,21 +115,21 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
             <Button
               variant={sortBy === 'date' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSortBy('date')}
+              onClick={() => startTransition(() => setSortBy('date'))}
             >
               Dato
             </Button>
             <Button
               variant={sortBy === 'name' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSortBy('name')}
+              onClick={() => startTransition(() => setSortBy('name'))}
             >
               Navn
             </Button>
             <Button
               variant={sortBy === 'progress' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSortBy('progress')}
+              onClick={() => startTransition(() => setSortBy('progress'))}
             >
               Progresjon
             </Button>
@@ -135,13 +143,13 @@ export function ProjectList({ projects, onSelectProject, onProgressChange }: Pro
       </div>
 
       {/* Project Grid */}
-      {filteredProjects.length === 0 ? (
+      {filteredProjects.length === 0 && !isPending ? (
         <div className="text-center py-16 bg-card border border-border rounded-xl">
           <p className="text-muted-foreground mb-2">Ingen prosjekter funnet</p>
           <p className="text-muted-foreground/60">Prøv å endre søket eller filteret</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity ${isPending ? 'opacity-60' : ''}`}>
           {filteredProjects.map(project => (
             <ProjectCard
               key={project.id}

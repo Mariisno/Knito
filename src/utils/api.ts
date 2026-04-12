@@ -30,16 +30,11 @@ export async function signup(email: string, password: string, name: string) {
 }
 
 export async function getAllProjects(accessToken: string): Promise<KnittingProject[]> {
-  console.log('getAllProjects called with token:', accessToken?.substring(0, 20));
   const url = `${API_BASE}/projects`;
-  console.log('Fetching from:', url);
-  
-  const response = await fetch(url, { 
-    headers: getHeaders(accessToken) 
+
+  const response = await fetch(url, {
+    headers: getHeaders(accessToken)
   });
-  
-  console.log('Response status:', response.status);
-  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
   
   if (!response.ok) {
     const errorText = await response.text();
@@ -52,8 +47,6 @@ export async function getAllProjects(accessToken: string): Promise<KnittingProje
 }
 
 export async function createProject(project: KnittingProject, accessToken: string): Promise<KnittingProject> {
-  console.log('Creating project:', JSON.stringify(project, null, 2));
-  
   const response = await fetch(`${API_BASE}/projects`, {
     method: 'POST',
     headers: getHeaders(accessToken),
@@ -67,14 +60,10 @@ export async function createProject(project: KnittingProject, accessToken: strin
   }
   
   const data = await response.json();
-  console.log('Project created successfully:', data.project);
   return data.project;
 }
 
 export async function updateProject(id: string, updates: Partial<KnittingProject>, accessToken: string): Promise<KnittingProject> {
-  console.log('Updating project:', id);
-  console.log('Updates:', JSON.stringify(updates, null, 2));
-  
   const response = await fetch(`${API_BASE}/projects/${id}`, {
     method: 'PUT',
     headers: getHeaders(accessToken),
@@ -88,7 +77,6 @@ export async function updateProject(id: string, updates: Partial<KnittingProject
   }
   
   const data = await response.json();
-  console.log('Project updated successfully:', data.project);
   return data.project;
 }
 
@@ -124,6 +112,29 @@ export async function uploadImage(file: File, accessToken: string): Promise<stri
     throw new Error('Failed to upload image');
   }
   
+  const data = await response.json();
+  return data.url;
+}
+
+export async function uploadPdf(file: File, accessToken: string): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE}/upload-image`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${publicAnonKey}`,
+      'X-User-Token': accessToken,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error uploading PDF:', error);
+    throw new Error('Failed to upload PDF');
+  }
+
   const data = await response.json();
   return data.url;
 }

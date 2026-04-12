@@ -47,6 +47,8 @@ export function getStatusColors(status: string): string {
       return 'bg-orange-100 text-orange-700 border-orange-200';
     case 'På vent':
       return 'bg-amber-100 text-amber-700 border-amber-200';
+    case 'Arkivert':
+      return 'bg-zinc-100 text-zinc-500 border-zinc-200';
     case 'Planlagt':
     default:
       return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -64,6 +66,8 @@ export function getStatusSelectColors(status: string): string {
       return 'bg-orange-50 border-orange-200 text-orange-700';
     case 'På vent':
       return 'bg-amber-50 border-amber-200 text-amber-700';
+    case 'Arkivert':
+      return 'bg-zinc-50 border-zinc-200 text-zinc-500';
     case 'Planlagt':
     default:
       return 'bg-slate-50 border-slate-200 text-slate-700';

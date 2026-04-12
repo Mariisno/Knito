@@ -25,7 +25,6 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        console.log('Session found on mount');
         setValidToken(true);
         setCheckingToken(false);
       }
@@ -36,7 +35,6 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
     // 2. Event listener: Listen for PASSWORD_RECOVERY or SIGNED_IN events.
     // This is the most reliable way as Supabase SDK processes the hash and fires these.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event in ResetFlow:', event, !!session);
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setValidToken(true);
         setCheckingToken(false);
@@ -48,7 +46,6 @@ export function PasswordResetFlow({ supabase }: PasswordResetFlowProps) {
     const timeout = setTimeout(() => {
       setCheckingToken((prev) => {
         if (prev) {
-          console.log('Reset timeout reached - checking if we have a hash but no session');
           const hasTokens = window.location.hash.includes('access_token');
           if (hasTokens) {
             toast.error('Kunne ikke verifisere sesjonen din automatisk.', {

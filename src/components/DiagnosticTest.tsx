@@ -186,7 +186,7 @@ export function DiagnosticTest() {
     // Test 6: Store test project in database via API
     updateTest(5, { status: 'running' });
     try {
-      testProjectId = Date.now().toString();
+      testProjectId = crypto.randomUUID();
       const testProject = {
         id: testProjectId,
         name: 'Test Project',

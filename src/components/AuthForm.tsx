@@ -6,15 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { useAuth } from '../contexts/AuthContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface AuthFormProps {
-  onSignIn: (email: string, password: string) => Promise<void>;
-  onSignUp: (email: string, password: string, name: string) => Promise<void>;
-  supabase: SupabaseClient;
+  onSignIn?: (email: string, password: string) => Promise<void>;
+  onSignUp?: (email: string, password: string, name: string) => Promise<void>;
+  supabase?: SupabaseClient;
 }
 
-export function AuthForm({ onSignIn, onSignUp, supabase }: AuthFormProps) {
+export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: supabaseProp }: AuthFormProps) {
+  const auth = useAuth();
+  const onSignIn = _onSignIn ?? auth.signIn;
+  const onSignUp = _onSignUp ?? auth.signUp;
+  const supabase = supabaseProp ?? auth.supabase;
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState('');

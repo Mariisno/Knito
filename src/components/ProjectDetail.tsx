@@ -9,11 +9,12 @@ import { Progress } from './ui/progress';
 import { Slider } from './ui/slider';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock, RotateCcw, Send, Archive, Package, Scissors, Download } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock, RotateCcw, Send, Archive, Package, Scissors, Download, FileText } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { exportProjectAsJSON, exportProjectAsPrintable } from '../utils/export';
+import { extractTextFromPdf } from '../utils/pdfParser';
 import { CounterWidget } from './CounterWidget';
 import { 
   getProgressColors, 
@@ -58,6 +59,8 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [newNeedle, setNewNeedle] = useState<Partial<Needle>>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [parsingPdf, setParsingPdf] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [newLogEntry, setNewLogEntry] = useState('');
 
@@ -231,6 +234,59 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     const newImages = editedProject.images.filter((_, i) => i !== index);
     handleUpdate({ images: newImages });
     toast.success('Bilde fjernet');
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      toast.error('Kun PDF-filer er støttet');
+      return;
+    }
+    setUploadingPdf(true);
+    try {
+      const url = await api.uploadPdf(file, accessToken);
+      handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: url, pdfName: file.name } });
+      toast.success('PDF lastet opp');
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      toast.error('Kunne ikke laste opp PDF');
+    } finally {
+      setUploadingPdf(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleParsePdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      toast.error('Kun PDF-filer er støttet');
+      return;
+    }
+    setParsingPdf(true);
+    try {
+      const text = await extractTextFromPdf(file);
+      if (!text.trim()) {
+        toast.error('Kunne ikke hente tekst fra PDF-en. Den kan inneholde kun bilder.');
+        return;
+      }
+      const existing = editedProject.recipe || '';
+      const newRecipe = existing ? `${existing}\n\n--- Hentet fra ${file.name} ---\n${text}` : text;
+      handleUpdate({ recipe: newRecipe });
+      toast.success('Oppskrift hentet fra PDF');
+    } catch (error) {
+      console.error('Error parsing PDF:', error);
+      toast.error('Kunne ikke lese PDF-en');
+    } finally {
+      setParsingPdf(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemovePdf = () => {
+    handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } });
+    toast.success('PDF fjernet');
   };
 
   const handleDelete = () => {
@@ -622,7 +678,85 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 <CardHeader>
                   <CardTitle>Oppskrift</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
+                  {/* PDF */}
+                  {editedProject.pattern?.pdfUrl ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText className="h-5 w-5 text-primary shrink-0" />
+                          <span className="text-sm text-foreground truncate">{editedProject.pattern.pdfName || 'Oppskrift.pdf'}</span>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')}
+                          >
+                            Åpne
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemovePdf}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <iframe
+                        src={editedProject.pattern.pdfUrl}
+                        className="w-full h-[70vh] rounded-lg border border-border"
+                        title="Oppskrift PDF"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-md ${uploadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handlePdfUpload}
+                          disabled={uploadingPdf}
+                          className="hidden"
+                        />
+                        {uploadingPdf ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Laster opp...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4" />
+                            Last opp PDF
+                          </>
+                        )}
+                      </label>
+                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-lg hover:bg-accent transition-colors ${parsingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handleParsePdf}
+                          disabled={parsingPdf}
+                          className="hidden"
+                        />
+                        {parsingPdf ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Henter tekst...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4" />
+                            Hent tekst fra PDF
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Tekstoppskrift */}
                   <Textarea
                     value={editedProject.recipe || ''}
                     onChange={(e) => handleDebouncedUpdate({ recipe: e.target.value })}
@@ -1105,7 +1239,67 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                       />
                     </div>
                   )}
-                  {editedProject.pattern?.url && (
+                  {/* PDF Upload */}
+                  <div className="pt-4 border-t border-border space-y-4">
+                    <h4 className="text-card-foreground font-medium">Mønster-PDF</h4>
+                    {editedProject.pattern?.pdfUrl ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FileText className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-sm text-foreground truncate">{editedProject.pattern.pdfName || 'Mønster.pdf'}</span>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')}
+                            >
+                              Åpne
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRemovePdf}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <iframe
+                          src={editedProject.pattern.pdfUrl}
+                          className="w-full h-[70vh] rounded-lg border border-border"
+                          title="Mønster PDF"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-md ${uploadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            onChange={handlePdfUpload}
+                            disabled={uploadingPdf}
+                            className="hidden"
+                          />
+                          {uploadingPdf ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Laster opp...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4" />
+                              Last opp PDF
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {editedProject.pattern?.url && !editedProject.pattern?.pdfUrl && (
                     <div className="pt-4 border-t border-border">
                       <a
                         href={editedProject.pattern.url}

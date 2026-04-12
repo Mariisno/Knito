@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Package, Palette, Plus, Trash2, X } from 'lucide-react';
+import { Package, Palette, Plus, Trash2, X, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { toast } from 'sonner@2.0.3';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -77,6 +77,22 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
   const handleDeleteStandaloneYarn = (yarnId: string) => {
     onUpdateStandaloneYarns(standaloneYarns.filter(y => y.id !== yarnId));
     toast.success('Restegarn fjernet');
+  };
+
+  const handleDuplicateYarn = (yarn: Yarn) => {
+    setNewYarn({
+      name: `${yarn.name} (kopi)`,
+      brand: yarn.brand,
+      color: yarn.color,
+      amount: yarn.amount,
+      weight: yarn.weight,
+      fiberContent: yarn.fiberContent,
+      yardage: yarn.yardage,
+      dyeLot: yarn.dyeLot,
+      price: yarn.price,
+      notes: yarn.notes,
+    });
+    setShowAddDialog(true);
   };
 
   return (
@@ -163,7 +179,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                   Legg til restegarn
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Legg til restegarn</DialogTitle>
                 </DialogHeader>
@@ -302,14 +318,25 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {standaloneYarns.map((yarn) => (
                 <Card key={yarn.id} className="bg-card border-border hover:shadow-lg transition-shadow group relative">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteStandaloneYarn(yarn.id)}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive z-10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDuplicateYarn(yarn)}
+                      className="hover:bg-primary/10 hover:text-primary"
+                      title="Lag kopi"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteStandaloneYarn(yarn.id)}
+                      className="hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 pr-8">
                       <Palette className="w-5 h-5 text-primary" />

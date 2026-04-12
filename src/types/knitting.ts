@@ -68,6 +68,8 @@ export interface PatternInfo {
   designer?: string;          // pattern designer
   currentRow?: number;        // where user is in the pattern
   totalRows?: number;         // total rows in pattern (if known)
+  pdfUrl?: string;            // uploaded PDF file URL
+  pdfName?: string;           // original PDF filename
 }
 
 export interface KnittingProject {

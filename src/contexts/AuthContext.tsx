@@ -34,20 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkSession = async () => {
     try {
+      console.log('[DEBUG] checkSession called');
       const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('[DEBUG] getSession result:', session ? 'HAS SESSION' : 'NO SESSION', error ? 'ERROR: ' + error.message : 'NO ERROR');
       if (error) throw error;
 
       if (session?.user && session.access_token) {
+        console.log('[DEBUG] Setting user and accessToken from session');
         setUser({
           id: session.user.id,
           email: session.user.email || '',
           name: session.user.user_metadata?.name,
         });
         setAccessToken(session.access_token);
+      } else {
+        console.log('[DEBUG] No valid session found');
       }
     } catch (error) {
       console.error('Error checking session:', error);
     } finally {
+      console.log('[DEBUG] checkSession done, setting loading=false');
       setLoading(false);
     }
   };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProjectList } from './components/ProjectList';
 import { ProjectDetail } from './components/ProjectDetail';
@@ -14,9 +14,11 @@ import { DiagnosticTest } from './components/DiagnosticTest';
 import { PasswordResetAdmin } from './components/PasswordResetAdmin';
 import { PasswordResetFlow } from './components/PasswordResetFlow';
 import { Button } from './components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
+// Card imports kept for other components
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Plus, Loader2, LogOut, Activity, CheckCircle2, Clock, PauseCircle, Moon, Sun, Package, Download } from 'lucide-react';
+import { Plus, Loader2, LogOut, Moon, Sun, Download, Settings } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './components/ui/dropdown-menu';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -55,7 +57,7 @@ function ProjectDetailRoute({
     <ProjectDetail
       key={project.id}
       project={project}
-      onBack={(tab?: string) => navigate(tab ? `/?tab=${tab}` : '/')}
+      onBack={() => navigate('/')}
       onUpdate={onUpdate}
       onDelete={(projectId) => {
         onDelete(projectId);
@@ -79,17 +81,8 @@ function AppContent() {
     updateStandaloneYarns, updateNeedleInventory,
   } = useProjects(accessToken);
 
-  const [searchParams, setSearchParams] = useSearchParams();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'prosjekter');
-
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab && ['prosjekter', 'garnlager', 'verktoy', 'statistikk'].includes(tab)) {
-      setActiveTab(tab);
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
+  const [activeTab, setActiveTab] = useState('prosjekter');
 
   const stats = useProjectStats(projects, standaloneYarns);
   const loading = authLoading || dataLoading;
@@ -129,105 +122,78 @@ function AppContent() {
     return (
       <>
         <Toaster />
-        <AuthForm onSignIn={async () => {}} onSignUp={async () => {}} supabase={supabase} />
+        <AuthForm />
       </>
     );
   }
 
   const dashboard = (
-    <div className="container mx-auto px-4 py-12 max-w-7xl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-12">
-        <div>
-          <h1 className="text-foreground mb-2">Mine Strikkeprosjekter</h1>
-          <p className="text-muted-foreground">Velkommen, {user.name || user.email}!</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            onClick={() => {
-              exportAllDataAsJSON(projects, standaloneYarns, needleInventory);
-              toast.success('Sikkerhetskopi lastet ned');
-            }}
-            variant="outline"
-            size="icon"
-            className="border-border"
-            title="Last ned sikkerhetskopi"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-          <Button onClick={toggleTheme} variant="outline" size="icon" className="border-border" title="Bytt tema">
-            {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-          </Button>
-          <Button onClick={handleSignOut} variant="outline" className="border-border">
-            <LogOut className="mr-2 h-4 w-4" />
-            Logg ut
-          </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all" title="Nytt prosjekt (N)">
-            <Plus className="mr-2 h-5 w-5" />
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h1 className="text-foreground text-xl">Knito</h1>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsAddDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" title="Nytt prosjekt (N)">
+            <Plus className="mr-2 h-4 w-4" />
             Nytt prosjekt
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-border h-10 w-10 p-0" title="Innstillinger">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={toggleTheme}>
+                {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+                {theme === 'light' ? 'Mørkt tema' : 'Lyst tema'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                exportAllDataAsJSON(projects, standaloneYarns, needleInventory);
+                toast.success('Sikkerhetskopi lastet ned');
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Last ned sikkerhetskopi
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Logg ut
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {projects.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200/50 dark:border-amber-800/50">
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5 text-amber-600 dark:text-amber-400" />Aktive</CardTitle></CardHeader>
-            <CardContent><p className="text-amber-900 dark:text-amber-100">{stats.active} prosjekt{stats.active !== 1 ? 'er' : ''}</p></CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-200/50 dark:border-emerald-800/50">
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />Fullført</CardTitle></CardHeader>
-            <CardContent><p className="text-emerald-900 dark:text-emerald-100">{stats.completed} prosjekt{stats.completed !== 1 ? 'er' : ''}</p></CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200/50 dark:border-blue-800/50">
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><PauseCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />På vent</CardTitle></CardHeader>
-            <CardContent><p className="text-blue-900 dark:text-blue-100">{stats.paused} prosjekt{stats.paused !== 1 ? 'er' : ''}</p></CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30 border-rose-200/50 dark:border-rose-800/50">
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-rose-600 dark:text-rose-400" />Tid brukt</CardTitle></CardHeader>
-            <CardContent><p className="text-rose-900 dark:text-rose-100">{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 60)}t ${stats.totalTime % 60}m` : 'Ikke registrert'}</p></CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 border-purple-200/50 dark:border-purple-800/50">
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />Garn totalt</CardTitle></CardHeader>
-            <CardContent><p className="text-purple-900 dark:text-purple-100">{stats.totalYarns} garn</p></CardContent>
-          </Card>
-        </div>
-      )}
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="prosjekter">Prosjekter</TabsTrigger>
-          <TabsTrigger value="garnlager">Garnlager</TabsTrigger>
-          <TabsTrigger value="verktoy">Verktøy</TabsTrigger>
-          <TabsTrigger value="statistikk">Statistikk</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="bg-card border border-border w-full">
+          <TabsTrigger value="prosjekter" className="flex-1">Prosjekter</TabsTrigger>
+          <TabsTrigger value="garnlager" className="flex-1">Garnlager</TabsTrigger>
+          <TabsTrigger value="verktoy" className="flex-1">Verktøy</TabsTrigger>
+          <TabsTrigger value="statistikk" className="flex-1">Statistikk</TabsTrigger>
         </TabsList>
-        <TabsContent value="prosjekter">
-          <ErrorBoundary>
-            <ProjectList projects={projects} onSelectProject={(id) => navigate(`/projects/${id}`)} onProgressChange={changeProgress} />
-          </ErrorBoundary>
-        </TabsContent>
-        <TabsContent value="garnlager">
-          <ErrorBoundary>
-            <YarnInventory projects={projects} standaloneYarns={standaloneYarns} onUpdateStandaloneYarns={updateStandaloneYarns} />
-          </ErrorBoundary>
-        </TabsContent>
-        <TabsContent value="verktoy">
-          <ErrorBoundary>
-            <NeedleInventory projects={projects} needleInventory={needleInventory} onUpdateNeedleInventory={updateNeedleInventory} />
-          </ErrorBoundary>
-        </TabsContent>
-        <TabsContent value="statistikk">
-          <ErrorBoundary>
-            <StatisticsView projects={projects} />
-          </ErrorBoundary>
-        </TabsContent>
+        <div className="mt-4">
+          <TabsContent value="prosjekter">
+            <ErrorBoundary>
+              <ProjectList projects={projects} onSelectProject={(id) => navigate(`/projects/${id}`)} onProgressChange={changeProgress} />
+            </ErrorBoundary>
+          </TabsContent>
+          <TabsContent value="garnlager">
+            <ErrorBoundary>
+              <YarnInventory projects={projects} standaloneYarns={standaloneYarns} onUpdateStandaloneYarns={updateStandaloneYarns} />
+            </ErrorBoundary>
+          </TabsContent>
+          <TabsContent value="verktoy">
+            <ErrorBoundary>
+              <NeedleInventory projects={projects} needleInventory={needleInventory} onUpdateNeedleInventory={updateNeedleInventory} />
+            </ErrorBoundary>
+          </TabsContent>
+          <TabsContent value="statistikk">
+            <ErrorBoundary>
+              <StatisticsView projects={projects} />
+            </ErrorBoundary>
+          </TabsContent>
+        </div>
       </Tabs>
-
-      <div className="mt-8 text-center">
-        <p className="text-muted-foreground">
-          💡 Tips: Trykk <kbd className="px-2 py-1 bg-muted rounded border border-border mx-1">N</kbd> for nytt prosjekt,
-          <kbd className="px-2 py-1 bg-muted rounded border border-border mx-1">Esc</kbd> for å gå tilbake
-        </p>
-      </div>
 
       <AddProjectDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onAddProject={handleAddProject} />
     </div>

@@ -11,24 +11,47 @@ export function useProjects(accessToken: string | null) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('[DEBUG] useProjects effect fired, accessToken:', accessToken ? 'SET (' + accessToken.substring(0, 20) + '...)' : 'NULL');
     if (accessToken) {
       loadAll();
     }
   }, [accessToken]);
 
   const loadAll = async () => {
+    console.log('[DEBUG] loadAll called, accessToken:', accessToken ? 'SET' : 'NULL');
     if (!accessToken) return;
 
     try {
       setLoading(true);
-      const [projectsData, yarnsData, needlesData] = await Promise.all([
+      console.log('[DEBUG] About to fetch projects, yarns, needles...');
+      const [projectsResult, yarnsResult, needlesResult] = await Promise.allSettled([
         api.getAllProjects(accessToken),
         api.getStandaloneYarns(accessToken),
         api.getNeedleInventory(accessToken),
       ]);
-      setProjects(projectsData);
-      setStandaloneYarns(yarnsData);
-      setNeedleInventory(needlesData);
+
+      if (projectsResult.status === 'fulfilled') {
+        setProjects(projectsResult.value);
+      } else {
+        console.error('Failed to load projects:', projectsResult.reason);
+      }
+
+      if (yarnsResult.status === 'fulfilled') {
+        setStandaloneYarns(yarnsResult.value);
+      } else {
+        console.error('Failed to load yarns:', yarnsResult.reason);
+      }
+
+      if (needlesResult.status === 'fulfilled') {
+        setNeedleInventory(needlesResult.value);
+      } else {
+        console.error('Failed to load needles:', needlesResult.reason);
+      }
+
+      const failures = [projectsResult, yarnsResult, needlesResult].filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        toast.error(`Kunne ikke laste ${failures.length === 3 ? 'data' : 'deler av data'}`);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Kunne ikke laste data');

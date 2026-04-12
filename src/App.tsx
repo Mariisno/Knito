@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router';
+import { Routes, Route, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProjectList } from './components/ProjectList';
 import { ProjectDetail } from './components/ProjectDetail';
@@ -16,13 +16,14 @@ import { PasswordResetFlow } from './components/PasswordResetFlow';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Plus, Loader2, LogOut, Activity, CheckCircle2, Clock, PauseCircle, Moon, Sun, Package } from 'lucide-react';
+import { Plus, Loader2, LogOut, Activity, CheckCircle2, Clock, PauseCircle, Moon, Sun, Package, Download } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useProjects } from './hooks/useProjects';
 import { useProjectStats } from './hooks/useProjectStats';
-import type { KnittingProject } from './types/knitting';
+import type { KnittingProject, NeedleInventoryItem, Yarn } from './types/knitting';
+import { exportAllDataAsJSON } from './utils/export';
 
 // DIAGNOSTIC MODE - Set to false to return to normal app
 const SHOW_DIAGNOSTIC = false;
@@ -32,11 +33,15 @@ function ProjectDetailRoute({
   onUpdate,
   onDelete,
   accessToken,
+  needleInventory,
+  standaloneYarns,
 }: {
   projects: KnittingProject[];
   onUpdate: (project: KnittingProject) => void;
   onDelete: (projectId: string) => void;
   accessToken: string;
+  needleInventory: NeedleInventoryItem[];
+  standaloneYarns: Yarn[];
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,13 +55,15 @@ function ProjectDetailRoute({
     <ProjectDetail
       key={project.id}
       project={project}
-      onBack={() => navigate('/')}
+      onBack={(tab?: string) => navigate(tab ? `/?tab=${tab}` : '/')}
       onUpdate={onUpdate}
       onDelete={(projectId) => {
         onDelete(projectId);
         navigate('/');
       }}
       accessToken={accessToken}
+      needleInventory={needleInventory}
+      standaloneYarns={standaloneYarns}
     />
   );
 }
@@ -72,8 +79,17 @@ function AppContent() {
     updateStandaloneYarns, updateNeedleInventory,
   } = useProjects(accessToken);
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('prosjekter');
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'prosjekter');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['prosjekter', 'garnlager', 'verktoy', 'statistikk'].includes(tab)) {
+      setActiveTab(tab);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const stats = useProjectStats(projects, standaloneYarns);
   const loading = authLoading || dataLoading;
@@ -126,6 +142,18 @@ function AppContent() {
           <p className="text-muted-foreground">Velkommen, {user.name || user.email}!</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={() => {
+              exportAllDataAsJSON(projects, standaloneYarns, needleInventory);
+              toast.success('Sikkerhetskopi lastet ned');
+            }}
+            variant="outline"
+            size="icon"
+            className="border-border"
+            title="Last ned sikkerhetskopi"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
           <Button onClick={toggleTheme} variant="outline" size="icon" className="border-border" title="Bytt tema">
             {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </Button>
@@ -133,7 +161,7 @@ function AppContent() {
             <LogOut className="mr-2 h-4 w-4" />
             Logg ut
           </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+          <Button onClick={() => setIsAddDialogOpen(true)} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all" title="Nytt prosjekt (N)">
             <Plus className="mr-2 h-5 w-5" />
             Nytt prosjekt
           </Button>
@@ -173,16 +201,24 @@ function AppContent() {
           <TabsTrigger value="statistikk">Statistikk</TabsTrigger>
         </TabsList>
         <TabsContent value="prosjekter">
-          <ProjectList projects={projects} onSelectProject={(id) => navigate(`/projects/${id}`)} onProgressChange={changeProgress} />
+          <ErrorBoundary>
+            <ProjectList projects={projects} onSelectProject={(id) => navigate(`/projects/${id}`)} onProgressChange={changeProgress} />
+          </ErrorBoundary>
         </TabsContent>
         <TabsContent value="garnlager">
-          <YarnInventory projects={projects} standaloneYarns={standaloneYarns} onUpdateStandaloneYarns={updateStandaloneYarns} />
+          <ErrorBoundary>
+            <YarnInventory projects={projects} standaloneYarns={standaloneYarns} onUpdateStandaloneYarns={updateStandaloneYarns} />
+          </ErrorBoundary>
         </TabsContent>
         <TabsContent value="verktoy">
-          <NeedleInventory projects={projects} needleInventory={needleInventory} onUpdateNeedleInventory={updateNeedleInventory} />
+          <ErrorBoundary>
+            <NeedleInventory projects={projects} needleInventory={needleInventory} onUpdateNeedleInventory={updateNeedleInventory} />
+          </ErrorBoundary>
         </TabsContent>
         <TabsContent value="statistikk">
-          <StatisticsView projects={projects} />
+          <ErrorBoundary>
+            <StatisticsView projects={projects} />
+          </ErrorBoundary>
         </TabsContent>
       </Tabs>
 
@@ -214,6 +250,8 @@ function AppContent() {
                   onUpdate={updateProject}
                   onDelete={deleteProject}
                   accessToken={accessToken!}
+                  needleInventory={needleInventory}
+                  standaloneYarns={standaloneYarns}
                 />
               </ErrorBoundary>
             }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { KnittingProject, Yarn } from '../types/knitting';
+import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -60,6 +60,11 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
       brand: newYarn.brand?.trim(),
       color: newYarn.color?.trim(),
       amount: newYarn.amount?.trim(),
+      weight: newYarn.weight,
+      fiberContent: newYarn.fiberContent?.trim(),
+      yardage: newYarn.yardage?.trim(),
+      dyeLot: newYarn.dyeLot?.trim(),
+      price: newYarn.price,
       notes: newYarn.notes?.trim(),
     };
 
@@ -200,6 +205,64 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="yarnWeight">Tykkelse</Label>
+                    <select
+                      id="yarnWeight"
+                      value={newYarn.weight || ''}
+                      onChange={(e) => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Velg tykkelse...</option>
+                      <option value="Lace">Lace</option>
+                      <option value="Fingering">Fingering</option>
+                      <option value="Sport">Sport</option>
+                      <option value="DK">DK</option>
+                      <option value="Worsted">Worsted</option>
+                      <option value="Aran">Aran</option>
+                      <option value="Bulky">Bulky</option>
+                      <option value="Super Bulky">Super Bulky</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="yarnFiber">Fiberinnhold</Label>
+                    <Input
+                      id="yarnFiber"
+                      value={newYarn.fiberContent || ''}
+                      onChange={(e) => setNewYarn({ ...newYarn, fiberContent: e.target.value })}
+                      placeholder="F.eks. 100% Merino"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="yarnYardage">Løpelengde</Label>
+                    <Input
+                      id="yarnYardage"
+                      value={newYarn.yardage || ''}
+                      onChange={(e) => setNewYarn({ ...newYarn, yardage: e.target.value })}
+                      placeholder="F.eks. 200m per 50g"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="yarnDyeLot">Fargebad</Label>
+                      <Input
+                        id="yarnDyeLot"
+                        value={newYarn.dyeLot || ''}
+                        onChange={(e) => setNewYarn({ ...newYarn, dyeLot: e.target.value })}
+                        placeholder="F.eks. Lot 2345"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="yarnPrice">Pris (kr)</Label>
+                      <Input
+                        id="yarnPrice"
+                        type="number"
+                        value={newYarn.price || ''}
+                        onChange={(e) => setNewYarn({ ...newYarn, price: e.target.value ? Number(e.target.value) : undefined })}
+                        placeholder="F.eks. 89"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="yarnNotes">Notater</Label>
                     <Textarea
                       id="yarnNotes"
@@ -267,6 +330,31 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                     {yarn.amount && (
                       <p className="text-muted-foreground">
                         <span className="font-medium">Mengde:</span> {yarn.amount}
+                      </p>
+                    )}
+                    {yarn.weight && (
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Tykkelse:</span> {yarn.weight}
+                      </p>
+                    )}
+                    {yarn.fiberContent && (
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Fiber:</span> {yarn.fiberContent}
+                      </p>
+                    )}
+                    {yarn.yardage && (
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Løpelengde:</span> {yarn.yardage}
+                      </p>
+                    )}
+                    {yarn.dyeLot && (
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Fargebad:</span> {yarn.dyeLot}
+                      </p>
+                    )}
+                    {yarn.price != null && yarn.price > 0 && (
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Pris:</span> {yarn.price} kr
                       </p>
                     )}
                     {yarn.notes && (

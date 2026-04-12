@@ -1,7 +1,7 @@
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Plus, Minus, RotateCcw, X, Edit2, Check } from 'lucide-react';
+import { Plus, Minus, RotateCcw, X, Edit2, Check, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import type { Counter } from '../types/knitting';
 
@@ -15,16 +15,26 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editLabel, setEditLabel] = useState(counter.label);
 
-  const increment = () => {
-    onUpdate({ ...counter, count: counter.count + 1 });
+  const updateCount = (newCount: number) => {
+    onUpdate({ ...counter, count: Math.max(0, newCount), previousCount: counter.count });
   };
 
-  const decrement = () => {
-    onUpdate({ ...counter, count: Math.max(0, counter.count - 1) });
+  const increment = (amount: number = 1) => {
+    updateCount(counter.count + amount);
+  };
+
+  const decrement = (amount: number = 1) => {
+    updateCount(counter.count - amount);
   };
 
   const reset = () => {
-    onUpdate({ ...counter, count: 0 });
+    onUpdate({ ...counter, count: 0, previousCount: counter.count });
+  };
+
+  const undo = () => {
+    if (counter.previousCount != null) {
+      onUpdate({ ...counter, count: counter.previousCount, previousCount: undefined });
+    }
   };
 
   const saveLabel = () => {
@@ -87,13 +97,33 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
       </div>
 
       <div className="flex items-center justify-center gap-4 mb-4">
-        <Button
-          size="lg"
-          onClick={decrement}
-          className="h-16 w-16 rounded-full bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 shadow-md active:scale-95 transition-transform"
-        >
-          <Minus className="h-8 w-8" />
-        </Button>
+        <div className="flex flex-col items-center gap-2">
+          <Button
+            size="lg"
+            onClick={() => decrement(1)}
+            className="h-16 w-16 rounded-full bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 shadow-md active:scale-95 transition-transform"
+          >
+            <Minus className="h-8 w-8" />
+          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => decrement(5)}
+              className="h-7 px-2 text-xs border-rose-300 dark:border-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900/50"
+            >
+              -5
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => decrement(10)}
+              className="h-7 px-2 text-xs border-rose-300 dark:border-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900/50"
+            >
+              -10
+            </Button>
+          </div>
+        </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl px-8 py-6 min-w-[140px] text-center shadow-inner border-2 border-purple-200 dark:border-purple-700">
           <div className="text-5xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">
@@ -101,16 +131,47 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
           </div>
         </div>
 
-        <Button
-          size="lg"
-          onClick={increment}
-          className="h-16 w-16 rounded-full bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 shadow-md active:scale-95 transition-transform"
-        >
-          <Plus className="h-8 w-8" />
-        </Button>
+        <div className="flex flex-col items-center gap-2">
+          <Button
+            size="lg"
+            onClick={() => increment(1)}
+            className="h-16 w-16 rounded-full bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 shadow-md active:scale-95 transition-transform"
+          >
+            <Plus className="h-8 w-8" />
+          </Button>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => increment(5)}
+              className="h-7 px-2 text-xs border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+            >
+              +5
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => increment(10)}
+              className="h-7 px-2 text-xs border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+            >
+              +10
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-2">
+        {counter.previousCount != null && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            className="border-purple-300 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+          >
+            <Undo2 className="mr-2 h-4 w-4" />
+            Angre ({counter.previousCount})
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"

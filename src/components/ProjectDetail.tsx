@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
-import type { KnittingProject, Yarn, Needle, ProjectStatus, Counter, LogEntry } from '../types/knitting';
+import type { KnittingProject, Yarn, Needle, ProjectStatus, Counter, LogEntry, NeedleInventoryItem, YarnWeight } from '../types/knitting';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -9,10 +9,11 @@ import { Progress } from './ui/progress';
 import { Slider } from './ui/slider';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock, RotateCcw, Send } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock, RotateCcw, Send, Archive, Package, Scissors, Download } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
+import { exportProjectAsJSON, exportProjectAsPrintable } from '../utils/export';
 import { CounterWidget } from './CounterWidget';
 import { 
   getProgressColors, 
@@ -43,13 +44,15 @@ import { nb } from 'date-fns/locale';
 
 interface ProjectDetailProps {
   project: KnittingProject;
-  onBack: () => void;
+  onBack: (tab?: string) => void;
   onUpdate: (project: KnittingProject) => void;
   onDelete: (projectId: string) => void;
   accessToken: string;
+  needleInventory?: NeedleInventoryItem[];
+  standaloneYarns?: Yarn[];
 }
 
-export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken }: ProjectDetailProps) {
+export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory = [], standaloneYarns = [] }: ProjectDetailProps) {
   const [editedProject, setEditedProject] = useState(project);
   const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
   const [newNeedle, setNewNeedle] = useState<Partial<Needle>>({});
@@ -133,6 +136,11 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         brand: newYarn.brand,
         color: newYarn.color,
         amount: newYarn.amount,
+        weight: newYarn.weight,
+        fiberContent: newYarn.fiberContent,
+        yardage: newYarn.yardage,
+        dyeLot: newYarn.dyeLot,
+        price: newYarn.price,
       };
       handleUpdate({ yarns: [...editedProject.yarns, yarn] });
       setNewYarn({});
@@ -143,6 +151,24 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handleRemoveYarn = (yarnId: string) => {
     handleUpdate({ yarns: editedProject.yarns.filter(y => y.id !== yarnId) });
     toast.success('Garn fjernet');
+  };
+
+  const handlePickStandaloneYarn = (standaloneYarn: Yarn) => {
+    const yarn: Yarn = {
+      id: crypto.randomUUID(),
+      name: standaloneYarn.name,
+      brand: standaloneYarn.brand,
+      color: standaloneYarn.color,
+      amount: standaloneYarn.amount,
+      weight: standaloneYarn.weight,
+      fiberContent: standaloneYarn.fiberContent,
+      yardage: standaloneYarn.yardage,
+      dyeLot: standaloneYarn.dyeLot,
+      price: standaloneYarn.price,
+      standaloneYarnId: standaloneYarn.id,
+    };
+    handleUpdate({ yarns: [...editedProject.yarns, yarn] });
+    toast.success(`${standaloneYarn.name} lagt til fra restegarn`);
   };
 
   const handleAddNeedle = () => {
@@ -163,6 +189,19 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handleRemoveNeedle = (needleId: string) => {
     handleUpdate({ needles: (editedProject.needles || []).filter(n => n.id !== needleId) });
     toast.success('Pinne fjernet');
+  };
+
+  const handlePickInventoryNeedle = (invNeedle: NeedleInventoryItem) => {
+    const needle: Needle = {
+      id: crypto.randomUUID(),
+      size: invNeedle.size,
+      type: invNeedle.type,
+      length: invNeedle.length,
+      material: invNeedle.material,
+      inventoryNeedleId: invNeedle.id,
+    };
+    handleUpdate({ needles: [...(editedProject.needles || []), needle] });
+    toast.success(`${invNeedle.type} ${invNeedle.size} lagt til fra beholdning`);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,18 +294,38 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={onBack} className="hover:bg-accent">
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" onClick={() => onBack()} className="hover:bg-accent" title="Tilbake (Esc)">
             <ArrowLeft className="mr-2 h-5 w-5" />
             Tilbake
           </Button>
-          <Button 
-            variant="destructive" 
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Slett prosjekt
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                exportProjectAsPrintable(editedProject);
+                toast.success('Prosjekt eksportert');
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Eksporter
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Slett / Arkiver
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick navigation to other sections */}
+        <div className="flex gap-2 mb-6 pb-4 border-b border-border">
+          <span className="text-sm text-muted-foreground self-center mr-2">Gå til:</span>
+          <Button variant="outline" size="sm" onClick={() => onBack('garnlager')}>Garnlager</Button>
+          <Button variant="outline" size="sm" onClick={() => onBack('verktoy')}>Verktøy</Button>
+          <Button variant="outline" size="sm" onClick={() => onBack('statistikk')}>Statistikk</Button>
         </div>
 
         <div className="space-y-8">
@@ -301,6 +360,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                       <SelectItem value="Aktiv">Aktiv</SelectItem>
                       <SelectItem value="På vent">På vent</SelectItem>
                       <SelectItem value="Fullført">Fullført</SelectItem>
+                      <SelectItem value="Arkivert">Arkivert</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -473,12 +533,14 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
           {/* Tabs for different sections */}
           <Tabs defaultValue="notes" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 bg-card border border-border shadow-sm">
+            <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 bg-card border border-border shadow-sm">
               <TabsTrigger value="notes">Logg</TabsTrigger>
               <TabsTrigger value="recipe">Oppskrift</TabsTrigger>
               <TabsTrigger value="images">Bilder</TabsTrigger>
               <TabsTrigger value="yarn">Garn</TabsTrigger>
               <TabsTrigger value="needles">Pinner</TabsTrigger>
+              <TabsTrigger value="gauge">Strikkefasthet</TabsTrigger>
+              <TabsTrigger value="pattern">Mønster</TabsTrigger>
             </TabsList>
 
             <TabsContent value="notes">
@@ -654,6 +716,11 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                               {yarn.brand && <div className="text-muted-foreground">Merke: {yarn.brand}</div>}
                               {yarn.color && <div className="text-muted-foreground">Farge: {yarn.color}</div>}
                               {yarn.amount && <div className="text-muted-foreground">Mengde: {yarn.amount}</div>}
+                              {yarn.weight && <div className="text-muted-foreground">Tykkelse: {yarn.weight}</div>}
+                              {yarn.fiberContent && <div className="text-muted-foreground">Fiber: {yarn.fiberContent}</div>}
+                              {yarn.yardage && <div className="text-muted-foreground">Løpelengde: {yarn.yardage}</div>}
+                              {yarn.dyeLot && <div className="text-muted-foreground">Fargebad: {yarn.dyeLot}</div>}
+                              {yarn.price != null && yarn.price > 0 && <div className="text-muted-foreground">Pris: {yarn.price} kr</div>}
                             </div>
                             <Button
                               variant="ghost"
@@ -665,6 +732,35 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                             </Button>
                           </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Pick from standalone yarn inventory */}
+                  {standaloneYarns.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-card-foreground">Velg fra restegarn</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {standaloneYarns.map((yarn) => (
+                          <button
+                            key={yarn.id}
+                            onClick={() => handlePickStandaloneYarn(yarn)}
+                            className="flex items-center gap-3 p-3 rounded-lg border border-border bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 hover:border-primary/50 hover:shadow-md transition-all text-left"
+                          >
+                            <Package className="h-5 w-5 text-purple-500 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground text-sm truncate">{yarn.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {[yarn.brand, yarn.color, yarn.amount].filter(Boolean).join(' · ') || 'Restegarn'}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm pt-2">
+                        <div className="flex-1 h-px bg-border" />
+                        <span>eller skriv inn manuelt</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
                     </div>
                   )}
 
@@ -708,6 +804,62 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                           placeholder="F.eks. 300g"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="yarnWeight">Tykkelse</Label>
+                        <select
+                          id="yarnWeight"
+                          value={newYarn.weight || ''}
+                          onChange={(e) => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="">Velg tykkelse...</option>
+                          <option value="Lace">Lace</option>
+                          <option value="Fingering">Fingering</option>
+                          <option value="Sport">Sport</option>
+                          <option value="DK">DK</option>
+                          <option value="Worsted">Worsted</option>
+                          <option value="Aran">Aran</option>
+                          <option value="Bulky">Bulky</option>
+                          <option value="Super Bulky">Super Bulky</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="yarnFiber">Fiberinnhold</Label>
+                        <Input
+                          id="yarnFiber"
+                          value={newYarn.fiberContent || ''}
+                          onChange={(e) => setNewYarn({ ...newYarn, fiberContent: e.target.value })}
+                          placeholder="F.eks. 100% Merino"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="yarnYardage">Løpelengde</Label>
+                        <Input
+                          id="yarnYardage"
+                          value={newYarn.yardage || ''}
+                          onChange={(e) => setNewYarn({ ...newYarn, yardage: e.target.value })}
+                          placeholder="F.eks. 200m per 50g"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="yarnDyeLot">Fargebad</Label>
+                        <Input
+                          id="yarnDyeLot"
+                          value={newYarn.dyeLot || ''}
+                          onChange={(e) => setNewYarn({ ...newYarn, dyeLot: e.target.value })}
+                          placeholder="F.eks. Lot 2345"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="yarnPrice">Pris (kr)</Label>
+                        <Input
+                          id="yarnPrice"
+                          type="number"
+                          value={newYarn.price || ''}
+                          onChange={(e) => setNewYarn({ ...newYarn, price: e.target.value ? Number(e.target.value) : undefined })}
+                          placeholder="F.eks. 89"
+                        />
+                      </div>
                     </div>
                     <Button
                       onClick={handleAddYarn}
@@ -748,6 +900,35 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                             </Button>
                           </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Pick from needle inventory */}
+                  {needleInventory.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-card-foreground">Velg fra beholdning</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {needleInventory.map((invNeedle) => (
+                          <button
+                            key={invNeedle.id}
+                            onClick={() => handlePickInventoryNeedle(invNeedle)}
+                            className="flex items-center gap-3 p-3 rounded-lg border border-border bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20 hover:border-primary/50 hover:shadow-md transition-all text-left"
+                          >
+                            <Scissors className="h-5 w-5 text-amber-500 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground text-sm truncate">{invNeedle.type} {invNeedle.size}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {[invNeedle.length, invNeedle.material].filter(Boolean).join(' · ') || 'Strikkepinne'}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm pt-2">
+                        <div className="flex-1 h-px bg-border" />
+                        <span>eller skriv inn manuelt</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
                     </div>
                   )}
 
@@ -804,6 +985,141 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="gauge">
+              <Card className="bg-card border-border shadow-lg">
+                <CardHeader>
+                  <CardTitle>Strikkefasthet</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <p className="text-muted-foreground text-sm">Registrer strikkefastheten din for dette prosjektet.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="gaugeStitches">Masker per 10 cm</Label>
+                      <Input
+                        id="gaugeStitches"
+                        type="number"
+                        value={editedProject.gauge?.stitchesPer10cm || ''}
+                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, stitchesPer10cm: e.target.value ? Number(e.target.value) : undefined } })}
+                        placeholder="F.eks. 22"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gaugeRows">Pinner/omganger per 10 cm</Label>
+                      <Input
+                        id="gaugeRows"
+                        type="number"
+                        value={editedProject.gauge?.rowsPer10cm || ''}
+                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, rowsPer10cm: e.target.value ? Number(e.target.value) : undefined } })}
+                        placeholder="F.eks. 30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gaugeNeedle">Pinnestørrelse brukt</Label>
+                      <Input
+                        id="gaugeNeedle"
+                        value={editedProject.gauge?.needleSize || ''}
+                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, needleSize: e.target.value } })}
+                        placeholder="F.eks. 4mm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gaugeNotes">Notater</Label>
+                      <Input
+                        id="gaugeNotes"
+                        value={editedProject.gauge?.notes || ''}
+                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, notes: e.target.value } })}
+                        placeholder="F.eks. Vasket og blokkert"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="pattern">
+              <Card className="bg-card border-border shadow-lg">
+                <CardHeader>
+                  <CardTitle>Mønster</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <p className="text-muted-foreground text-sm">Koble til et mønster og spor fremgangen din.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="patternName">Mønsternavn</Label>
+                      <Input
+                        id="patternName"
+                        value={editedProject.pattern?.name || ''}
+                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, name: e.target.value } })}
+                        placeholder="F.eks. Riddari"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="patternDesigner">Designer</Label>
+                      <Input
+                        id="patternDesigner"
+                        value={editedProject.pattern?.designer || ''}
+                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, designer: e.target.value } })}
+                        placeholder="F.eks. Védís Jónsdóttir"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="patternUrl">Lenke til mønster</Label>
+                      <Input
+                        id="patternUrl"
+                        value={editedProject.pattern?.url || ''}
+                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, url: e.target.value } })}
+                        placeholder="F.eks. https://www.ravelry.com/patterns/..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="patternCurrentRow">Nåværende rad</Label>
+                      <Input
+                        id="patternCurrentRow"
+                        type="number"
+                        value={editedProject.pattern?.currentRow || ''}
+                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, currentRow: e.target.value ? Number(e.target.value) : undefined } })}
+                        placeholder="F.eks. 47"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="patternTotalRows">Totalt antall rader</Label>
+                      <Input
+                        id="patternTotalRows"
+                        type="number"
+                        value={editedProject.pattern?.totalRows || ''}
+                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, totalRows: e.target.value ? Number(e.target.value) : undefined } })}
+                        placeholder="F.eks. 200"
+                      />
+                    </div>
+                  </div>
+                  {editedProject.pattern?.currentRow && editedProject.pattern?.totalRows && editedProject.pattern.totalRows > 0 && (
+                    <div className="pt-4 border-t border-border">
+                      <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                        <span>Mønsterfremgang</span>
+                        <span>{Math.round((editedProject.pattern.currentRow / editedProject.pattern.totalRows) * 100)}%</span>
+                      </div>
+                      <Progress
+                        value={(editedProject.pattern.currentRow / editedProject.pattern.totalRows) * 100}
+                        className="h-2"
+                      />
+                    </div>
+                  )}
+                  {editedProject.pattern?.url && (
+                    <div className="pt-4 border-t border-border">
+                      <a
+                        href={editedProject.pattern.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-primary hover:underline text-sm"
+                      >
+                        Åpne mønster i ny fane
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -811,18 +1127,25 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className="bg-card">
           <AlertDialogHeader>
-            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogTitle>Hva vil du gjøre med prosjektet?</AlertDialogTitle>
             <AlertDialogDescription>
-              Dette vil permanent slette prosjektet "{project.name}". Denne handlingen kan ikke angres.
+              Du kan arkivere prosjektet "{project.name}" for å skjule det fra listen, eller slette det permanent.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleUpdate({ status: 'Arkivert' as ProjectStatus })}
+              className="bg-zinc-600 hover:bg-zinc-700"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Arkiver
+            </AlertDialogAction>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive hover:bg-destructive/90"
             >
-              Slett
+              Slett permanent
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,6 @@
 import type { KnittingProject } from '../types/knitting';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Activity, CheckCircle2, Clock, PauseCircle, Calendar, Package, TrendingUp, Award } from 'lucide-react';
+import { Activity, CheckCircle2, Clock, PauseCircle, Calendar, Package, TrendingUp, Award, Archive } from 'lucide-react';
 import { useProjectStats } from '../hooks/useProjectStats';
 
 interface StatisticsViewProps {
@@ -91,7 +91,7 @@ export function StatisticsView({ projects }: StatisticsViewProps) {
             <CardTitle>Status fordeling</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200/50 dark:border-amber-800/50">
                 <Activity className="h-5 w-5 text-amber-600 dark:text-amber-400 mb-2" />
                 <p className="text-2xl font-medium text-amber-900 dark:text-amber-100">{stats.active}</p>
@@ -111,6 +111,11 @@ export function StatisticsView({ projects }: StatisticsViewProps) {
                 <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400 mb-2" />
                 <p className="text-2xl font-medium text-purple-900 dark:text-purple-100">{stats.planned}</p>
                 <p className="text-purple-700 dark:text-purple-300">Planlagt</p>
+              </div>
+              <div className="p-4 bg-zinc-50 dark:bg-zinc-950/20 rounded-lg border border-zinc-200/50 dark:border-zinc-800/50">
+                <Archive className="h-5 w-5 text-zinc-600 dark:text-zinc-400 mb-2" />
+                <p className="text-2xl font-medium text-zinc-900 dark:text-zinc-100">{stats.archived}</p>
+                <p className="text-zinc-700 dark:text-zinc-300">Arkivert</p>
               </div>
             </div>
           </CardContent>
@@ -161,11 +166,41 @@ export function StatisticsView({ projects }: StatisticsViewProps) {
                 <span className="text-foreground font-medium">{stats.totalYarns}</span>
               </div>
               {stats.avgTimePerProject > 0 && (
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center pb-3 border-b border-border">
                   <span className="text-muted-foreground">Gj.snitt tid per fullført</span>
                   <span className="text-foreground font-medium">
                     {Math.floor(stats.avgTimePerProject / 60)}t {stats.avgTimePerProject % 60}m
                   </span>
+                </div>
+              )}
+              {stats.totalCost > 0 && (
+                <div className="flex justify-between items-center pb-3 border-b border-border">
+                  <span className="text-muted-foreground">Total garnkostnad</span>
+                  <span className="text-foreground font-medium">{stats.totalCost} kr</span>
+                </div>
+              )}
+              {stats.avgCostPerProject > 0 && (
+                <div className="flex justify-between items-center pb-3 border-b border-border">
+                  <span className="text-muted-foreground">Gj.snitt kostnad per prosjekt</span>
+                  <span className="text-foreground font-medium">{stats.avgCostPerProject} kr</span>
+                </div>
+              )}
+              {stats.avgDurationDays > 0 && (
+                <div className="flex justify-between items-center pb-3 border-b border-border">
+                  <span className="text-muted-foreground">Gj.snitt varighet (fullført)</span>
+                  <span className="text-foreground font-medium">{stats.avgDurationDays} dager</span>
+                </div>
+              )}
+              {stats.longestProject && (
+                <div className="flex justify-between items-center pb-3 border-b border-border">
+                  <span className="text-muted-foreground">Lengste prosjekt</span>
+                  <span className="text-foreground font-medium">{stats.longestProject.name} ({stats.longestProject.days}d)</span>
+                </div>
+              )}
+              {stats.mostUsedYarnWeight && (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Mest brukte garntykkelse</span>
+                  <span className="text-foreground font-medium">{stats.mostUsedYarnWeight}</span>
                 </div>
               )}
             </CardContent>

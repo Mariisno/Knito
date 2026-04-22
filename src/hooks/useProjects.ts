@@ -11,19 +11,16 @@ export function useProjects(accessToken: string | null) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    console.log('[DEBUG] useProjects effect fired, accessToken:', accessToken ? 'SET (' + accessToken.substring(0, 20) + '...)' : 'NULL');
     if (accessToken) {
       loadAll();
     }
   }, [accessToken]);
 
   const loadAll = async () => {
-    console.log('[DEBUG] loadAll called, accessToken:', accessToken ? 'SET' : 'NULL');
     if (!accessToken) return;
 
     try {
       setLoading(true);
-      console.log('[DEBUG] About to fetch projects, yarns, needles...');
       const [projectsResult, yarnsResult, needlesResult] = await Promise.allSettled([
         api.getAllProjects(accessToken),
         api.getStandaloneYarns(accessToken),
@@ -74,7 +71,6 @@ export function useProjects(accessToken: string | null) {
       createdAt: new Date(),
     };
 
-    const previousProjects = projects;
     setProjects(prev => [...prev, newProject]);
     toast.success('Prosjekt opprettet');
 
@@ -83,7 +79,7 @@ export function useProjects(accessToken: string | null) {
       setProjects(prev => prev.map(p => p.id === newProject.id ? savedProject : p));
     } catch (error) {
       console.error('Failed to create project:', error);
-      setProjects(previousProjects);
+      setProjects(prev => prev.filter(p => p.id !== newProject.id));
       toast.error('Kunne ikke lagre prosjekt. Prøv igjen.');
     }
   };
@@ -91,14 +87,16 @@ export function useProjects(accessToken: string | null) {
   const updateProject = async (updatedProject: KnittingProject) => {
     if (!accessToken) return;
 
-    const previousProjects = projects;
+    const previousProject = projects.find(p => p.id === updatedProject.id);
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
 
     try {
       await api.updateProject(updatedProject.id, updatedProject, accessToken);
     } catch (error) {
       console.error('Failed to update project:', error);
-      setProjects(previousProjects);
+      if (previousProject) {
+        setProjects(prev => prev.map(p => p.id === updatedProject.id ? previousProject : p));
+      }
       toast.error('Kunne ikke lagre endringer. Prøv igjen.');
     }
   };
@@ -106,7 +104,7 @@ export function useProjects(accessToken: string | null) {
   const deleteProject = async (projectId: string) => {
     if (!accessToken) return;
 
-    const previousProjects = projects;
+    const previousProject = projects.find(p => p.id === projectId);
     setProjects(prev => prev.filter(p => p.id !== projectId));
     toast.success('Prosjekt slettet');
 
@@ -114,7 +112,9 @@ export function useProjects(accessToken: string | null) {
       await api.deleteProject(projectId, accessToken);
     } catch (error) {
       console.error('Failed to delete project:', error);
-      setProjects(previousProjects);
+      if (previousProject) {
+        setProjects(prev => [...prev, previousProject]);
+      }
       toast.error('Kunne ikke slette prosjekt. Prøv igjen.');
     }
   };

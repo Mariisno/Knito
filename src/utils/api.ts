@@ -116,28 +116,6 @@ export async function uploadImage(file: File, accessToken: string): Promise<stri
   return data.url;
 }
 
-export async function uploadPdf(file: File, accessToken: string): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await fetch(`${API_BASE}/upload-image`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${publicAnonKey}`,
-      'X-User-Token': accessToken,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error uploading PDF:', error);
-    throw new Error('Failed to upload PDF');
-  }
-
-  const data = await response.json();
-  return data.url;
-}
 
 export async function getStandaloneYarns(accessToken: string): Promise<Yarn[]> {
   const response = await fetch(`${API_BASE}/standalone-yarns`, { 

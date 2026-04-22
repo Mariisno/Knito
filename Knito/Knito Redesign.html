@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Knito — mobile redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-ui: 'Inter', -apple-system, system-ui, sans-serif;
+
+    --bg: #faf8f5;
+    --fg: #2d2520;
+    --muted-fg: #8b7355;
+    --card: #ffffff;
+    --accent: #f0e6dc;
+    --border: #e8ddd4;
+    --primary: #d97757;
+    --primary-fg: #ffffff;
+  }
+  .dark {
+    --bg: #1a1512;
+    --fg: #f5f1ed;
+    --muted-fg: #b8968a;
+    --card: #2a2420;
+    --accent: #3a342f;
+    --border: #3a342f;
+    --primary: #e89b7e;
+    --primary-fg: #1a1512;
+  }
+
+  html, body { margin: 0; padding: 0; background: #efe8df; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  input::placeholder { color: var(--muted-fg); }
+
+  /* page backdrop — subtle stockinette wash */
+  .knito-stage {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at 30% 10%, #f5ece0 0%, #efe8df 50%, #e5dcd0 100%);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 48px 20px 48px;
+    gap: 40px;
+    position: relative;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  @keyframes pillIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes sheetIn {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+
+  /* hide scrollbars inside the phone for cleanliness */
+  .knito-stage *::-webkit-scrollbar { width: 0; height: 0; }
+
+  .tweaks {
+    position: fixed; top: 20px; right: 20px; width: 288px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(14px) saturate(150%);
+    border: 1px solid #e8ddd4; border-radius: 20px;
+    padding: 16px; z-index: 1000;
+    box-shadow: 0 20px 50px -20px rgba(60,40,30,.25);
+    font-family: var(--font-ui); color: #2d2520;
+    max-height: calc(100vh - 40px); overflow-y: auto;
+  }
+  .tweaks h4 { font-family: var(--font-display); font-size: 16px; font-weight: 500; margin: 0 0 10px; letter-spacing: -0.3px; }
+  .tweaks .grp { margin-bottom: 14px; }
+  .tweaks .lbl { font-size: 10.5px; letter-spacing: 1.3px; text-transform: uppercase; color: #8b7355; margin-bottom: 6px; font-weight: 500; }
+  .tweaks .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tweaks button.opt {
+    height: 28px; padding: 0 10px; border-radius: 999px;
+    border: 1px solid #e8ddd4; background: #fff; color: #2d2520;
+    font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .tweaks button.opt.on { background: #2d2520; color: #faf8f5; border-color: #2d2520; }
+  .tweaks .swatch { width: 18px; height: 18px; border-radius: 999px; display: inline-block; }
+
+  .stage-label {
+    position: absolute; top: 18px; left: 20px;
+    font-family: var(--font-ui); font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; color: #8b7355; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="screens-a.jsx"></script>
+<script type="text/babel" src="screens-b.jsx"></script>
+
+<script type="text/babel">
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "accent": "terracotta",
+  "density": "roomy",
+  "fontPair": "fraunces-inter",
+  "cardLayout": "list",
+  "progressStyle": "bar",
+  "language": "no"
+}/*EDITMODE-END*/;
+
+const ACCENTS = {
+  terracotta: { primary: '#d97757', primaryDark: '#e89b7e' },
+  clay: { primary: '#b5664a', primaryDark: '#d19077' },
+  moss: { primary: '#7a8a6a', primaryDark: '#a2b38f' },
+  plum: { primary: '#8e6679', primaryDark: '#bc91a3' },
+  charcoal: { primary: '#3a342f', primaryDark: '#d3c3a5' }
+};
+const FONT_PAIRS = {
+  'fraunces-inter': { display: "'Fraunces', Georgia, serif", ui: "'Inter', system-ui, sans-serif" },
+  'newsreader-work': { display: "'Newsreader', Georgia, serif", ui: "'Work Sans', system-ui, sans-serif" },
+  'inter-only': { display: "'Inter', system-ui, sans-serif", ui: "'Inter', system-ui, sans-serif" },
+  'fraunces-work': { display: "'Fraunces', Georgia, serif", ui: "'Work Sans', system-ui, sans-serif" }
+};
+
+function applyTokens(tweaks) {
+  const r = document.documentElement.style;
+  const a = ACCENTS[tweaks.accent] || ACCENTS.terracotta;
+  r.setProperty('--primary', tweaks.theme === 'dark' ? a.primaryDark : a.primary);
+  const f = FONT_PAIRS[tweaks.fontPair] || FONT_PAIRS['fraunces-inter'];
+  r.setProperty('--font-display', f.display);
+  r.setProperty('--font-ui', f.ui);
+}
+
+function App() {
+  const [tweaks, setTweaks] = React.useState(TWEAK_DEFAULTS);
+  const [screen, setScreen] = React.useState(() => {
+    return localStorage.getItem('knito:screen') || 'projects';
+  });
+  const [projectId, setProjectId] = React.useState(() => localStorage.getItem('knito:proj') || 'p1');
+  const [activeTab, setActiveTab] = React.useState(() => localStorage.getItem('knito:tab') || 'projects');
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [showRecipe, setShowRecipe] = React.useState(false);
+  const [showSession, setShowSession] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
+  // Persistent session state — keeps running when minimized
+  const [session, setSession] = React.useState(null); // { projectId, rows, seconds, running }
+  // Live overrides for mock data
+  const [statusOverrides, setStatusOverrides] = React.useState({});
+  const [progressOverrides, setProgressOverrides] = React.useState({});
+
+  const data = window.KNITO_DATA;
+  // Apply overrides
+  React.useMemo(() => {
+    data.projects.forEach(p => {
+      if (statusOverrides[p.id]) p.status = statusOverrides[p.id];
+      if (progressOverrides[p.id] != null) p.progress = progressOverrides[p.id];
+    });
+  }, [statusOverrides, progressOverrides]);
+  const lang = tweaks.language;
+  const t = data.i18n[lang] || data.i18n.no;
+
+  React.useEffect(() => applyTokens(tweaks), [tweaks]);
+  React.useEffect(() => localStorage.setItem('knito:screen', screen), [screen]);
+  React.useEffect(() => localStorage.setItem('knito:proj', projectId), [projectId]);
+  React.useEffect(() => localStorage.setItem('knito:tab', activeTab), [activeTab]);
+
+  // Session timer — runs at App level so it survives minimize
+  React.useEffect(() => {
+    if (!session || !session.running) return;
+    const id = setInterval(() => setSession(s => s ? { ...s, seconds: s.seconds + 1 } : s), 1000);
+    return () => clearInterval(id);
+  }, [session && session.running, session && session.projectId]);
+
+  const startOrResumeSession = (pid) => {
+    const p = data.projects.find(x => x.id === pid);
+    if (!session || session.projectId !== pid) {
+      setSession({ projectId: pid, rows: p?.counter?.rows ?? 0, seconds: 0, running: true });
+    }
+    setShowSession(true);
+  };
+  const setStatus = (pid, s) => setStatusOverrides(o => ({ ...o, [pid]: s }));
+  const setProgress = (pid, v) => setProgressOverrides(o => ({ ...o, [pid]: v }));
+
+  // Tweaks protocol
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+  const [tweaksOpen, setTweaksOpen] = React.useState(true);
+
+  function update(key, value) {
+    const next = { ...tweaks, [key]: value };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: value } }, '*');
+  }
+
+  const handleTab = (id) => {
+    setActiveTab(id);
+    if (id === 'projects') setScreen('projects');else
+    if (id === 'yarn') setScreen('yarn');else
+    if (id === 'needles') setScreen('needles');else
+    if (id === 'stats') setScreen('stats');
+  };
+
+  const openProject = (id) => {setProjectId(id);setScreen('detail');};
+  const proj = data.projects.find((p) => p.id === projectId) || data.projects[0];
+
+  // scene — which phone content
+  let scene;
+  if (screen === 'onboarding') {
+    scene = <Onboarding t={t} lang={lang} onDone={() => setScreen('auth')} />;
+  } else if (screen === 'auth') {
+    scene = <Auth t={t} lang={lang} onSignIn={() => setScreen('projects')} />;
+  } else if (screen === 'projects') {
+    scene = <ProjectsScreen t={t} lang={lang} data={data} tweaks={tweaks}
+    onOpen={openProject} onNew={() => setShowAdd(true)}
+    onTab={handleTab} activeTab={activeTab}
+    onSettings={() => setShowSettings(true)} />;
+  } else if (screen === 'yarn') {
+    scene = <YarnScreen t={t} lang={lang} data={data} tweaks={tweaks}
+    onTab={handleTab} activeTab={activeTab} onOpen={openProject} />;
+  } else if (screen === 'needles') {
+    scene = <NeedlesScreen t={t} lang={lang} data={data}
+    onTab={handleTab} activeTab={activeTab} onOpen={openProject} />;
+  } else if (screen === 'stats') {
+    scene = <StatsScreen t={t} lang={lang} data={data}
+    onTab={handleTab} activeTab={activeTab} />;
+  } else if (screen === 'detail') {
+    scene = <ProjectDetail id={projectId} data={data} t={t} lang={lang} tweaks={tweaks}
+    onBack={() => setScreen('projects')}
+    onOpenRecipe={() => setShowRecipe(true)}
+    onOpenSession={() => startOrResumeSession(projectId)}
+    session={session}
+    onSetStatus={setStatus}
+    onSetProgress={setProgress} />;
+  }
+
+  // Which screen label to show above the phone
+  const labels = {
+    onboarding: 'Onboarding',
+    auth: 'Sign in',
+    projects: 'Projects · dashboard',
+    yarn: 'Yarn stash',
+    needles: 'Needles',
+    stats: 'Statistics',
+    detail: 'Project · detail'
+  };
+
+  return (
+    <div className="knito-stage" data-screen-label={labels[screen]}>
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          fontFamily: 'var(--font-ui)', fontSize: 11, letterSpacing: 2,
+          textTransform: 'uppercase', color: '#8b7355', fontWeight: 500,
+          marginBottom: 14, textAlign: 'center'
+        }}>
+          {labels[screen]}
+        </div>
+        <PhoneShell theme={tweaks.theme}>
+          {scene}
+          {showAdd && <AddProjectSheet t={t} lang={lang} onClose={() => setShowAdd(false)} onCreate={() => setShowAdd(false)} />}
+          {showRecipe && <RecipeViewer project={proj} lang={lang} t={t} onClose={() => setShowRecipe(false)} />}
+          {showSession && session && (
+            <SessionScreen
+              project={data.projects.find(p => p.id === session.projectId)}
+              session={session}
+              lang={lang} t={t}
+              onMinimize={() => setShowSession(false)}
+              onEnd={() => { setSession(null); setShowSession(false); }}
+              onToggleRun={() => setSession(s => s ? { ...s, running: !s.running } : s)}
+              onIncRows={() => setSession(s => s ? { ...s, rows: s.rows + 1 } : s)}
+              onDecRows={() => setSession(s => s ? { ...s, rows: Math.max(0, s.rows - 1) } : s)}
+              onOpenRecipe={() => { setShowSession(false); setProjectId(session.projectId); setScreen('detail'); setShowRecipe(true); }}
+            />
+          )}
+          {session && !showSession && (
+            <SessionPill
+              session={session}
+              project={data.projects.find(p => p.id === session.projectId)}
+              lang={lang} t={t}
+              onExpand={() => setShowSession(true)}
+              onEnd={() => setSession(null)}
+            />
+          )}
+          {showSettings && <Settings t={t} lang={lang} onClose={() => setShowSettings(false)} onSignOut={() => {setShowSettings(false);setScreen('auth');}} />}
+        </PhoneShell>
+        {/* quick scene nav */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 16, maxWidth: 390 }}>
+          {['onboarding', 'auth', 'projects', 'detail', 'yarn', 'needles', 'stats'].map((s) =>
+          <button key={s} onClick={() => setScreen(s)} style={{
+            height: 24, padding: '0 10px', borderRadius: 999,
+            border: '1px solid #d3c3a5',
+            background: screen === s ? '#2d2520' : 'transparent',
+            color: screen === s ? '#faf8f5' : '#6b4e3d',
+            fontFamily: 'var(--font-ui)', fontSize: 10.5, fontWeight: 500, cursor: 'pointer',
+            textTransform: 'capitalize', letterSpacing: 0.2
+          }}>{s}</button>
+          )}
+        </div>
+      </div>
+
+      {/* Tweaks panel */}
+      {tweaksOpen &&
+      <div className="tweaks">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h4>Tweaks</h4>
+            <button onClick={() => setTweaksOpen(false)} style={{ border: 'none', background: 'transparent', color: '#8b7355', cursor: 'pointer', fontSize: 16 }}>×</button>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Theme</div>
+            <div className="row">
+              {['light', 'dark'].map((v) => <button key={v} className={`opt ${tweaks.theme === v ? 'on' : ''}`} onClick={() => update('theme', v)}>{v}</button>)}
+            </div>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Accent</div>
+            <div className="row">
+              {Object.entries(ACCENTS).map(([k, v]) =>
+            <button key={k} className={`opt ${tweaks.accent === k ? 'on' : ''}`} onClick={() => update('accent', k)}>
+                  <span className="swatch" style={{ background: v.primary }} />{k}
+                </button>
+            )}
+            </div>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Density</div>
+            <div className="row">
+              {['roomy', 'compact'].map((v) => <button key={v} className={`opt ${tweaks.density === v ? 'on' : ''}`} onClick={() => update('density', v)}>{v}</button>)}
+            </div>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Type pair</div>
+            <div className="row">
+              <button className={`opt ${tweaks.fontPair === 'fraunces-inter' ? 'on' : ''}`} onClick={() => update('fontPair', 'fraunces-inter')}>Fraunces + Inter</button>
+              <button className={`opt ${tweaks.fontPair === 'newsreader-work' ? 'on' : ''}`} onClick={() => update('fontPair', 'newsreader-work')}>Newsreader + Work</button>
+              <button className={`opt ${tweaks.fontPair === 'fraunces-work' ? 'on' : ''}`} onClick={() => update('fontPair', 'fraunces-work')}>Fraunces + Work</button>
+              <button className={`opt ${tweaks.fontPair === 'inter-only' ? 'on' : ''}`} onClick={() => update('fontPair', 'inter-only')}>Inter only</button>
+            </div>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Card layout</div>
+            <div className="row">
+              {['list', 'grid'].map((v) => <button key={v} className={`opt ${tweaks.cardLayout === v ? 'on' : ''}`} onClick={() => update('cardLayout', v)}>{v}</button>)}
+            </div>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Progress style</div>
+            <div className="row">
+              <button className={`opt ${tweaks.progressStyle === 'bar' ? 'on' : ''}`} onClick={() => update('progressStyle', 'bar')}>bar</button>
+              <button className={`opt ${tweaks.progressStyle === 'stitch' ? 'on' : ''}`} onClick={() => update('progressStyle', 'stitch')}>stitches</button>
+            </div>
+          </div>
+
+          <div className="grp">
+            <div className="lbl">Language</div>
+            <div className="row">
+              <button className={`opt ${tweaks.language === 'no' ? 'on' : ''}`} onClick={() => update('language', 'no')}>norsk</button>
+              <button className={`opt ${tweaks.language === 'en' ? 'on' : ''}`} onClick={() => update('language', 'en')}>english</button>
+            </div>
+          </div>
+        </div>
+      }
+      {!tweaksOpen &&
+      <button onClick={() => setTweaksOpen(true)} style={{
+        position: 'fixed', top: 20, right: 20, zIndex: 1000,
+        height: 36, padding: '0 14px', borderRadius: 999,
+        border: '1px solid #e8ddd4', background: '#fff',
+        fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
+        boxShadow: '0 8px 24px -12px rgba(60,40,30,.25)', cursor: 'pointer', color: "rgb(139, 104, 82)"
+      }}>Tweaks</button>
+      }
+    </div>);
+
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

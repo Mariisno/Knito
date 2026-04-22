@@ -1,45 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
-import type { KnittingProject, Yarn, Needle, ProjectStatus, Counter, LogEntry, NeedleInventoryItem, YarnWeight } from '../types/knitting';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Progress } from './ui/progress';
-import { Slider } from './ui/slider';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ArrowLeft, Trash2, Plus, X, Upload, Calendar, Loader2, Play, Pause, Clock, RotateCcw, Send, Archive, Package, Scissors, Download, FileText } from 'lucide-react';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import type { KnittingProject, ProjectStatus, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from './ui/alert-dialog';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
-import { exportProjectAsJSON, exportProjectAsPrintable } from '../utils/export';
-import { extractTextFromPdf } from '../utils/pdfParser';
-import { CounterWidget } from './CounterWidget';
-import { 
-  getProgressColors, 
-  getStatusSelectColors, 
-  getItemGradient 
-} from '../utils/progressColors';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Calendar as CalendarComponent } from './ui/calendar';
+import { KnitTexture, paletteForId } from './KnitTexture';
 import { format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -49,45 +18,73 @@ interface ProjectDetailProps {
   onUpdate: (project: KnittingProject) => void;
   onDelete: (projectId: string) => void;
   accessToken: string;
-  needleInventory?: NeedleInventoryItem[];
-  standaloneYarns?: Yarn[];
+  needleInventory: NeedleInventoryItem[];
+  standaloneYarns: Yarn[];
 }
 
-export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory = [], standaloneYarns = [] }: ProjectDetailProps) {
-  const [editedProject, setEditedProject] = useState(project);
-  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
-  const [newNeedle, setNewNeedle] = useState<Partial<Needle>>({});
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [parsingPdf, setParsingPdf] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [newLogEntry, setNewLogEntry] = useState('');
+const STATUS_OPTIONS: ProjectStatus[] = ['Planlagt', 'Aktiv', 'På vent', 'Fullført', 'Arkivert'];
 
-  // Update current time every second when timer is running
+function StatusDot({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    Aktiv: '#7a8a6a', Fullført: '#5a7a6a', 'På vent': '#c9856b',
+    Planlagt: 'var(--muted-fg)', Arkivert: 'var(--muted-fg)',
+  };
+  return <span style={{ width: 7, height: 7, borderRadius: 999, background: colors[status] || 'var(--muted-fg)', display: 'inline-block', flexShrink: 0 }} />;
+}
+
+function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+  return (
+    <div style={{ padding: '14px 20px 2px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 2px 10px' }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{title}</div>
+        {count != null && count > 0 && <div style={{ fontSize: 11, color: 'var(--muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{count}</div>}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
+    </div>
+  );
+}
+
+const dashedBtn: React.CSSProperties = {
+  width: '100%', height: 44, borderRadius: 14,
+  border: '1px dashed var(--border)', background: 'transparent',
+  color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit',
+  fontSize: 13, fontWeight: 500,
+};
+
+export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns }: ProjectDetailProps) {
+  const [editedProject, setEditedProject] = useState(project);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [noteInput, setNoteInput] = useState('');
+  const [showDateEdit, setShowDateEdit] = useState(false);
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [showYarnPicker, setShowYarnPicker] = useState(false);
+  const [showNeedlePicker, setShowNeedlePicker] = useState(false);
+  const [showCounterAdd, setShowCounterAdd] = useState(false);
+  const [newCounterLabel, setNewCounterLabel] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
-      const interval = setInterval(() => {
-        setCurrentTime(new Date());
-      }, 1000);
+      const interval = setInterval(() => setCurrentTime(new Date()), 1000);
       return () => clearInterval(interval);
     }
   }, [editedProject.currentTimeLog]);
 
-  // Debounced version of onUpdate for text fields and slider
-  const debouncedOnUpdate = useDebouncedCallback(
-    (updated: KnittingProject) => onUpdate(updated),
-    500,
-  );
+  const debouncedOnUpdate = useDebouncedCallback((updated: KnittingProject) => onUpdate(updated), 500);
 
-  // Immediate update: updates local state + calls API immediately
   const handleUpdate = (updates: Partial<KnittingProject>) => {
     const updated = { ...editedProject, ...updates };
     setEditedProject(updated);
     onUpdate(updated);
   };
 
-  // Debounced update: updates local state immediately, debounces the API call
   const handleDebouncedUpdate = useCallback((updates: Partial<KnittingProject>) => {
     setEditedProject(prev => {
       const updated = { ...prev, ...updates };
@@ -98,1248 +95,535 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
   const handleToggleTimer = () => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
-      // Stop timer
       const startTime = new Date(editedProject.currentTimeLog.startTime);
-      const endTime = new Date();
-      const minutesElapsed = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-      
-      handleUpdate({
-        timeSpentMinutes: (editedProject.timeSpentMinutes || 0) + minutesElapsed,
-        currentTimeLog: undefined,
-      });
+      const minutesElapsed = Math.round((new Date().getTime() - startTime.getTime()) / 60000);
+      handleUpdate({ timeSpentMinutes: (editedProject.timeSpentMinutes || 0) + minutesElapsed, currentTimeLog: undefined });
       toast.success(`${minutesElapsed} minutter lagt til`);
     } else {
-      // Start timer
-      handleUpdate({
-        currentTimeLog: {
-          startTime: new Date(),
-        },
-      });
+      handleUpdate({ currentTimeLog: { startTime: new Date() } });
       toast.success('Tidtaker startet');
     }
   };
 
   const getTimerDisplay = () => {
     if (!editedProject.currentTimeLog?.startTime) return null;
-    
-    const startTime = new Date(editedProject.currentTimeLog.startTime);
-    const elapsed = Math.floor((currentTime.getTime() - startTime.getTime()) / 1000);
-    const hours = Math.floor(elapsed / 3600);
-    const minutes = Math.floor((elapsed % 3600) / 60);
-    const seconds = elapsed % 60;
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const handleAddYarn = () => {
-    if (newYarn.name?.trim()) {
-      const yarn: Yarn = {
-        id: crypto.randomUUID(),
-        name: newYarn.name,
-        brand: newYarn.brand,
-        color: newYarn.color,
-        amount: newYarn.amount,
-        weight: newYarn.weight,
-        fiberContent: newYarn.fiberContent,
-        yardage: newYarn.yardage,
-        dyeLot: newYarn.dyeLot,
-        price: newYarn.price,
-      };
-      handleUpdate({ yarns: [...editedProject.yarns, yarn] });
-      setNewYarn({});
-      toast.success('Garn lagt til');
-    }
-  };
-
-  const handleRemoveYarn = (yarnId: string) => {
-    handleUpdate({ yarns: editedProject.yarns.filter(y => y.id !== yarnId) });
-    toast.success('Garn fjernet');
-  };
-
-  const handlePickStandaloneYarn = (standaloneYarn: Yarn) => {
-    const yarn: Yarn = {
-      id: crypto.randomUUID(),
-      name: standaloneYarn.name,
-      brand: standaloneYarn.brand,
-      color: standaloneYarn.color,
-      amount: standaloneYarn.amount,
-      weight: standaloneYarn.weight,
-      fiberContent: standaloneYarn.fiberContent,
-      yardage: standaloneYarn.yardage,
-      dyeLot: standaloneYarn.dyeLot,
-      price: standaloneYarn.price,
-      standaloneYarnId: standaloneYarn.id,
-    };
-    handleUpdate({ yarns: [...editedProject.yarns, yarn] });
-    toast.success(`${standaloneYarn.name} lagt til fra restegarn`);
-  };
-
-  const handleAddNeedle = () => {
-    if (newNeedle.size?.trim() && newNeedle.type?.trim()) {
-      const needle: Needle = {
-        id: crypto.randomUUID(),
-        size: newNeedle.size,
-        type: newNeedle.type,
-        length: newNeedle.length,
-        material: newNeedle.material,
-      };
-      handleUpdate({ needles: [...(editedProject.needles || []), needle] });
-      setNewNeedle({});
-      toast.success('Pinne lagt til');
-    }
-  };
-
-  const handleRemoveNeedle = (needleId: string) => {
-    handleUpdate({ needles: (editedProject.needles || []).filter(n => n.id !== needleId) });
-    toast.success('Pinne fjernet');
-  };
-
-  const handlePickInventoryNeedle = (invNeedle: NeedleInventoryItem) => {
-    const needle: Needle = {
-      id: crypto.randomUUID(),
-      size: invNeedle.size,
-      type: invNeedle.type,
-      length: invNeedle.length,
-      material: invNeedle.material,
-      inventoryNeedleId: invNeedle.id,
-    };
-    handleUpdate({ needles: [...(editedProject.needles || []), needle] });
-    toast.success(`${invNeedle.type} ${invNeedle.size} lagt til fra beholdning`);
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setUploadingImages(true);
-    const fileArray = Array.from(files);
-    
-    try {
-      const uploadPromises = fileArray.map(file => api.uploadImage(file, accessToken));
-      const uploadedUrls = await Promise.all(uploadPromises);
-      
-      handleUpdate({ images: [...editedProject.images, ...uploadedUrls] });
-      toast.success(`${files.length} ${files.length === 1 ? 'bilde' : 'bilder'} lastet opp`);
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      toast.error('Kunne ikke laste opp bilder');
-    } finally {
-      setUploadingImages(false);
-      // Reset input
-      e.target.value = '';
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    const newImages = editedProject.images.filter((_, i) => i !== index);
-    handleUpdate({ images: newImages });
-    toast.success('Bilde fjernet');
+    const elapsed = Math.floor((currentTime.getTime() - new Date(editedProject.currentTimeLog.startTime).getTime()) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== 'application/pdf') {
-      toast.error('Kun PDF-filer er støttet');
-      return;
-    }
+    if (file.type !== 'application/pdf') { toast.error('Kun PDF-filer er støttet'); return; }
     setUploadingPdf(true);
     try {
-      const url = await api.uploadPdf(file, accessToken);
+      const url = await api.uploadImage(file, accessToken);
       handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: url, pdfName: file.name } });
       toast.success('PDF lastet opp');
-    } catch (error) {
-      console.error('Error uploading PDF:', error);
-      toast.error('Kunne ikke laste opp PDF');
-    } finally {
-      setUploadingPdf(false);
-      e.target.value = '';
-    }
+    } catch { toast.error('Kunne ikke laste opp PDF'); }
+    finally { setUploadingPdf(false); e.target.value = ''; }
   };
 
-  const handleParsePdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== 'application/pdf') {
-      toast.error('Kun PDF-filer er støttet');
-      return;
-    }
-    setParsingPdf(true);
+    setUploadingImg(true);
     try {
-      const text = await extractTextFromPdf(file);
-      if (!text.trim()) {
-        toast.error('Kunne ikke hente tekst fra PDF-en. Den kan inneholde kun bilder.');
-        return;
-      }
-      const existing = editedProject.recipe || '';
-      const newRecipe = existing ? `${existing}\n\n--- Hentet fra ${file.name} ---\n${text}` : text;
-      handleUpdate({ recipe: newRecipe });
-      toast.success('Oppskrift hentet fra PDF');
-    } catch (error) {
-      console.error('Error parsing PDF:', error);
-      toast.error('Kunne ikke lese PDF-en');
-    } finally {
-      setParsingPdf(false);
-      e.target.value = '';
-    }
+      const url = await api.uploadImage(file, accessToken);
+      handleUpdate({ images: [url, ...editedProject.images] });
+      toast.success('Bilde lastet opp');
+    } catch { toast.error('Kunne ikke laste opp bilde'); }
+    finally { setUploadingImg(false); e.target.value = ''; }
   };
 
-  const handleRemovePdf = () => {
-    handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } });
-    toast.success('PDF fjernet');
-  };
-
-  const handleDelete = () => {
-    onDelete(project.id);
+  const handleAddNote = () => {
+    if (!noteInput.trim()) return;
+    const entry: LogEntry = { id: crypto.randomUUID(), text: noteInput.trim(), timestamp: new Date() };
+    handleUpdate({ logEntries: [entry, ...(editedProject.logEntries || [])] });
+    setNoteInput('');
   };
 
   const handleAddCounter = () => {
-    const newCounter: Counter = {
-      id: crypto.randomUUID(),
-      label: 'Runder',
-      count: 0,
-    };
-    handleUpdate({ counters: [...(editedProject.counters || []), newCounter] });
-    toast.success('Teller lagt til');
+    if (!newCounterLabel.trim()) return;
+    const counter: Counter = { id: crypto.randomUUID(), label: newCounterLabel.trim(), count: 0 };
+    handleUpdate({ counters: [...(editedProject.counters || []), counter] });
+    setNewCounterLabel('');
+    setShowCounterAdd(false);
   };
 
-  const handleUpdateCounter = (updatedCounter: Counter) => {
-    const counters = (editedProject.counters || []).map(c => 
-      c.id === updatedCounter.id ? updatedCounter : c
-    );
-    handleUpdate({ counters });
-  };
-
-  const handleRemoveCounter = (counterId: string) => {
-    handleUpdate({ counters: (editedProject.counters || []).filter(c => c.id !== counterId) });
-    toast.success('Teller fjernet');
-  };
-
-  const handleResetTime = () => {
-    if (editedProject.currentTimeLog?.startTime) {
-      toast.error('Stopp tidtakeren først');
-      return;
-    }
-    handleUpdate({ timeSpentMinutes: 0 });
-    toast.success('Tid tilbakestilt');
-  };
-
-  const handleAddLogEntry = () => {
-    if (!newLogEntry.trim()) return;
-    
-    const logEntry: LogEntry = {
-      id: crypto.randomUUID(),
-      text: newLogEntry.trim(),
-      timestamp: new Date(),
-    };
-    
-    handleUpdate({ 
-      logEntries: [...(editedProject.logEntries || []), logEntry] 
+  const handleCounterChange = (id: string, delta: number) => {
+    handleUpdate({
+      counters: (editedProject.counters || []).map(c =>
+        c.id === id ? { ...c, previousCount: c.count, count: Math.max(0, c.count + delta) } : c
+      ),
     });
-    setNewLogEntry('');
-    toast.success('Logg-innlegg lagt til');
   };
 
-  const handleDeleteLogEntry = (logId: string) => {
-    handleUpdate({ 
-      logEntries: (editedProject.logEntries || []).filter(entry => entry.id !== logId) 
+  const handleCounterUndo = (id: string) => {
+    handleUpdate({
+      counters: (editedProject.counters || []).map(c =>
+        c.id === id && c.previousCount !== undefined ? { ...c, count: c.previousCount, previousCount: undefined } : c
+      ),
     });
-    toast.success('Logg-innlegg slettet');
   };
+
+  const handleAddYarn = (yarn: Yarn) => {
+    const newYarn: Yarn = { ...yarn, id: crypto.randomUUID(), standaloneYarnId: yarn.id };
+    handleUpdate({ yarns: [...editedProject.yarns, newYarn] });
+    setShowYarnPicker(false);
+    toast.success(`${yarn.name} lagt til`);
+  };
+
+  const handleAddNeedle = (needle: NeedleInventoryItem) => {
+    const newNeedle = { id: crypto.randomUUID(), size: needle.size, type: needle.type, length: needle.length, material: needle.material, inventoryNeedleId: needle.id };
+    handleUpdate({ needles: [...(editedProject.needles || []), newNeedle] });
+    setShowNeedlePicker(false);
+    toast.success(`Pinne ${needle.size} lagt til`);
+  };
+
+  const openDateEdit = () => {
+    setDateStart(editedProject.startDate ? format(new Date(editedProject.startDate), 'yyyy-MM-dd') : '');
+    setDateEnd(editedProject.endDate ? format(new Date(editedProject.endDate), 'yyyy-MM-dd') : '');
+    setShowDateEdit(true);
+  };
+
+  const handleSaveDates = () => {
+    handleUpdate({
+      startDate: dateStart ? new Date(dateStart) : undefined,
+      endDate: dateEnd ? new Date(dateEnd) : undefined,
+    });
+    setShowDateEdit(false);
+  };
+
+  const isTimerRunning = !!(editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime);
+  const totalMins = editedProject.timeSpentMinutes || 0;
+  const displayHrs = Math.floor(totalMins / 60);
+  const displayMins = totalMins % 60;
+  const heroImage = editedProject.images[0];
+  const availableYarns = standaloneYarns.filter(y => !editedProject.yarns.some(ey => ey.standaloneYarnId === y.id));
+  const availableNeedles = needleInventory.filter(n => !(editedProject.needles || []).some(en => en.inventoryNeedleId === n.id));
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" onClick={() => onBack()} className="hover:bg-accent" title="Tilbake (Esc)">
-            <ArrowLeft className="mr-2 h-5 w-5" />
-            Tilbake
-          </Button>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                exportProjectAsPrintable(editedProject);
-                toast.success('Prosjekt eksportert');
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Eksporter
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Slett / Arkiver
-            </Button>
+    <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+
+      {/* HERO */}
+      <div style={{ position: 'relative', height: 300, background: 'var(--accent)', flexShrink: 0 }}>
+        {heroImage
+          ? <img src={heroImage} alt={editedProject.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
+        }
+        {/* top bar overlay */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px' }}>
+          <button onClick={() => onBack()} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
+            <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          </button>
+          <button onClick={() => setShowMoreMenu(true)} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
+            <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        {/* status + category chips */}
+        <div style={{ position: 'absolute', top: 60, left: 20, display: 'flex', gap: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowStatusMenu(v => !v)} style={{
+              height: 28, padding: '0 12px 0 10px', borderRadius: 999, border: 'none',
+              background: 'color-mix(in oklab, var(--bg) 92%, transparent)',
+              color: 'var(--fg)', fontSize: 11, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: 'inherit',
+              backdropFilter: 'blur(12px)',
+            }}>
+              <StatusDot status={editedProject.status} />
+              {editedProject.status}
+              <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            {showStatusMenu && (
+              <>
+                <div onClick={() => setShowStatusMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+                <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 51, minWidth: 160, padding: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 12px 28px -8px color-mix(in oklab, var(--fg) 30%, transparent)' }}>
+                  {STATUS_OPTIONS.map(s => (
+                    <button key={s} onClick={() => { handleUpdate({ status: s }); setShowStatusMenu(false); }} style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '9px 10px', borderRadius: 8, border: 'none',
+                      background: editedProject.status === s ? 'var(--accent)' : 'transparent',
+                      color: 'var(--fg)', fontSize: 12.5, fontWeight: editedProject.status === s ? 600 : 500,
+                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                    }}>
+                      <StatusDot status={s} /> {s}
+                      {editedProject.status === s && <span style={{ marginLeft: 'auto', opacity: 0.6 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </div>
-
-        {/* Quick navigation to other sections */}
-        <div className="flex gap-2 mb-6 pb-4 border-b border-border">
-          <span className="text-sm text-muted-foreground self-center mr-2">Gå til:</span>
-          <Button variant="outline" size="sm" onClick={() => onBack('garnlager')}>Garnlager</Button>
-          <Button variant="outline" size="sm" onClick={() => onBack('verktoy')}>Verktøy</Button>
-          <Button variant="outline" size="sm" onClick={() => onBack('statistikk')}>Statistikk</Button>
-        </div>
-
-        <div className="space-y-8">
-          {/* Project Name and Progress */}
-          <Card className="bg-card border-border shadow-lg">
-            <CardHeader className="pb-4">
-              <Input
-                value={editedProject.name}
-                onChange={(e) => handleDebouncedUpdate({ name: e.target.value })}
-                className="border-0 p-0 text-card-foreground focus:ring-0 text-2xl"
-              />
-              {editedProject.category && (
-                <p className="text-muted-foreground mt-2">
-                  Kategori: {editedProject.category}
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Status and Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-6 border-b border-border">
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={editedProject.status}
-                    onValueChange={(value: ProjectStatus) => handleUpdate({ status: value })}
-                  >
-                    <SelectTrigger className={`w-full ${getStatusSelectColors(editedProject.status)}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Planlagt">Planlagt</SelectItem>
-                      <SelectItem value="Aktiv">Aktiv</SelectItem>
-                      <SelectItem value="På vent">På vent</SelectItem>
-                      <SelectItem value="Fullført">Fullført</SelectItem>
-                      <SelectItem value="Arkivert">Arkivert</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Startdato</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {editedProject.startDate
-                          ? format(new Date(editedProject.startDate), 'PPP', { locale: nb })
-                          : 'Velg dato'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-card" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={editedProject.startDate ? new Date(editedProject.startDate) : undefined}
-                        onSelect={(date) => handleUpdate({ startDate: date })}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sluttdato</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {editedProject.endDate
-                          ? format(new Date(editedProject.endDate), 'PPP', { locale: nb })
-                          : 'Velg dato'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-card" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={editedProject.endDate ? new Date(editedProject.endDate) : undefined}
-                        onSelect={(date) => handleUpdate({ endDate: date })}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              {/* Timer Section */}
-              <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-5 w-5 text-primary" />
-                      <Label>Tid brukt</Label>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <p className="text-2xl font-medium text-foreground">
-                        {editedProject.timeSpentMinutes 
-                          ? `${Math.floor(editedProject.timeSpentMinutes / 60)}t ${editedProject.timeSpentMinutes % 60}m`
-                          : '0t 0m'}
-                      </p>
-                      {editedProject.currentTimeLog?.startTime && (
-                        <p className="text-lg text-muted-foreground">
-                          + {getTimerDisplay()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleToggleTimer}
-                      size="lg"
-                      className={editedProject.currentTimeLog?.startTime 
-                        ? "bg-destructive hover:bg-destructive/90" 
-                        : "bg-primary hover:bg-primary/90"}
-                    >
-                      {editedProject.currentTimeLog?.startTime ? (
-                        <>
-                          <Pause className="mr-2 h-5 w-5" />
-                          Stopp
-                        </>
-                      ) : (
-                        <>
-                          <Play className="mr-2 h-5 w-5" />
-                          Start
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                {editedProject.timeSpentMinutes > 0 && (
-                  <div className="flex justify-end pt-2 border-t border-primary/10">
-                    <Button
-                      onClick={handleResetTime}
-                      size="sm"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-destructive"
-                      disabled={!!editedProject.currentTimeLog?.startTime}
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Tilbakestill tid
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Counters Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-lg">Tellere</Label>
-                  <Button
-                    onClick={handleAddCounter}
-                    size="sm"
-                    variant="outline"
-                    className="border-purple-300 dark:border-purple-700"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Legg til teller
-                  </Button>
-                </div>
-
-                {(!editedProject.counters || editedProject.counters.length === 0) ? (
-                  <div className="text-center py-8 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 dark:from-purple-950/20 dark:via-pink-950/20 dark:to-rose-950/20 rounded-lg border-2 border-dashed border-purple-200 dark:border-purple-800">
-                    <p className="text-muted-foreground mb-2">Ingen tellere lagt til ennå</p>
-                    <p className="text-muted-foreground/60 text-sm">Legg til en teller for å holde styr på runder eller masker</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {editedProject.counters.map((counter) => (
-                      <CounterWidget
-                        key={counter.id}
-                        counter={counter}
-                        onUpdate={handleUpdateCounter}
-                        onRemove={handleRemoveCounter}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div className="flex justify-between mb-3">
-                  <Label>Progresjon</Label>
-                  <span className={`font-medium px-4 py-1.5 rounded-full border transition-colors duration-300 ${getProgressColors(editedProject.progress).badge}`}>
-                    {editedProject.progress}%
-                  </span>
-                </div>
-                <Progress 
-                  value={editedProject.progress} 
-                  className={`h-3 mb-5 ${getProgressColors(editedProject.progress).progressBar}`}
-                  barClassName={`h-full transition-all duration-500 ease-out shadow-sm ${getProgressColors(editedProject.progress).progressBarFill}`}
-                />
-                <Slider
-                  value={[editedProject.progress]}
-                  onValueChange={([value]) => handleDebouncedUpdate({ progress: value })}
-                  max={100}
-                  step={1}
-                  className="cursor-pointer"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tabs for different sections */}
-          <Tabs defaultValue="notes" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 bg-card border border-border shadow-sm">
-              <TabsTrigger value="notes">Logg</TabsTrigger>
-              <TabsTrigger value="recipe">Oppskrift</TabsTrigger>
-              <TabsTrigger value="images">Bilder</TabsTrigger>
-              <TabsTrigger value="yarn">Garn</TabsTrigger>
-              <TabsTrigger value="needles">Pinner</TabsTrigger>
-              <TabsTrigger value="gauge">Strikkefasthet</TabsTrigger>
-              <TabsTrigger value="pattern">Mønster</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="notes">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Logg & Notater</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Add new log entry */}
-                  <div className="space-y-2">
-                    <Label htmlFor="newLogEntry">Nytt logg-innlegg</Label>
-                    <div className="flex gap-2">
-                      <Textarea
-                        id="newLogEntry"
-                        value={newLogEntry}
-                        onChange={(e) => setNewLogEntry(e.target.value)}
-                        placeholder="Skriv et nytt innlegg i loggen..."
-                        className="min-h-[80px] resize-none flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                            handleAddLogEntry();
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={handleAddLogEntry}
-                        disabled={!newLogEntry.trim()}
-                        className="self-end"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Trykk Cmd/Ctrl+Enter for å legge til</p>
-                  </div>
-
-                  {/* Log entries list */}
-                  <div className="space-y-3">
-                    <Label>Logg-historikk</Label>
-                    {(!editedProject.logEntries || editedProject.logEntries.length === 0) ? (
-                      <p className="text-sm text-muted-foreground italic py-8 text-center">
-                        Ingen logg-innlegg ennå. Legg til ditt første innlegg ovenfor!
-                      </p>
-                    ) : (
-                      <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                        {[...(editedProject.logEntries || [])].reverse().map((entry) => (
-                          <div
-                            key={entry.id}
-                            className="bg-accent/30 rounded-lg p-4 border border-border hover:border-primary/30 transition-colors group"
-                          >
-                            <div className="flex justify-between items-start gap-3">
-                              <div className="flex-1 space-y-1">
-                                <p className="text-sm whitespace-pre-wrap break-words">{entry.text}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {format(new Date(entry.timestamp), 'PPP \'kl.\' HH:mm', { locale: nb })}
-                                </p>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteLogEntry(entry.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive shrink-0"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="recipe">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Oppskrift</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* PDF */}
-                  {editedProject.pattern?.pdfUrl ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <FileText className="h-5 w-5 text-primary shrink-0" />
-                          <span className="text-sm text-foreground truncate">{editedProject.pattern.pdfName || 'Oppskrift.pdf'}</span>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')}
-                          >
-                            Åpne
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemovePdf}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <iframe
-                        src={editedProject.pattern.pdfUrl}
-                        className="w-full h-[70vh] rounded-lg border border-border"
-                        title="Oppskrift PDF"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-md ${uploadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={handlePdfUpload}
-                          disabled={uploadingPdf}
-                          className="hidden"
-                        />
-                        {uploadingPdf ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Laster opp...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4" />
-                            Last opp PDF
-                          </>
-                        )}
-                      </label>
-                      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-lg hover:bg-accent transition-colors ${parsingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={handleParsePdf}
-                          disabled={parsingPdf}
-                          className="hidden"
-                        />
-                        {parsingPdf ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Henter tekst...
-                          </>
-                        ) : (
-                          <>
-                            <FileText className="h-4 w-4" />
-                            Hent tekst fra PDF
-                          </>
-                        )}
-                      </label>
-                    </div>
-                  )}
-
-                  {/* Tekstoppskrift */}
-                  <Textarea
-                    value={editedProject.recipe || ''}
-                    onChange={(e) => handleDebouncedUpdate({ recipe: e.target.value })}
-                    placeholder="Skriv inn oppskriften her..."
-                    className="min-h-[350px] resize-none"
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="images">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Bilder</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4">
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="image-upload"
-                        disabled={uploadingImages}
-                      />
-                      <Label 
-                        htmlFor="image-upload"
-                        className={`cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-md ${uploadingImages ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        {uploadingImages ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Laster opp...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4" />
-                            Last opp bilder
-                          </>
-                        )}
-                      </Label>
-                    </div>
-
-                    {editedProject.images.length === 0 ? (
-                      <div className="text-center py-16 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 rounded-lg border border-border/50">
-                        <div className="bg-gradient-to-br from-amber-200 via-orange-200 to-rose-200 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center shadow-md">
-                          <Upload className="w-10 h-10 text-primary" />
-                        </div>
-                        <p className="text-muted-foreground mb-1">Ingen bilder lastet opp ennå</p>
-                        <p className="text-muted-foreground/60">Klikk på knappen over for å laste opp bilder av prosjektet ditt</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {editedProject.images.map((image, index) => (
-                          <div key={index} className="relative group">
-                            <ImageWithFallback
-                              src={image}
-                              alt={`Prosjektbilde ${index + 1}`}
-                              className="w-full h-48 object-cover rounded-lg border border-border"
-                            />
-                            <button
-                              onClick={() => handleRemoveImage(index)}
-                              className="absolute top-2 right-2 bg-destructive text-destructive-foreground p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:scale-110"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="yarn">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Garn brukt</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Existing yarns */}
-                  {editedProject.yarns.length > 0 && (
-                    <div className="space-y-3">
-                      {editedProject.yarns.map((yarn, index) => (
-                          <div key={yarn.id} className={`flex items-start justify-between p-5 bg-gradient-to-br ${getItemGradient(index)} rounded-lg border border-border/50 hover:border-primary/30 transition-all hover:shadow-md`}>
-                            <div className="space-y-1">
-                              <div className="text-card-foreground font-medium">{yarn.name}</div>
-                              {yarn.brand && <div className="text-muted-foreground">Merke: {yarn.brand}</div>}
-                              {yarn.color && <div className="text-muted-foreground">Farge: {yarn.color}</div>}
-                              {yarn.amount && <div className="text-muted-foreground">Mengde: {yarn.amount}</div>}
-                              {yarn.weight && <div className="text-muted-foreground">Tykkelse: {yarn.weight}</div>}
-                              {yarn.fiberContent && <div className="text-muted-foreground">Fiber: {yarn.fiberContent}</div>}
-                              {yarn.yardage && <div className="text-muted-foreground">Løpelengde: {yarn.yardage}</div>}
-                              {yarn.dyeLot && <div className="text-muted-foreground">Fargebad: {yarn.dyeLot}</div>}
-                              {yarn.price != null && yarn.price > 0 && <div className="text-muted-foreground">Pris: {yarn.price} kr</div>}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveYarn(yarn.id)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Pick from standalone yarn inventory */}
-                  {standaloneYarns.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-card-foreground">Velg fra restegarn</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {standaloneYarns.map((yarn) => (
-                          <button
-                            key={yarn.id}
-                            onClick={() => handlePickStandaloneYarn(yarn)}
-                            className="flex items-center gap-3 p-3 rounded-lg border border-border bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 hover:border-primary/50 hover:shadow-md transition-all text-left"
-                          >
-                            <Package className="h-5 w-5 text-purple-500 shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-foreground text-sm truncate">{yarn.name}</p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {[yarn.brand, yarn.color, yarn.amount].filter(Boolean).join(' · ') || 'Restegarn'}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm pt-2">
-                        <div className="flex-1 h-px bg-border" />
-                        <span>eller skriv inn manuelt</span>
-                        <div className="flex-1 h-px bg-border" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add new yarn */}
-                  <div className="border-t border-border pt-6">
-                    <h4 className="text-card-foreground mb-4">Legg til nytt garn</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnName">Garnnavn *</Label>
-                        <Input
-                          id="yarnName"
-                          value={newYarn.name || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, name: e.target.value })}
-                          placeholder="F.eks. Alpakka"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnBrand">Merke</Label>
-                        <Input
-                          id="yarnBrand"
-                          value={newYarn.brand || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, brand: e.target.value })}
-                          placeholder="F.eks. Dale Garn"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnColor">Farge</Label>
-                        <Input
-                          id="yarnColor"
-                          value={newYarn.color || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, color: e.target.value })}
-                          placeholder="F.eks. Mørk blå"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnAmount">Mengde</Label>
-                        <Input
-                          id="yarnAmount"
-                          value={newYarn.amount || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, amount: e.target.value })}
-                          placeholder="F.eks. 300g"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnWeight">Tykkelse</Label>
-                        <select
-                          id="yarnWeight"
-                          value={newYarn.weight || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
-                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                          <option value="">Velg tykkelse...</option>
-                          <option value="Lace">Lace</option>
-                          <option value="Fingering">Fingering</option>
-                          <option value="Sport">Sport</option>
-                          <option value="DK">DK</option>
-                          <option value="Worsted">Worsted</option>
-                          <option value="Aran">Aran</option>
-                          <option value="Bulky">Bulky</option>
-                          <option value="Super Bulky">Super Bulky</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnFiber">Fiberinnhold</Label>
-                        <Input
-                          id="yarnFiber"
-                          value={newYarn.fiberContent || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, fiberContent: e.target.value })}
-                          placeholder="F.eks. 100% Merino"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnYardage">Løpelengde</Label>
-                        <Input
-                          id="yarnYardage"
-                          value={newYarn.yardage || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, yardage: e.target.value })}
-                          placeholder="F.eks. 200m per 50g"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnDyeLot">Fargebad</Label>
-                        <Input
-                          id="yarnDyeLot"
-                          value={newYarn.dyeLot || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, dyeLot: e.target.value })}
-                          placeholder="F.eks. Lot 2345"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="yarnPrice">Pris (kr)</Label>
-                        <Input
-                          id="yarnPrice"
-                          type="number"
-                          value={newYarn.price || ''}
-                          onChange={(e) => setNewYarn({ ...newYarn, price: e.target.value ? Number(e.target.value) : undefined })}
-                          placeholder="F.eks. 89"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleAddYarn}
-                      disabled={!newYarn.name?.trim()}
-                      className="mt-4 bg-primary hover:bg-primary/90"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Legg til garn
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="needles">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Pinner brukt</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Existing needles */}
-                  {(editedProject.needles || []).length > 0 && (
-                    <div className="space-y-3">
-                      {editedProject.needles.map((needle, index) => (
-                          <div key={needle.id} className={`flex items-start justify-between p-5 bg-gradient-to-br ${getItemGradient(index)} rounded-lg border border-border/50 hover:border-primary/30 transition-all hover:shadow-md`}>
-                            <div className="space-y-1">
-                              <div className="text-card-foreground font-medium">{needle.type} - {needle.size}</div>
-                              {needle.length && <div className="text-muted-foreground">Lengde: {needle.length}</div>}
-                              {needle.material && <div className="text-muted-foreground">Materiale: {needle.material}</div>}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveNeedle(needle.id)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Pick from needle inventory */}
-                  {needleInventory.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-card-foreground">Velg fra beholdning</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {needleInventory.map((invNeedle) => (
-                          <button
-                            key={invNeedle.id}
-                            onClick={() => handlePickInventoryNeedle(invNeedle)}
-                            className="flex items-center gap-3 p-3 rounded-lg border border-border bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20 hover:border-primary/50 hover:shadow-md transition-all text-left"
-                          >
-                            <Scissors className="h-5 w-5 text-amber-500 shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-foreground text-sm truncate">{invNeedle.type} {invNeedle.size}</p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {[invNeedle.length, invNeedle.material].filter(Boolean).join(' · ') || 'Strikkepinne'}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm pt-2">
-                        <div className="flex-1 h-px bg-border" />
-                        <span>eller skriv inn manuelt</span>
-                        <div className="flex-1 h-px bg-border" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add new needle */}
-                  <div className="border-t border-border pt-6">
-                    <h4 className="text-card-foreground mb-4">Legg til ny pinne</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="needleSize">Størrelse *</Label>
-                        <Input
-                          id="needleSize"
-                          value={newNeedle.size || ''}
-                          onChange={(e) => setNewNeedle({ ...newNeedle, size: e.target.value })}
-                          placeholder="F.eks. 4mm eller 5.0"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="needleType">Type *</Label>
-                        <Input
-                          id="needleType"
-                          value={newNeedle.type || ''}
-                          onChange={(e) => setNewNeedle({ ...newNeedle, type: e.target.value })}
-                          placeholder="F.eks. Rundpinne, Strikkepinne"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="needleLength">Lengde</Label>
-                        <Input
-                          id="needleLength"
-                          value={newNeedle.length || ''}
-                          onChange={(e) => setNewNeedle({ ...newNeedle, length: e.target.value })}
-                          placeholder="F.eks. 80cm, 100cm"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="needleMaterial">Materiale</Label>
-                        <Input
-                          id="needleMaterial"
-                          value={newNeedle.material || ''}
-                          onChange={(e) => setNewNeedle({ ...newNeedle, material: e.target.value })}
-                          placeholder="F.eks. Tre, Metall, Bambus"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleAddNeedle}
-                      disabled={!newNeedle.size?.trim() || !newNeedle.type?.trim()}
-                      className="mt-4 bg-primary hover:bg-primary/90"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Legg til pinne
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="gauge">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Strikkefasthet</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <p className="text-muted-foreground text-sm">Registrer strikkefastheten din for dette prosjektet.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="gaugeStitches">Masker per 10 cm</Label>
-                      <Input
-                        id="gaugeStitches"
-                        type="number"
-                        value={editedProject.gauge?.stitchesPer10cm || ''}
-                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, stitchesPer10cm: e.target.value ? Number(e.target.value) : undefined } })}
-                        placeholder="F.eks. 22"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="gaugeRows">Pinner/omganger per 10 cm</Label>
-                      <Input
-                        id="gaugeRows"
-                        type="number"
-                        value={editedProject.gauge?.rowsPer10cm || ''}
-                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, rowsPer10cm: e.target.value ? Number(e.target.value) : undefined } })}
-                        placeholder="F.eks. 30"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="gaugeNeedle">Pinnestørrelse brukt</Label>
-                      <Input
-                        id="gaugeNeedle"
-                        value={editedProject.gauge?.needleSize || ''}
-                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, needleSize: e.target.value } })}
-                        placeholder="F.eks. 4mm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="gaugeNotes">Notater</Label>
-                      <Input
-                        id="gaugeNotes"
-                        value={editedProject.gauge?.notes || ''}
-                        onChange={(e) => handleDebouncedUpdate({ gauge: { ...editedProject.gauge, notes: e.target.value } })}
-                        placeholder="F.eks. Vasket og blokkert"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="pattern">
-              <Card className="bg-card border-border shadow-lg">
-                <CardHeader>
-                  <CardTitle>Mønster</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <p className="text-muted-foreground text-sm">Koble til et mønster og spor fremgangen din.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="patternName">Mønsternavn</Label>
-                      <Input
-                        id="patternName"
-                        value={editedProject.pattern?.name || ''}
-                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, name: e.target.value } })}
-                        placeholder="F.eks. Riddari"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="patternDesigner">Designer</Label>
-                      <Input
-                        id="patternDesigner"
-                        value={editedProject.pattern?.designer || ''}
-                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, designer: e.target.value } })}
-                        placeholder="F.eks. Védís Jónsdóttir"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="patternUrl">Lenke til mønster</Label>
-                      <Input
-                        id="patternUrl"
-                        value={editedProject.pattern?.url || ''}
-                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, url: e.target.value } })}
-                        placeholder="F.eks. https://www.ravelry.com/patterns/..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="patternCurrentRow">Nåværende rad</Label>
-                      <Input
-                        id="patternCurrentRow"
-                        type="number"
-                        value={editedProject.pattern?.currentRow || ''}
-                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, currentRow: e.target.value ? Number(e.target.value) : undefined } })}
-                        placeholder="F.eks. 47"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="patternTotalRows">Totalt antall rader</Label>
-                      <Input
-                        id="patternTotalRows"
-                        type="number"
-                        value={editedProject.pattern?.totalRows || ''}
-                        onChange={(e) => handleDebouncedUpdate({ pattern: { ...editedProject.pattern, totalRows: e.target.value ? Number(e.target.value) : undefined } })}
-                        placeholder="F.eks. 200"
-                      />
-                    </div>
-                  </div>
-                  {editedProject.pattern?.currentRow && editedProject.pattern?.totalRows && editedProject.pattern.totalRows > 0 && (
-                    <div className="pt-4 border-t border-border">
-                      <div className="flex justify-between text-sm text-muted-foreground mb-2">
-                        <span>Mønsterfremgang</span>
-                        <span>{Math.round((editedProject.pattern.currentRow / editedProject.pattern.totalRows) * 100)}%</span>
-                      </div>
-                      <Progress
-                        value={(editedProject.pattern.currentRow / editedProject.pattern.totalRows) * 100}
-                        className="h-2"
-                      />
-                    </div>
-                  )}
-                  {/* PDF Upload */}
-                  <div className="pt-4 border-t border-border space-y-4">
-                    <h4 className="text-card-foreground font-medium">Mønster-PDF</h4>
-                    {editedProject.pattern?.pdfUrl ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <FileText className="h-5 w-5 text-primary shrink-0" />
-                            <span className="text-sm text-foreground truncate">{editedProject.pattern.pdfName || 'Mønster.pdf'}</span>
-                          </div>
-                          <div className="flex gap-2 shrink-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')}
-                            >
-                              Åpne
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleRemovePdf}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <iframe
-                          src={editedProject.pattern.pdfUrl}
-                          className="w-full h-[70vh] rounded-lg border border-border"
-                          title="Mønster PDF"
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-md ${uploadingPdf ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                          <input
-                            type="file"
-                            accept=".pdf"
-                            onChange={handlePdfUpload}
-                            disabled={uploadingPdf}
-                            className="hidden"
-                          />
-                          {uploadingPdf ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Laster opp...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4" />
-                              Last opp PDF
-                            </>
-                          )}
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  {editedProject.pattern?.url && !editedProject.pattern?.pdfUrl && (
-                    <div className="pt-4 border-t border-border">
-                      <a
-                        href={editedProject.pattern.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-primary hover:underline text-sm"
-                      >
-                        Åpne mønster i ny fane
-                      </a>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          {editedProject.category && (
+            <div style={{
+              height: 26, padding: '0 10px', borderRadius: 999,
+              background: 'color-mix(in oklab, var(--bg) 88%, transparent)',
+              color: 'var(--muted-fg)', fontSize: 11, fontWeight: 500,
+              display: 'flex', alignItems: 'center', backdropFilter: 'blur(12px)',
+            }}>{editedProject.category}</div>
+          )}
         </div>
       </div>
 
+      {/* HEADLINE + DATE */}
+      <div style={{ padding: '18px 20px 6px' }}>
+        <input
+          value={editedProject.name}
+          onChange={e => handleDebouncedUpdate({ name: e.target.value })}
+          style={{
+            width: '100%', border: 'none', outline: 'none', background: 'transparent',
+            fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 500, letterSpacing: -0.6,
+            lineHeight: 1.1, color: 'var(--fg)', padding: 0,
+          }}
+        />
+        {showDateEdit ? (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)}
+                style={{ flex: 1, height: 38, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+              <span style={{ color: 'var(--muted-fg)', fontSize: 13 }}>→</span>
+              <input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)}
+                style={{ flex: 1, height: 38, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleSaveDates} style={{ flex: 1, height: 36, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>Ferdig</button>
+              <button onClick={() => setShowDateEdit(false)} style={{ height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Avbryt</button>
+            </div>
+          </div>
+        ) : (editedProject.startDate || editedProject.endDate) ? (
+          <button onClick={openDateEdit} style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--muted-fg)', fontSize: 12.5, fontFamily: 'inherit' }}>
+            <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            {editedProject.startDate && format(new Date(editedProject.startDate), 'd. MMM yyyy', { locale: nb })}
+            {editedProject.endDate && ` → ${format(new Date(editedProject.endDate), 'd. MMM yyyy', { locale: nb })}`}
+          </button>
+        ) : (
+          <button onClick={openDateEdit} style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--primary)', fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit' }}>
+            <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Legg til dato
+          </button>
+        )}
+      </div>
+
+      {/* RECIPE */}
+      <div style={{ padding: '8px 20px' }}>
+        {editedProject.pattern?.pdfUrl ? (
+          <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
+            display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
+            padding: 16, borderRadius: 18, border: '1px solid var(--fg)',
+            background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>PDF</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift.pdf'}
+              </div>
+              {editedProject.pattern.designer && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 3 }}>{editedProject.pattern.designer}</div>}
+            </div>
+            <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, border: '1px dashed var(--border)', borderRadius: 16 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-fg)', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500 }}>Ingen oppskrift lagt ved</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>Last opp en PDF-oppskrift</div>
+            </div>
+            <input ref={pdfInputRef} type="file" accept=".pdf" onChange={handlePdfUpload} style={{ display: 'none' }} />
+            <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} style={{ height: 32, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: uploadingPdf ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', opacity: uploadingPdf ? 0.5 : 1, flexShrink: 0 }}>
+              {uploadingPdf ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : '+ PDF'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* PROGRESS */}
+      <div style={{ padding: '4px 20px 8px' }}>
+        <div style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10.5, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase', fontWeight: 500 }}>Progresjon</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1.2, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                {editedProject.progress}<span style={{ fontSize: 18, opacity: 0.5, marginLeft: 2 }}>%</span>
+              </div>
+              {totalMins > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--muted-fg)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  ·
+                  <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  {displayHrs}t{displayMins > 0 ? ` ${displayMins}min` : ''}
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 10, height: 4, background: 'var(--accent)', borderRadius: 999, overflow: 'hidden' }}>
+              <div style={{ width: editedProject.progress + '%', height: '100%', background: 'var(--primary)', transition: 'width .3s' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button onClick={() => handleDebouncedUpdate({ progress: Math.min(100, editedProject.progress + 5) })} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button onClick={() => handleDebouncedUpdate({ progress: Math.max(0, editedProject.progress - 5) })} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* TIMER */}
+      <div style={{ padding: '4px 20px 8px' }}>
+        <button onClick={handleToggleTimer} style={{
+          width: '100%', height: 48, borderRadius: 14, border: '1px solid var(--border)',
+          background: isTimerRunning ? 'var(--primary)' : 'var(--card)',
+          color: isTimerRunning ? 'var(--primary-foreground)' : 'var(--fg)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+        }}>
+          {isTimerRunning ? (
+            <>
+              <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--primary-foreground)' }} />
+              Stopp økt · <span style={{ fontVariantNumeric: 'tabular-nums' }}>{getTimerDisplay()}</span>
+            </>
+          ) : (
+            <>
+              <svg viewBox="0 0 24 24" width={15} height={15} fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>
+              Start økt
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* COUNTERS */}
+      <Section title="Teller" count={(editedProject.counters || []).length}>
+        {(editedProject.counters || []).map(c => (
+          <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{c.count}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {c.previousCount !== undefined && (
+                <button onClick={() => handleCounterUndo(c.id)} title="Angre" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>↩</button>
+              )}
+              <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
+              </button>
+              <button onClick={() => handleCounterChange(c.id, 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+            </div>
+          </div>
+        ))}
+        {showCounterAdd ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              autoFocus
+              placeholder="Navn på teller"
+              value={newCounterLabel}
+              onChange={e => setNewCounterLabel(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); } }}
+              style={{ flex: 1, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+            />
+            <button onClick={handleAddCounter} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>Legg til</button>
+            <button onClick={() => { setShowCounterAdd(false); setNewCounterLabel(''); }} style={{ height: 44, padding: '0 12px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>✕</button>
+          </div>
+        ) : (
+          <button onClick={() => setShowCounterAdd(true)} style={dashedBtn}>+ Legg til teller</button>
+        )}
+      </Section>
+
+      {/* YARN */}
+      <Section title="Garn" count={editedProject.yarns.length}>
+        {editedProject.yarns.map(y => (
+          <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+            {y.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[y.brand, y.color, y.weight].filter(Boolean).join(' · ')}</div>
+            </div>
+            {y.amount && <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{y.amount}</div>}
+          </div>
+        ))}
+        <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ Legg til garn</button>
+      </Section>
+
+      {/* NEEDLES */}
+      <Section title="Pinner" count={(editedProject.needles || []).length}>
+        {(editedProject.needles || []).map(n => (
+          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.size} · {n.type}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[n.material, n.length].filter(Boolean).join(' · ')}</div>
+            </div>
+          </div>
+        ))}
+        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ Legg til pinne</button>
+      </Section>
+
+      {/* GAUGE */}
+      {(editedProject.gauge?.stitchesPer10cm || editedProject.gauge?.rowsPer10cm || editedProject.gauge?.needleSize) && (
+        <Section title="Strikkefasthet">
+          <div style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500, letterSpacing: -0.2 }}>
+              {[
+                editedProject.gauge?.stitchesPer10cm && `${editedProject.gauge.stitchesPer10cm} m/10cm`,
+                editedProject.gauge?.rowsPer10cm && `${editedProject.gauge.rowsPer10cm} omg/10cm`,
+                editedProject.gauge?.needleSize && `pinne ${editedProject.gauge.needleSize}`,
+              ].filter(Boolean).join(' · ')}
+            </div>
+            {editedProject.gauge?.notes && <div style={{ fontSize: 12.5, color: 'var(--muted-fg)', marginTop: 4 }}>{editedProject.gauge.notes}</div>}
+          </div>
+        </Section>
+      )}
+
+      {/* NOTES (static) */}
+      {editedProject.notes && (
+        <Section title="Notater">
+          <div style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.55 }}>
+            {editedProject.notes}
+          </div>
+        </Section>
+      )}
+
+      {/* LOG ENTRIES + INPUT */}
+      <div style={{ padding: '14px 20px 2px' }}>
+        {(editedProject.logEntries || []).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            {(editedProject.logEntries || []).map(e => (
+              <div key={e.id} style={{ padding: '10px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: 4 }}>
+                  {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={noteInput}
+            onChange={e => setNoteInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+            placeholder="Logg en notis..."
+            style={{ flex: 1, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+          />
+          <button onClick={handleAddNote} disabled={!noteInput.trim()} style={{ height: 44, padding: '0 18px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: noteInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: noteInput.trim() ? 1 : 0.35 }}>
+            Send
+          </button>
+        </div>
+      </div>
+
+      {/* IMAGE UPLOAD */}
+      <div style={{ padding: '8px 20px 20px' }}>
+        <input ref={imgInputRef} type="file" accept="image/*" onChange={handleImgUpload} style={{ display: 'none' }} />
+        <button onClick={() => imgInputRef.current?.click()} disabled={uploadingImg} style={{ ...dashedBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: uploadingImg ? 0.5 : 1 }}>
+          {uploadingImg ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : (
+            <>
+              <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Last opp bilde
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* MORE MENU */}
+      {showMoreMenu && (
+        <>
+          <div onClick={() => setShowMoreMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
+            {editedProject.pattern?.pdfUrl && (
+              <button onClick={() => { handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } }); setShowMoreMenu(false); toast.success('PDF fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+                Fjern PDF
+              </button>
+            )}
+            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
+              Slett prosjekt…
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* YARN PICKER */}
+      {showYarnPicker && (
+        <>
+          <div onClick={() => setShowYarnPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Velg garn</div>
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {availableYarns.map(yarn => (
+                <button key={yarn.id} onClick={() => handleAddYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                  {yarn.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                  </div>
+                </button>
+              ))}
+              {availableYarns.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>Ingen garn tilgjengelig i lager</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* NEEDLE PICKER */}
+      {showNeedlePicker && (
+        <>
+          <div onClick={() => setShowNeedlePicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Velg pinne</div>
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {availableNeedles.map(needle => (
+                <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>×{needle.quantity}</div>}
+                </button>
+              ))}
+              {availableNeedles.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>Ingen pinner tilgjengelig i lager</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* DELETE DIALOG */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className="bg-card">
           <AlertDialogHeader>
-            <AlertDialogTitle>Hva vil du gjøre med prosjektet?</AlertDialogTitle>
+            <AlertDialogTitle>Slett prosjektet?</AlertDialogTitle>
             <AlertDialogDescription>
-              Du kan arkivere prosjektet "{project.name}" for å skjule det fra listen, eller slette det permanent.
+              "{project.name}" vil bli slettet permanent. Dette kan ikke angres.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Avbryt</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleUpdate({ status: 'Arkivert' as ProjectStatus })}
-              className="bg-zinc-600 hover:bg-zinc-700"
-            >
-              <Archive className="mr-2 h-4 w-4" />
+            <AlertDialogAction onClick={() => handleUpdate({ status: 'Arkivert' as ProjectStatus })} className="bg-zinc-600 hover:bg-zinc-700">
               Arkiver
             </AlertDialogAction>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Slett permanent
+            <AlertDialogAction onClick={() => onDelete(project.id)} className="bg-destructive hover:bg-destructive/90">
+              Slett
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

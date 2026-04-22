@@ -1,14 +1,11 @@
 import { useState } from 'react';
 import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Package, Palette, Plus, Trash2, X, Copy } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { toast } from 'sonner@2.0.3';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 interface YarnInventoryProps {
   projects: KnittingProject[];
@@ -16,388 +13,310 @@ interface YarnInventoryProps {
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
 }
 
-interface YarnWithProjects extends Yarn {
-  projects: string[];
-}
+const PlusIcon = () => (
+  <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M12 5v14M5 12h14"/>
+  </svg>
+);
+const LinkIcon = () => (
+  <svg viewBox="0 0 24 24" width={10} height={10} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+    <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/>
+    <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>
+  </svg>
+);
+const TrashIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>
+  </svg>
+);
 
 export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYarns }: YarnInventoryProps) {
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
+  const [showAdd, setShowAdd] = useState(false);
   const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
 
-  // Aggregate all yarns across projects
-  const yarnMap = new Map<string, YarnWithProjects>();
+  // Combine project yarns + standalone yarns into unified list
+  interface YarnEntry {
+    id: string;
+    name: string;
+    color?: string;
+    colorHex?: string;
+    weight?: YarnWeight;
+    fiberContent?: string;
+    yardage?: string;
+    dyeLot?: string;
+    amount?: string;
+    price?: number;
+    notes?: string;
+    usedInProjects: { id: string; name: string }[];
+    isStandalone: boolean;
+    standaloneId?: string;
+  }
 
-  projects.forEach(project => {
-    project.yarns.forEach(yarn => {
-      const key = `${yarn.name}-${yarn.brand || ''}-${yarn.color || ''}`;
-      if (yarnMap.has(key)) {
-        const existing = yarnMap.get(key)!;
-        if (!existing.projects.includes(project.name)) {
-          existing.projects.push(project.name);
+  const entries: YarnEntry[] = [];
+
+  // From standalone yarns
+  standaloneYarns.forEach(y => {
+    const usedIn = projects.filter(p => p.yarns.some(py => py.standaloneYarnId === y.id));
+    entries.push({
+      id: y.id,
+      name: y.name,
+      color: y.color,
+      weight: y.weight,
+      fiberContent: y.fiberContent,
+      yardage: y.yardage,
+      dyeLot: y.dyeLot,
+      amount: y.amount,
+      price: y.price,
+      notes: y.notes,
+      usedInProjects: usedIn.map(p => ({ id: p.id, name: p.name })),
+      isStandalone: true,
+      standaloneId: y.id,
+    });
+  });
+
+  // From project yarns not already covered by standalone
+  projects.forEach(p => {
+    p.yarns.forEach(y => {
+      if (y.standaloneYarnId) return; // already covered
+      const key = y.id;
+      const existing = entries.find(e => e.id === key);
+      if (existing) {
+        if (!existing.usedInProjects.some(pp => pp.id === p.id)) {
+          existing.usedInProjects.push({ id: p.id, name: p.name });
         }
       } else {
-        yarnMap.set(key, {
-          ...yarn,
-          projects: [project.name]
+        entries.push({
+          id: key,
+          name: y.name,
+          color: y.color,
+          weight: y.weight,
+          fiberContent: y.fiberContent,
+          yardage: y.yardage,
+          dyeLot: y.dyeLot,
+          amount: y.amount,
+          usedInProjects: [{ id: p.id, name: p.name }],
+          isStandalone: false,
         });
       }
     });
   });
 
-  const projectYarns = Array.from(yarnMap.values()).sort((a, b) => 
-    b.projects.length - a.projects.length
-  );
+  const filtered = entries.filter(y => {
+    if (q && !y.name.toLowerCase().includes(q.toLowerCase()) && !y.color?.toLowerCase().includes(q.toLowerCase())) return false;
+    if (filter === 'inuse' && y.usedInProjects.length === 0) return false;
+    if (filter === 'spare' && y.usedInProjects.length > 0) return false;
+    return true;
+  });
 
-  const handleAddStandaloneYarn = () => {
-    if (!newYarn.name?.trim()) {
-      toast.error('Garnnavn er påkrevd');
-      return;
-    }
+  const totalEntries = entries.length;
+  const inUseCount = entries.filter(y => y.usedInProjects.length > 0).length;
+  const colors = new Set(entries.map(y => y.color || y.name)).size;
 
+  const handleAdd = () => {
+    if (!newYarn.name?.trim()) { toast.error('Garnnavn er påkrevd'); return; }
     const yarn: Yarn = {
       id: crypto.randomUUID(),
       name: newYarn.name.trim(),
-      brand: newYarn.brand?.trim(),
       color: newYarn.color?.trim(),
-      amount: newYarn.amount?.trim(),
       weight: newYarn.weight,
       fiberContent: newYarn.fiberContent?.trim(),
       yardage: newYarn.yardage?.trim(),
       dyeLot: newYarn.dyeLot?.trim(),
+      amount: newYarn.amount?.trim(),
       price: newYarn.price,
       notes: newYarn.notes?.trim(),
     };
-
     onUpdateStandaloneYarns([...standaloneYarns, yarn]);
     setNewYarn({});
-    setShowAddDialog(false);
-    toast.success('Restegarn lagt til');
+    setShowAdd(false);
+    toast.success('Garn lagt til');
   };
 
-  const handleDeleteStandaloneYarn = (yarnId: string) => {
-    onUpdateStandaloneYarns(standaloneYarns.filter(y => y.id !== yarnId));
-    toast.success('Restegarn fjernet');
-  };
-
-  const handleDuplicateYarn = (yarn: Yarn) => {
-    setNewYarn({
-      name: `${yarn.name} (kopi)`,
-      brand: yarn.brand,
-      color: yarn.color,
-      amount: yarn.amount,
-      weight: yarn.weight,
-      fiberContent: yarn.fiberContent,
-      yardage: yarn.yardage,
-      dyeLot: yarn.dyeLot,
-      price: yarn.price,
-      notes: yarn.notes,
-    });
-    setShowAddDialog(true);
+  const handleDelete = (standaloneId: string) => {
+    onUpdateStandaloneYarns(standaloneYarns.filter(y => y.id !== standaloneId));
+    toast.success('Garn fjernet');
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-foreground mb-2">Garnlager</h2>
-        <p className="text-muted-foreground">
-          Oversikt over garn i prosjekter og restegarn
-        </p>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
+      {/* Header */}
+      <div style={{ padding: '12px 20px 8px' }}>
+        <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>Lager</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>Garn</div>
       </div>
 
-      <Tabs defaultValue="projects" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-card border border-border shadow-sm mb-6">
-          <TabsTrigger value="projects">
-            Prosjekt-garn ({projectYarns.length})
-          </TabsTrigger>
-          <TabsTrigger value="standalone">
-            Restegarn ({standaloneYarns.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="projects">
-          {projectYarns.length === 0 ? (
-            <div className="text-center py-16">
-              <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-30" />
-              <p className="text-muted-foreground">Ingen garn registrert enda</p>
-              <p className="text-muted-foreground">Legg til garn i prosjektene dine for å se dem her</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projectYarns.map((yarn, index) => (
-                <Card key={`${yarn.id}-${index}`} className="bg-card border-border hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2">
-                      <Palette className="w-5 h-5 text-primary" />
-                      {yarn.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {yarn.brand && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Merke:</span> {yarn.brand}
-                      </p>
-                    )}
-                    {yarn.color && (
-                      <p className="text-muted-foreground flex items-center gap-2">
-                        <span className="font-medium">Farge:</span> 
-                        <span>{yarn.color}</span>
-                      </p>
-                    )}
-                    {yarn.amount && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Mengde:</span> {yarn.amount}
-                      </p>
-                    )}
-                    <div className="pt-2 border-t border-border/50">
-                      <p className="text-muted-foreground mb-1">
-                        Brukt i {yarn.projects.length} prosjekt{yarn.projects.length !== 1 ? 'er' : ''}:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {yarn.projects.map((projectName, idx) => (
-                          <span 
-                            key={idx}
-                            className="px-2 py-0.5 bg-primary/10 text-primary rounded-full"
-                          >
-                            {projectName}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="standalone">
-          <div className="mb-4">
-            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-              <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Legg til restegarn
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Legg til restegarn</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnName">Garnnavn *</Label>
-                    <Input
-                      id="yarnName"
-                      value={newYarn.name || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, name: e.target.value })}
-                      placeholder="F.eks. Alpakka Ull"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnBrand">Merke</Label>
-                    <Input
-                      id="yarnBrand"
-                      value={newYarn.brand || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, brand: e.target.value })}
-                      placeholder="F.eks. Sandnes Garn"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnColor">Farge</Label>
-                    <Input
-                      id="yarnColor"
-                      value={newYarn.color || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, color: e.target.value })}
-                      placeholder="F.eks. Mørkeblå"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnAmount">Mengde</Label>
-                    <Input
-                      id="yarnAmount"
-                      value={newYarn.amount || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, amount: e.target.value })}
-                      placeholder="F.eks. 200g / 2 nøster"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnWeight">Tykkelse</Label>
-                    <select
-                      id="yarnWeight"
-                      value={newYarn.weight || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="">Velg tykkelse...</option>
-                      <option value="Lace">Lace</option>
-                      <option value="Fingering">Fingering</option>
-                      <option value="Sport">Sport</option>
-                      <option value="DK">DK</option>
-                      <option value="Worsted">Worsted</option>
-                      <option value="Aran">Aran</option>
-                      <option value="Bulky">Bulky</option>
-                      <option value="Super Bulky">Super Bulky</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnFiber">Fiberinnhold</Label>
-                    <Input
-                      id="yarnFiber"
-                      value={newYarn.fiberContent || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, fiberContent: e.target.value })}
-                      placeholder="F.eks. 100% Merino"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnYardage">Løpelengde</Label>
-                    <Input
-                      id="yarnYardage"
-                      value={newYarn.yardage || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, yardage: e.target.value })}
-                      placeholder="F.eks. 200m per 50g"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="yarnDyeLot">Fargebad</Label>
-                      <Input
-                        id="yarnDyeLot"
-                        value={newYarn.dyeLot || ''}
-                        onChange={(e) => setNewYarn({ ...newYarn, dyeLot: e.target.value })}
-                        placeholder="F.eks. Lot 2345"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="yarnPrice">Pris (kr)</Label>
-                      <Input
-                        id="yarnPrice"
-                        type="number"
-                        value={newYarn.price || ''}
-                        onChange={(e) => setNewYarn({ ...newYarn, price: e.target.value ? Number(e.target.value) : undefined })}
-                        placeholder="F.eks. 89"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="yarnNotes">Notater</Label>
-                    <Textarea
-                      id="yarnNotes"
-                      value={newYarn.notes || ''}
-                      onChange={(e) => setNewYarn({ ...newYarn, notes: e.target.value })}
-                      placeholder="F.eks. Kjøpt på salg, egnet til sokker..."
-                      className="min-h-[80px] resize-none"
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-4">
-                    <Button onClick={handleAddStandaloneYarn} className="flex-1">
-                      Legg til
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setShowAddDialog(false);
-                        setNewYarn({});
-                      }}
-                      className="flex-1"
-                    >
-                      Avbryt
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+      {/* Summary stats */}
+      <div style={{ padding: '12px 20px 4px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        {[
+          { label: 'Totalt', value: totalEntries },
+          { label: 'Farger', value: colors },
+          { label: 'I bruk', value: inUseCount },
+        ].map(s => (
+          <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+            <div style={{ fontSize: 10, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase' }}>{s.label}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 500, marginTop: 3 }}>{s.value}</div>
           </div>
+        ))}
+      </div>
 
-          {standaloneYarns.length === 0 ? (
-            <div className="text-center py-16">
-              <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-30" />
-              <p className="text-muted-foreground">Ingen restegarn registrert enda</p>
-              <p className="text-muted-foreground">Legg til ditt første restegarn ved å klikke knappen ovenfor</p>
+      {/* Search */}
+      <div style={{ padding: '12px 20px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 40, padding: '0 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted-fg)' }}>
+          <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Søk i garn…"
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--fg)', fontFamily: 'var(--font-ui)' }}/>
+        </div>
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8 }}>
+        {[
+          { id: 'all' as const, label: 'Alle' },
+          { id: 'inuse' as const, label: 'I prosjekt' },
+          { id: 'spare' as const, label: 'Ubrukt' },
+        ].map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{
+            display: 'inline-flex', alignItems: 'center',
+            height: 30, padding: '0 12px', borderRadius: 999,
+            fontSize: 13, fontWeight: 500,
+            border: '1px solid ' + (filter === f.id ? 'var(--fg)' : 'var(--border)'),
+            background: filter === f.id ? 'var(--fg)' : 'transparent',
+            color: filter === f.id ? 'var(--bg)' : 'var(--fg)',
+            cursor: 'pointer', fontFamily: 'var(--font-ui)',
+          }}>{f.label}</button>
+        ))}
+      </div>
+
+      {/* List */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 120px' }}>
+        {filtered.length === 0 ? (
+          <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted-fg)' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>Ingen garn funnet</div>
+          </div>
+        ) : filtered.map(y => (
+          <div key={y.id} style={{
+            display: 'flex', alignItems: 'stretch', gap: 14,
+            padding: 14, marginBottom: 10,
+            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
+          }}>
+            {/* Color swatch */}
+            <div style={{
+              width: 56, height: 56, borderRadius: 12, flexShrink: 0,
+              background: y.colorHex || (y.color ? '#b9aa93' : 'var(--accent)'),
+              border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {!y.colorHex && (
+                <svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.5}>
+                  <circle cx="12" cy="12" r="8.5"/>
+                  <path d="M6 7c3 4 9 4 12 0M6 12c3 4 9 4 12 0M6 17c3 4 9 4 12 0"/>
+                </svg>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {standaloneYarns.map((yarn) => (
-                <Card key={yarn.id} className="bg-card border-border hover:shadow-lg transition-shadow group relative">
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDuplicateYarn(yarn)}
-                      className="hover:bg-primary/10 hover:text-primary"
-                      title="Lag kopi"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteStandaloneYarn(yarn.id)}
-                      className="hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 pr-8">
-                      <Palette className="w-5 h-5 text-primary" />
-                      {yarn.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {yarn.brand && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Merke:</span> {yarn.brand}
-                      </p>
-                    )}
-                    {yarn.color && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Farge:</span> {yarn.color}
-                      </p>
-                    )}
-                    {yarn.amount && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Mengde:</span> {yarn.amount}
-                      </p>
-                    )}
-                    {yarn.weight && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Tykkelse:</span> {yarn.weight}
-                      </p>
-                    )}
-                    {yarn.fiberContent && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Fiber:</span> {yarn.fiberContent}
-                      </p>
-                    )}
-                    {yarn.yardage && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Løpelengde:</span> {yarn.yardage}
-                      </p>
-                    )}
-                    {yarn.dyeLot && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Fargebad:</span> {yarn.dyeLot}
-                      </p>
-                    )}
-                    {yarn.price != null && yarn.price > 0 && (
-                      <p className="text-muted-foreground">
-                        <span className="font-medium">Pris:</span> {yarn.price} kr
-                      </p>
-                    )}
-                    {yarn.notes && (
-                      <div className="pt-2 border-t border-border/50">
-                        <p className="text-muted-foreground whitespace-pre-wrap">
-                          {yarn.notes}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                {y.amount && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)', flexShrink: 0 }}>{y.amount}</div>}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginTop: 2 }}>
+                {[y.color, y.weight, y.fiberContent].filter(Boolean).join(' · ')}
+              </div>
+              {y.usedInProjects.length > 0 && (
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {y.usedInProjects.map(p => (
+                    <span key={p.id} style={{
+                      height: 22, padding: '0 8px', borderRadius: 999, border: '1px solid var(--border)',
+                      background: 'transparent', color: 'var(--fg)', fontSize: 11, fontWeight: 500,
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}>
+                      <LinkIcon /> {p.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+
+            {y.isStandalone && (
+              <button onClick={() => handleDelete(y.standaloneId!)} style={{ alignSelf: 'flex-start', marginTop: 2, width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <TrashIcon />
+              </button>
+            )}
+
+          </div>
+        ))}
+      </div>
+
+      {/* FAB */}
+      <button onClick={() => setShowAdd(true)} style={{
+        position: 'absolute', right: 20, bottom: 20, zIndex: 25,
+        height: 54, padding: '0 20px 0 16px', borderRadius: 999,
+        background: 'var(--primary)', color: 'var(--primary-foreground)', border: 'none',
+        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+        fontFamily: 'var(--font-ui)', fontSize: 14.5, fontWeight: 600,
+        boxShadow: '0 8px 24px -6px color-mix(in oklab, var(--primary) 45%, transparent)',
+      }}>
+        <PlusIcon /> Nytt garn
+      </button>
+
+      {/* Add dialog */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Legg til garn</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Garnnavn *</Label>
+              <Input value={newYarn.name || ''} onChange={e => setNewYarn({ ...newYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Farge</Label>
+                <Input value={newYarn.color || ''} onChange={e => setNewYarn({ ...newYarn, color: e.target.value })} placeholder="F.eks. Natur" />
+              </div>
+              <div className="space-y-2">
+                <Label>Mengde</Label>
+                <Input value={newYarn.amount || ''} onChange={e => setNewYarn({ ...newYarn, amount: e.target.value })} placeholder="F.eks. 3 nøster" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Tykkelse</Label>
+                <select value={newYarn.weight || ''} onChange={e => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="">Velg...</option>
+                  {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Fiberinnhold</Label>
+                <Input value={newYarn.fiberContent || ''} onChange={e => setNewYarn({ ...newYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Løpelengde</Label>
+                <Input value={newYarn.yardage || ''} onChange={e => setNewYarn({ ...newYarn, yardage: e.target.value })} placeholder="200m / 50g" />
+              </div>
+              <div className="space-y-2">
+                <Label>Fargebad</Label>
+                <Input value={newYarn.dyeLot || ''} onChange={e => setNewYarn({ ...newYarn, dyeLot: e.target.value })} placeholder="Lot 2345" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notater</Label>
+              <Textarea value={newYarn.notes || ''} onChange={e => setNewYarn({ ...newYarn, notes: e.target.value })} placeholder="F.eks. Kjøpt på salg..." className="min-h-[60px] resize-none" />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleAdd} className="flex-1">Legg til</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">Avbryt</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

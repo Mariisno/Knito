@@ -17,11 +17,11 @@ There are no test or lint commands configured.
 
 ### Frontend (React + Vite)
 
-Single-page React 18 app using Vite, Tailwind CSS v4, and shadcn/ui components (Radix primitives). No router — navigation is state-driven:
+Single-page React 18 app using Vite, Tailwind CSS v4, and shadcn/ui components (Radix primitives). Uses `react-router` (`BrowserRouter`) for navigation:
 
-- `App.tsx` is the root. It manages auth state, project/yarn/needle data, and view switching via `useState`. The `SHOW_DIAGNOSTIC` flag toggles a diagnostic mode. Hash-based URL detection (`#admin-reset`, `#reset-password`) routes to password reset flows.
-- `AppContent` inside `App.tsx` is the main authenticated view with three tabs: Prosjekter (projects), Garnlager (yarn inventory), Statistikk (statistics).
-- Project detail is shown by setting `selectedProjectId` — no URL routing involved.
+- `App.tsx` is the root. Handles auth state, password reset detection, and theme. The `SHOW_DIAGNOSTIC` flag toggles diagnostic mode. Hash `type=recovery` triggers the password reset flow; `#admin-reset` triggers the admin reset tool.
+- `AppContent` inside `App.tsx` is the main authenticated view with four tabs: Prosjekter (projects), Garn (yarn inventory), Pinner (needle inventory), Statistikk (statistics).
+- Project detail is rendered via `<Route path="projects/:id">` — navigate with `useNavigate('/projects/:id')`.
 
 ### Backend (Supabase Edge Functions + Hono)
 
@@ -40,9 +40,16 @@ The backend is a single Hono server deployed as a Supabase Edge Function (Deno r
 
 `src/utils/supabase/client.ts` — Singleton Supabase client. Config values (project ID, anon key) come from `src/utils/supabase/info.tsx` (auto-generated, do not edit).
 
+### State & Logic
+
+- `src/contexts/AuthContext.tsx` — `AuthProvider` wraps the app. Provides `user`, `accessToken`, `signIn`, `signOut`. Keeps `accessToken` in sync via `onAuthStateChange`.
+- `src/hooks/useProjects.ts` — all project/yarn/needle CRUD with optimistic updates and rollback.
+- `src/hooks/useProjectStats.ts` — derived statistics computed from projects array.
+- `src/hooks/useDebouncedCallback.ts` — debounce utility used for text field saves (500ms).
+
 ### Data Types
 
-All TypeScript types are in `src/types/knitting.ts`: `KnittingProject`, `Yarn`, `Needle`, `NeedleInventoryItem`, `Counter`, `LogEntry`, `TimeLog`. Project statuses are: `Aktiv`, `Fullført`, `Planlagt`, `På vent`.
+All TypeScript types are in `src/types/knitting.ts`: `KnittingProject`, `Yarn`, `Needle`, `NeedleInventoryItem`, `Counter`, `LogEntry`, `TimeLog`. Project statuses are: `Aktiv`, `Fullført`, `Planlagt`, `På vent`, `Arkivert`.
 
 ### UI Components
 
@@ -56,6 +63,8 @@ Tailwind CSS v4 with custom theme tokens defined in `src/styles/globals.css`. Li
 ### Path Alias
 
 `@` is aliased to `src/` in `vite.config.ts`. The config also contains versioned package aliases (e.g., `sonner@2.0.3` -> `sonner`) needed for Figma Make compatibility.
+
+**Gotcha:** Toast imports must use the versioned alias — `import { toast } from 'sonner@2.0.3'`, not `'sonner'`. Using the bare name will fail silently at runtime.
 
 ### Deployment
 

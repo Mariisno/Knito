@@ -4,5 +4,20 @@
 @import './styles/globals.css';
 
 @layer base {
-  html, body, #root { min-height: 100vh; height: 100%; margin: 0; }
+  html, body { min-height: 100vh; height: 100%; margin: 0; }
+
+  /* On desktop, show a warm stage background */
+  @media (min-width: 600px) {
+    body {
+      background: #e8ddd4 !important;
+    }
+  }
+
+  #root {
+    min-height: 100vh;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
 }

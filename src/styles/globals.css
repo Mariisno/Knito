@@ -2,6 +2,12 @@
 
 :root {
   --font-size: 16px;
+  /* Design token aliases (match Knito/ prototype) */
+  --bg: #faf8f5;
+  --fg: #2d2520;
+  --muted-fg: #8b7355;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Inter', -apple-system, system-ui, sans-serif;
   --background: #faf8f5;
   --foreground: #2d2520;
   --card: #ffffff;
@@ -42,6 +48,9 @@
 }
 
 .dark {
+  --bg: #1a1512;
+  --fg: #f5f1ed;
+  --muted-fg: #b8968a;
   --background: #1a1512;
   --foreground: #f5f1ed;
   --card: #2a2420;
@@ -126,6 +135,8 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
   }
 }
 

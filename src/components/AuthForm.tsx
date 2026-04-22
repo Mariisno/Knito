@@ -1,13 +1,61 @@
 import { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useAuth } from '../contexts/AuthContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+
+// KnitoMark — small square logo
+function KnitoMark({ s = 32 }: { s?: number }) {
+  return (
+    <div style={{
+      width: s, height: s, borderRadius: 8,
+      background: 'var(--primary)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'var(--primary-foreground)', flexShrink: 0,
+    }}>
+      <svg width={s * 0.6} height={s * 0.6} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M5 4c-.8 3-.8 5 0 8s.8 5 0 8M12 4c-.8 3-.8 5 0 8s.8 5 0 8M19 4c-.8 3-.8 5 0 8s.8 5 0 8"/>
+      </svg>
+    </div>
+  );
+}
+
+// Floating-label field
+function Field({
+  label, type = 'text', value, onChange, placeholder, autoComplete, disabled,
+}: {
+  label: string; type?: string; value: string;
+  onChange: (v: string) => void; placeholder?: string;
+  autoComplete?: string; disabled?: boolean;
+}) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{
+        position: 'absolute', left: 14, top: 10,
+        fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase',
+        color: 'var(--muted-fg)', fontWeight: 500,
+      }}>{label}</div>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        disabled={disabled}
+        style={{
+          width: '100%', height: 64, padding: '26px 14px 8px',
+          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
+          fontSize: 15, color: 'var(--fg)', fontFamily: 'var(--font-ui)',
+          outline: 'none', boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  );
+}
 
 interface AuthFormProps {
   onSignIn?: (email: string, password: string) => Promise<void>;
@@ -20,6 +68,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
   const onSignIn = _onSignIn ?? auth.signIn;
   const onSignUp = _onSignUp ?? auth.signUp;
   const supabase = supabaseProp ?? auth.supabase;
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -32,13 +81,9 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       if (isSignUp) {
-        if (!name.trim()) {
-          toast.error('Vennligst skriv inn navn');
-          return;
-        }
+        if (!name.trim()) { toast.error('Vennligst skriv inn navn'); return; }
         await onSignUp(email, password, name);
         toast.success('Konto opprettet! Du er nå logget inn.');
       } else {
@@ -46,7 +91,6 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
         toast.success('Velkommen tilbake!');
       }
     } catch (error: any) {
-      console.error('Auth error:', error);
       if (error.message?.includes('Invalid login credentials')) {
         toast.error('Feil e-post eller passord');
       } else if (error.message?.includes('User already registered')) {
@@ -61,167 +105,103 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const normalizedEmail = resetEmail.trim().toLowerCase();
-    if (!normalizedEmail) {
-      toast.error('Vennligst skriv inn e-postadressen din');
-      return;
-    }
-
+    if (!normalizedEmail) { toast.error('Vennligst skriv inn e-postadressen din'); return; }
     setResetLoading(true);
-
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/#reset-password`,
       });
-
       if (error) throw error;
-
-      toast.success('Sjekk e-posten din for å tilbakestille passordet!', {
-        description: 'Lenken er gyldig i 1 time.',
-        duration: 10000,
-      });
+      toast.success('Sjekk e-posten din for å tilbakestille passordet!', { description: 'Lenken er gyldig i 1 time.', duration: 10000 });
       setShowForgotPassword(false);
       setResetEmail('');
     } catch (error: any) {
-      console.error('Password reset error:', error);
-      
-      // Give helpful error messages
       if (error.message?.includes('Email not confirmed')) {
         toast.error('E-postadressen er ikke bekreftet.');
       } else if (error.message?.includes('not found')) {
         toast.error('Ingen bruker med denne e-postadressen.');
       } else {
-        toast.error('Kunne ikke sende tilbakestillingslenke.', {
-          description: 'Sjekk at e-postserveren er konfigurert i Supabase.',
-          duration: 8000,
-        });
+        toast.error('Kunne ikke sende tilbakestillingslenke.', { description: 'Sjekk at e-postserveren er konfigurert i Supabase.', duration: 8000 });
       }
     } finally {
       setResetLoading(false);
     }
   };
 
-  const handleTestLogin = async () => {
-    setEmail('test@example.com');
-    setPassword('test123456');
-    toast.info('Testdata fylt inn. Klikk "Logg inn" for å fortsette.');
-  };
-
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-2xl border-border">
-          <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-3xl text-primary">
-              🧶 Strikkeprosjekter
-            </CardTitle>
-            <CardDescription>
-              {isSignUp 
-                ? 'Opprett en konto for å lagre dine strikkeprosjekter'
-                : 'Logg inn for å se dine strikkeprosjekter'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Navn</Label>
-                  <Input
-                    id="name"
-                    placeholder="Ola Nordmann"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={loading}
-                  />
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="email">E-post</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="username"
-                  placeholder="din@epost.no"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
+      <div style={{
+        minHeight: '100vh', background: 'var(--bg)',
+        display: 'flex', flexDirection: 'column',
+        fontFamily: 'var(--font-ui)', color: 'var(--fg)',
+      }}>
+        {/* Top section */}
+        <div style={{ padding: '50px 30px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
+            <KnitoMark s={32} />
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 500, letterSpacing: -0.3 }}>
+              Knito
+            </div>
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 500, letterSpacing: -0.8, lineHeight: 1.1, marginBottom: 8 }}>
+            {isSignUp ? 'Opprett konto' : 'Velkommen tilbake'}
+          </div>
+          <div style={{ fontSize: 14.5, color: 'var(--muted-fg)', lineHeight: 1.5 }}>
+            {isSignUp ? 'Lag en konto for å lagre prosjektene dine' : 'Logg inn for å åpne prosjektene dine'}
+          </div>
+        </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="password">Passord</Label>
-                  {!isSignUp && (
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-xs text-primary hover:underline"
-                      disabled={loading}
-                    >
-                      Glemt passord?
-                    </button>
-                  )}
-                </div>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ padding: '0 30px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {isSignUp && (
+            <Field label="Navn" value={name} onChange={setName} placeholder="Ola Nordmann" autoComplete="name" disabled={loading} />
+          )}
+          <Field label="E-post" type="email" value={email} onChange={setEmail} placeholder="din@epost.no" autoComplete="username" disabled={loading} />
+          <Field label="Passord" type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={isSignUp ? 'new-password' : 'current-password'} disabled={loading} />
 
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={loading}
+          {!isSignUp && (
+            <div style={{ textAlign: 'right', margin: '-4px 2px 4px' }}>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                style={{ fontSize: 12.5, color: 'var(--muted-fg)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isSignUp ? 'Oppretter konto...' : 'Logger inn...'}
-                  </>
-                ) : (
-                  isSignUp ? 'Opprett konto' : 'Logg inn'
-                )}
-              </Button>
+                Glemt passord?
+              </button>
+            </div>
+          )}
 
-              <div className="space-y-2">
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setIsSignUp(!isSignUp)}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                    disabled={loading}
-                  >
-                    {isSignUp 
-                      ? 'Har du allerede en konto? Logg inn' 
-                      : 'Har du ikke konto? Opprett en'
-                    }
-                  </button>
-                </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              height: 52, borderRadius: 14, border: 'none',
+              background: 'var(--fg)', color: 'var(--bg)',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-ui)', fontSize: 15, fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading && <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} className="animate-spin" />}
+            {isSignUp ? 'Opprett konto' : 'Logg inn'}
+          </button>
+        </form>
 
-                {/* Test login button */}
-                <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={handleTestLogin}
-                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                    disabled={loading}
-                  >
-                    Fyll inn testdata
-                  </button>
-                </div>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <div style={{ flex: 1 }} />
+
+        {/* Bottom links */}
+        <div style={{ padding: '20px 30px 40px', textAlign: 'center', fontSize: 13, color: 'var(--muted-fg)' }}>
+          {isSignUp ? 'Har du allerede en konto? ' : 'Ingen konto? '}
+          <button
+            type="button"
+            onClick={() => setIsSignUp(v => !v)}
+            style={{ color: 'var(--fg)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 13 }}
+          >
+            {isSignUp ? 'Logg inn' : 'Opprett en'}
+          </button>
+        </div>
       </div>
 
       {/* Forgot Password Dialog */}
@@ -247,23 +227,11 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
               />
             </div>
             <div className="flex justify-end gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setShowForgotPassword(false)}
-                disabled={resetLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)} disabled={resetLoading}>
                 Avbryt
               </Button>
               <Button type="submit" disabled={resetLoading}>
-                {resetLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sender...
-                  </>
-                ) : (
-                  'Send tilbakestillingslenke'
-                )}
+                {resetLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sender...</> : 'Send tilbakestillingslenke'}
               </Button>
             </div>
           </form>

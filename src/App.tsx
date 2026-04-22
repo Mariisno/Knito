@@ -13,17 +13,13 @@ import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { DiagnosticTest } from './components/DiagnosticTest';
 import { PasswordResetAdmin } from './components/PasswordResetAdmin';
 import { PasswordResetFlow } from './components/PasswordResetFlow';
-import { Button } from './components/ui/button';
-// Card imports kept for other components
+import { BottomTabBar } from './components/BottomTabBar';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Plus, Loader2, LogOut, Moon, Sun, Download, Settings } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './components/ui/dropdown-menu';
+import { Loader2 } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useProjects } from './hooks/useProjects';
-import { useProjectStats } from './hooks/useProjectStats';
 import type { KnittingProject, NeedleInventoryItem, Yarn } from './types/knitting';
 import { exportAllDataAsJSON } from './utils/export';
 
@@ -84,7 +80,6 @@ function AppContent() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('prosjekter');
 
-  const stats = useProjectStats(projects, standaloneYarns);
   const loading = authLoading || dataLoading;
 
   useEffect(() => {
@@ -109,10 +104,10 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Laster...</p>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Loader2 className="animate-spin" style={{ width: 48, height: 48, color: 'var(--primary)', margin: '0 auto 16px' }} />
+          <p style={{ color: 'var(--muted-fg)', fontFamily: 'var(--font-ui)' }}>Laster...</p>
         </div>
       </div>
     );
@@ -120,87 +115,83 @@ function AppContent() {
 
   if (!user) {
     return (
-      <>
+      <div style={{
+        width: '100%', maxWidth: 480, minHeight: '100vh',
+        background: 'var(--bg)',
+        boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 24px 48px -12px rgba(45,37,32,0.15)',
+      }}>
         <Toaster />
         <AuthForm />
-      </>
+      </div>
     );
   }
 
   const dashboard = (
-    <div className="container mx-auto px-4 py-6 max-w-7xl">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <h1 className="text-foreground text-xl">Knito</h1>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsAddDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" title="Nytt prosjekt (N)">
-            <Plus className="mr-2 h-4 w-4" />
-            Nytt prosjekt
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-border h-10 w-10 p-0" title="Innstillinger">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={toggleTheme}>
-                {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
-                {theme === 'light' ? 'Mørkt tema' : 'Lyst tema'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', fontFamily: 'var(--font-ui)' }}>
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {activeTab === 'prosjekter' && (
+          <ErrorBoundary>
+            <ProjectList
+              projects={projects}
+              onSelectProject={(id) => navigate(`/projects/${id}`)}
+              onProgressChange={changeProgress}
+              onNewProject={() => setIsAddDialogOpen(true)}
+              onSignOut={handleSignOut}
+              onToggleTheme={toggleTheme}
+              theme={theme}
+              onExport={() => {
                 exportAllDataAsJSON(projects, standaloneYarns, needleInventory);
                 toast.success('Sikkerhetskopi lastet ned');
-              }}>
-                <Download className="mr-2 h-4 w-4" />
-                Last ned sikkerhetskopi
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Logg ut
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              }}
+            />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'garnlager' && (
+          <ErrorBoundary>
+            <YarnInventory
+              projects={projects}
+              standaloneYarns={standaloneYarns}
+              onUpdateStandaloneYarns={updateStandaloneYarns}
+            />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'verktoy' && (
+          <ErrorBoundary>
+            <NeedleInventory
+              projects={projects}
+              needleInventory={needleInventory}
+              onUpdateNeedleInventory={updateNeedleInventory}
+            />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'statistikk' && (
+          <ErrorBoundary>
+            <StatisticsView projects={projects} />
+          </ErrorBoundary>
+        )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-card border border-border w-full">
-          <TabsTrigger value="prosjekter" className="flex-1">Prosjekter</TabsTrigger>
-          <TabsTrigger value="garnlager" className="flex-1">Garnlager</TabsTrigger>
-          <TabsTrigger value="verktoy" className="flex-1">Verktøy</TabsTrigger>
-          <TabsTrigger value="statistikk" className="flex-1">Statistikk</TabsTrigger>
-        </TabsList>
-        <div className="mt-4">
-          <TabsContent value="prosjekter">
-            <ErrorBoundary>
-              <ProjectList projects={projects} onSelectProject={(id) => navigate(`/projects/${id}`)} onProgressChange={changeProgress} />
-            </ErrorBoundary>
-          </TabsContent>
-          <TabsContent value="garnlager">
-            <ErrorBoundary>
-              <YarnInventory projects={projects} standaloneYarns={standaloneYarns} onUpdateStandaloneYarns={updateStandaloneYarns} />
-            </ErrorBoundary>
-          </TabsContent>
-          <TabsContent value="verktoy">
-            <ErrorBoundary>
-              <NeedleInventory projects={projects} needleInventory={needleInventory} onUpdateNeedleInventory={updateNeedleInventory} />
-            </ErrorBoundary>
-          </TabsContent>
-          <TabsContent value="statistikk">
-            <ErrorBoundary>
-              <StatisticsView projects={projects} />
-            </ErrorBoundary>
-          </TabsContent>
-        </div>
-      </Tabs>
+      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <AddProjectDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onAddProject={handleAddProject} />
+      <AddProjectDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onAddProject={handleAddProject}
+        accessToken={accessToken!}
+        standaloneYarns={standaloneYarns}
+      />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div style={{
+      width: '100%',
+      maxWidth: 480,
+      height: '100vh',
+      overflow: 'hidden',
+      background: 'var(--bg)',
+      boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 24px 48px -12px rgba(45,37,32,0.15)',
+    }}>
       <PWAMeta />
       <Toaster />
 
@@ -225,10 +216,6 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ErrorBoundary>
-
-      <footer className="text-center py-4 text-sm text-muted-foreground">
-        v1.0.0 - Oppdatert: 11. april 2026
-      </footer>
     </div>
   );
 }
@@ -248,8 +235,7 @@ export default function App() {
 
   const isResetFlow = showPasswordReset ||
                       window.location.hash.includes('reset-password') ||
-                      window.location.hash.includes('type=recovery') ||
-                      window.location.hash.includes('access_token');
+                      window.location.hash.includes('type=recovery');
 
   if (isResetFlow) {
     return (

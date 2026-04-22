@@ -23,6 +23,10 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [showYarnPicker, setShowYarnPicker] = useState(false);
+  const [showNewYarnForm, setShowNewYarnForm] = useState(false);
+  const [newYarnName, setNewYarnName] = useState('');
+  const [newYarnColor, setNewYarnColor] = useState('');
+  const [newYarnAmount, setNewYarnAmount] = useState('');
 
   const reset = () => {
     setName('');
@@ -31,6 +35,10 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setUploadedPdf(null);
     setSelectedYarns([]);
     setShowYarnPicker(false);
+    setShowNewYarnForm(false);
+    setNewYarnName('');
+    setNewYarnColor('');
+    setNewYarnAmount('');
   };
 
   const handleClose = () => {
@@ -94,6 +102,21 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
         ? prev.filter(y => y.id !== yarn.id)
         : [...prev, yarn]
     );
+  };
+
+  const handleAddNewYarn = () => {
+    if (!newYarnName.trim()) return;
+    const newYarn: Yarn = {
+      id: crypto.randomUUID(),
+      name: newYarnName.trim(),
+      color: newYarnColor.trim() || undefined,
+      amount: newYarnAmount.trim() || undefined,
+    };
+    setSelectedYarns(prev => [...prev, newYarn]);
+    setNewYarnName('');
+    setNewYarnColor('');
+    setNewYarnAmount('');
+    setShowNewYarnForm(false);
   };
 
   if (!open) return null;
@@ -202,38 +225,69 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
         )}
 
         {/* yarn picker toggle */}
-        {standaloneYarns.length > 0 ? (
-          <>
-            <button onClick={() => setShowYarnPicker(v => !v)} style={{ width: '100%', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-              <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              Velg fra lager eller legg til nytt
-            </button>
-            {showYarnPicker && (
-              <div style={{ marginTop: 8, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-                {standaloneYarns.map((y, i) => {
-                  const picked = selectedYarns.some(s => s.id === y.id);
-                  return (
-                    <button key={y.id} onClick={() => toggleYarn(y)} style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '12px 14px', border: 'none', background: picked ? 'var(--accent)' : 'transparent',
-                      borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{y.name}</div>
-                        <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[y.brand, y.color, y.amount].filter(Boolean).join(' · ')}</div>
-                      </div>
-                      {picked && <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                    </button>
-                  );
-                })}
+        <button onClick={() => setShowYarnPicker(v => !v)} style={{ width: '100%', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Velg fra lager eller legg til nytt
+        </button>
+
+        {showYarnPicker && (
+          <div style={{ marginTop: 8, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            {/* existing inventory yarns */}
+            {standaloneYarns.map((y, i) => {
+              const picked = selectedYarns.some(s => s.id === y.id);
+              return (
+                <button key={y.id} onClick={() => toggleYarn(y)} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '12px 14px', border: 'none', background: picked ? 'var(--accent)' : 'transparent',
+                  borderBottom: '1px solid var(--border)',
+                  cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                }}>
+                  {y.color && <div style={{ width: 20, height: 20, borderRadius: 999, background: y.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{y.name}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[y.brand, y.color, y.amount].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  {picked && <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                </button>
+              );
+            })}
+
+            {/* add new yarn inline */}
+            {showNewYarnForm ? (
+              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input
+                  autoFocus
+                  placeholder="Garnnavn *"
+                  value={newYarnName}
+                  onChange={e => setNewYarnName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddNewYarn(); if (e.key === 'Escape') setShowNewYarnForm(false); }}
+                  style={{ width: '100%', height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    placeholder="Farge"
+                    value={newYarnColor}
+                    onChange={e => setNewYarnColor(e.target.value)}
+                    style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
+                  />
+                  <input
+                    placeholder="Mengde"
+                    value={newYarnAmount}
+                    onChange={e => setNewYarnAmount(e.target.value)}
+                    style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={handleAddNewYarn} disabled={!newYarnName.trim()} style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnName.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: newYarnName.trim() ? 1 : 0.4 }}>Legg til</button>
+                  <button onClick={() => setShowNewYarnForm(false)} style={{ height: 38, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Avbryt</button>
+                </div>
               </div>
+            ) : (
+              <button onClick={() => setShowNewYarnForm(true)} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Legg til nytt garn
+              </button>
             )}
-          </>
-        ) : (
-          <div style={{ padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5 }}>
-            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-            Velg fra lager eller legg til nytt
           </div>
         )}
       </div>

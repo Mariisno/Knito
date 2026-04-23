@@ -3,7 +3,7 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
 
@@ -260,11 +260,12 @@ interface ProjectListProps {
   onToggleTheme: () => void;
   theme: string;
   onExport: () => void;
+  onPrivacy: () => void;
 }
 
 export function ProjectList({
   projects, onSelectProject, onProgressChange,
-  onNewProject, onSignOut, onToggleTheme, theme, onExport,
+  onNewProject, onSignOut, onToggleTheme, theme, onExport, onPrivacy,
 }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
@@ -369,6 +370,10 @@ export function ProjectList({
             <DropdownMenuItem onClick={onExport}>
               <Download className="mr-2 h-4 w-4" />
               Last ned sikkerhetskopi
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onPrivacy}>
+              <Shield className="mr-2 h-4 w-4" />
+              Personvern og vilkår
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">

@@ -14,6 +14,7 @@ import { DiagnosticTest } from './components/DiagnosticTest';
 import { PasswordResetAdmin } from './components/PasswordResetAdmin';
 import { PasswordResetFlow } from './components/PasswordResetFlow';
 import { BottomTabBar } from './components/BottomTabBar';
+import { PrivacyDialog } from './components/PrivacyDialog';
 
 import { Loader2 } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
@@ -78,6 +79,7 @@ function AppContent() {
   } = useProjects(accessToken);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('prosjekter');
 
   const loading = authLoading || dataLoading;
@@ -143,6 +145,7 @@ function AppContent() {
                 exportAllDataAsJSON(projects, standaloneYarns, needleInventory);
                 toast.success('Sikkerhetskopi lastet ned');
               }}
+              onPrivacy={() => setIsPrivacyOpen(true)}
             />
           </ErrorBoundary>
         )}
@@ -179,6 +182,16 @@ function AppContent() {
         onAddProject={handleAddProject}
         accessToken={accessToken!}
         standaloneYarns={standaloneYarns}
+      />
+
+      <PrivacyDialog
+        open={isPrivacyOpen}
+        onOpenChange={setIsPrivacyOpen}
+        projects={projects}
+        standaloneYarns={standaloneYarns}
+        needleInventory={needleInventory}
+        accessToken={accessToken!}
+        onAccountDeleted={handleSignOut}
       />
     </div>
   );

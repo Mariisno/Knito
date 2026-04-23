@@ -3,8 +3,9 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
 
 // ---------- Icons ----------
 const SearchIcon = () => (
@@ -269,6 +270,8 @@ export function ProjectList({
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [, startTransition] = useTransition();
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
+  const [unseenRelease, setUnseenRelease] = useState(hasUnseenRelease);
   const { user } = useAuth();
   const firstName = user?.name ? user.name.split(' ')[0] : user?.email?.split('@')[0] ?? '';
 
@@ -327,11 +330,36 @@ export function ProjectList({
               border: '1px solid var(--border)', background: 'transparent',
               color: 'var(--fg)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              position: 'relative',
             }}>
               <SettingsIcon />
+              {unseenRelease && (
+                <span style={{
+                  position: 'absolute', top: 5, right: 5,
+                  width: 7, height: 7, borderRadius: 999,
+                  background: 'var(--primary)',
+                  border: '1.5px solid var(--bg)',
+                }} />
+              )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onClick={() => {
+              setReleaseNotesOpen(true);
+              setUnseenRelease(false);
+              markVersionAsSeen();
+            }}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Hva er nytt?
+              {unseenRelease && (
+                <span style={{
+                  marginLeft: 'auto',
+                  width: 7, height: 7, borderRadius: 999,
+                  background: 'var(--primary)', flexShrink: 0,
+                }} />
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onToggleTheme}>
               {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
               {theme === 'light' ? 'Mørkt tema' : 'Lyst tema'}
@@ -347,6 +375,11 @@ export function ProjectList({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <ReleaseNotesDialog open={releaseNotesOpen} onOpenChange={(val) => {
+          setReleaseNotesOpen(val);
+          if (!val) setUnseenRelease(false);
+        }} />
       </div>
 
       {/* Search */}

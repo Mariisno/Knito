@@ -310,14 +310,16 @@ export function ProjectList({
       {/* Header */}
       <div style={{ padding: '12px 20px 8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
-            Knito
-          </div>
-          {firstName && (
-            <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 500, marginBottom: 2, letterSpacing: 0.2 }}>
-              Hei, {firstName}!
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase' }}>
+              Knito
             </div>
-          )}
+            {firstName && (
+              <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 500, letterSpacing: 0.3 }}>
+                Hei, {firstName}!
+              </div>
+            )}
+          </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>
             Prosjekter
           </div>

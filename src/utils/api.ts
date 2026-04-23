@@ -169,13 +169,26 @@ export async function updateNeedleInventory(needles: NeedleInventoryItem[], acce
     headers: getHeaders(accessToken),
     body: JSON.stringify({ needles }),
   });
-  
+
   if (!response.ok) {
     const error = await response.text();
     console.error('Error updating needle inventory:', error);
     throw new Error('Failed to update needle inventory');
   }
-  
+
   const data = await response.json();
   return data.needles;
+}
+
+export async function deleteAccount(accessToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/account`, {
+    method: 'DELETE',
+    headers: getHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error deleting account:', error);
+    throw new Error('Failed to delete account');
+  }
 }

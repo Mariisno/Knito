@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { TermsDialog } from './TermsDialog';
 
 // KnitoMark — small square logo
 function KnitoMark({ s = 32 }: { s?: number }) {
@@ -77,6 +78,8 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +87,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
     try {
       if (isSignUp) {
         if (!name.trim()) { toast.error('Vennligst skriv inn navn'); return; }
+        if (!termsAccepted) { toast.error('Du må godta brukervilkårene for å opprette konto'); return; }
         await onSignUp(email, password, name);
         toast.success('Konto opprettet! Du er nå logget inn.');
       } else {
@@ -172,16 +176,46 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
             </div>
           )}
 
+          {isSignUp && (
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '4px 2px', cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={e => setTermsAccepted(e.target.checked)}
+                disabled={loading}
+                style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, cursor: 'pointer', accentColor: 'var(--primary)' }}
+              />
+              <span style={{ fontSize: 13, color: 'var(--muted-fg)', lineHeight: 1.45 }}>
+                Jeg godtar{' '}
+                <button
+                  type="button"
+                  onClick={e => { e.preventDefault(); setShowTerms(true); }}
+                  style={{
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    color: 'var(--fg)', fontWeight: 600, fontSize: 13,
+                    fontFamily: 'var(--font-ui)', textDecoration: 'underline',
+                  }}
+                >
+                  brukervilkårene
+                </button>
+                {' '}og personvernerklæringen
+              </span>
+            </label>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (isSignUp && !termsAccepted)}
             style={{
               height: 52, borderRadius: 14, border: 'none',
               background: 'var(--fg)', color: 'var(--bg)',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: (loading || (isSignUp && !termsAccepted)) ? 'not-allowed' : 'pointer',
               fontFamily: 'var(--font-ui)', fontSize: 15, fontWeight: 600,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              opacity: loading ? 0.7 : 1,
+              opacity: (loading || (isSignUp && !termsAccepted)) ? 0.5 : 1,
             }}
           >
             {loading && <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} className="animate-spin" />}
@@ -196,13 +230,15 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
           {isSignUp ? 'Har du allerede en konto? ' : 'Ingen konto? '}
           <button
             type="button"
-            onClick={() => setIsSignUp(v => !v)}
+            onClick={() => { setIsSignUp(v => !v); setTermsAccepted(false); }}
             style={{ color: 'var(--fg)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 13 }}
           >
             {isSignUp ? 'Logg inn' : 'Opprett en'}
           </button>
         </div>
       </div>
+
+      <TermsDialog open={showTerms} onOpenChange={setShowTerms} />
 
       {/* Forgot Password Dialog */}
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>

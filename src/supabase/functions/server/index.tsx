@@ -299,6 +299,34 @@ app.put('/make-server-b06c9f7a/needle-inventory', async (c) => {
   }
 });
 
+// Delete account: removes all user data and auth account
+app.delete('/make-server-b06c9f7a/account', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Delete all KV data belonging to this user
+    await supabaseAdmin
+      .from('kv_store_b06c9f7a')
+      .delete()
+      .like('key', `%:${userId}%`);
+
+    // Delete auth user
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (deleteError) {
+      console.error('Error deleting auth user:', deleteError);
+      return c.json({ error: 'Failed to delete account' }, 500);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    return c.json({ error: 'Failed to delete account' }, 500);
+  }
+});
+
 // Admin: Reset password for a user (temporary development solution)
 app.post('/make-server-b06c9f7a/admin/reset-password', async (c) => {
   try {

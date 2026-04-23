@@ -3,7 +3,7 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles, Shield } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
 
@@ -32,12 +32,6 @@ const ListIcon = () => (
 const PlusIcon = () => (
   <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <path d="M12 5v14M5 12h14"/>
-  </svg>
-);
-const SettingsIcon = () => (
-  <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>
   </svg>
 );
 const DocIcon = () => (
@@ -335,7 +329,7 @@ export function ProjectList({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               position: 'relative',
             }}>
-              <SettingsIcon />
+              <CircleUserRound size={18} />
               {unseenRelease && (
                 <span style={{
                   position: 'absolute', top: 5, right: 5,

@@ -9,6 +9,8 @@ export const CHANGELOG: ReleaseEntry[] = [
     version: '1.4.0',
     date: '2026-04-23',
     changes: [
+      { type: 'ny', text: 'Legg til pinner når du oppretter et nytt prosjekt – velg fra pinneskapet eller legg til nytt' },
+      { type: 'ny', text: 'Nytt garn og nye pinner kan lagres direkte til lageret når du oppretter et prosjekt' },
       { type: 'forbedring', text: 'Forsidebilde kan nå endres direkte fra prosjektsiden' },
       { type: 'forbedring', text: 'Oppskrift støtter nå PDF, Word og bildefiler – ikke bare PDF' },
       { type: 'forbedring', text: 'Oppskriften kan byttes eller fjernes via menyen på prosjektsiden' },

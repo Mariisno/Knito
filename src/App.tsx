@@ -182,6 +182,9 @@ function AppContent() {
         onAddProject={handleAddProject}
         accessToken={accessToken!}
         standaloneYarns={standaloneYarns}
+        needleInventory={needleInventory}
+        onUpdateStandaloneYarns={updateStandaloneYarns}
+        onUpdateNeedleInventory={updateNeedleInventory}
       />
 
       <PrivacyDialog

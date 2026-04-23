@@ -6,6 +6,13 @@ export interface ReleaseEntry {
 
 export const CHANGELOG: ReleaseEntry[] = [
   {
+    version: '1.4.1',
+    date: '2026-04-23',
+    changes: [
+      { type: 'forbedring', text: 'Knappen øverst til høyre har fått et brukerikon som bedre viser hva menyen inneholder' },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-04-23',
     changes: [

@@ -59,6 +59,9 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadingImg, setUploadingImg] = useState(false);
   const [noteInput, setNoteInput] = useState('');
+  const [logImageFile, setLogImageFile] = useState<File | null>(null);
+  const [logImagePreview, setLogImagePreview] = useState<string | null>(null);
+  const [uploadingLogImg, setUploadingLogImg] = useState(false);
   const [showDateEdit, setShowDateEdit] = useState(false);
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
@@ -69,6 +72,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [currentTime, setCurrentTime] = useState(new Date());
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const logImgInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
@@ -139,11 +143,36 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     finally { setUploadingImg(false); e.target.value = ''; }
   };
 
-  const handleAddNote = () => {
-    if (!noteInput.trim()) return;
-    const entry: LogEntry = { id: crypto.randomUUID(), text: noteInput.trim(), timestamp: new Date() };
-    handleUpdate({ logEntries: [entry, ...(editedProject.logEntries || [])] });
-    setNoteInput('');
+  const handleLogImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (logImagePreview) URL.revokeObjectURL(logImagePreview);
+    setLogImageFile(file);
+    setLogImagePreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const handleAddNote = async () => {
+    const trimmedText = noteInput.trim();
+    if (!trimmedText && !logImageFile) return;
+    setUploadingLogImg(true);
+    try {
+      let imageUrl: string | undefined;
+      if (logImageFile) {
+        imageUrl = await api.uploadImage(logImageFile, accessToken);
+      }
+      const entry: LogEntry = {
+        id: crypto.randomUUID(),
+        ...(trimmedText ? { text: trimmedText } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+        timestamp: new Date(),
+      };
+      handleUpdate({ logEntries: [entry, ...(editedProject.logEntries || [])] });
+      setNoteInput('');
+      setLogImageFile(null);
+      if (logImagePreview) { URL.revokeObjectURL(logImagePreview); setLogImagePreview(null); }
+    } catch { toast.error('Kunne ikke laste opp bilde'); }
+    finally { setUploadingLogImg(false); }
   };
 
   const handleAddCounter = () => {
@@ -498,27 +527,81 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
       {/* LOG ENTRIES + INPUT */}
       <div style={{ padding: '14px 20px 2px' }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500, padding: '0 2px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <span>Logg</span>
+          {(editedProject.logEntries || []).length > 0 && (
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{editedProject.logEntries!.length}</span>
+          )}
+        </div>
+
         {(editedProject.logEntries || []).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
             {(editedProject.logEntries || []).map(e => (
-              <div key={e.id} style={{ padding: '10px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12 }}>
-                <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: 4 }}>
-                  {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+              <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                {e.imageUrl && (
+                  <img
+                    src={e.imageUrl}
+                    alt=""
+                    style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }}
+                  />
+                )}
+                <div style={{ padding: '10px 14px' }}>
+                  {e.text && (
+                    <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>
+                  )}
+                  <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: e.text ? 4 : 0 }}>
+                    {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8 }}>
+
+        {logImagePreview && (
+          <div style={{ position: 'relative', marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <img
+              src={logImagePreview}
+              alt="Forhåndsvisning"
+              style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }}
+            />
+            <button
+              onClick={() => { if (logImagePreview) URL.revokeObjectURL(logImagePreview); setLogImagePreview(null); setLogImageFile(null); }}
+              style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 999, border: 'none', background: 'color-mix(in oklab, #000 55%, transparent)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1 }}
+              aria-label="Fjern bilde"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <input ref={logImgInputRef} type="file" accept="image/*" onChange={handleLogImageSelect} style={{ display: 'none' }} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => logImgInputRef.current?.click()}
+            disabled={uploadingLogImg}
+            style={{ width: 44, height: 44, borderRadius: 12, border: '1px solid var(--border)', background: logImageFile ? 'var(--accent)' : 'var(--card)', color: logImageFile ? 'var(--fg)' : 'var(--muted-fg)', cursor: uploadingLogImg ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: uploadingLogImg ? 0.5 : 1 }}
+            aria-label="Legg ved bilde"
+            title="Legg ved bilde"
+          >
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
           <input
             value={noteInput}
             onChange={e => setNoteInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !uploadingLogImg) { e.preventDefault(); handleAddNote(); } }}
             placeholder="Logg en notis..."
             style={{ flex: 1, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
           />
-          <button onClick={handleAddNote} disabled={!noteInput.trim()} style={{ height: 44, padding: '0 18px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: noteInput.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: noteInput.trim() ? 1 : 0.35 }}>
+          <button
+            onClick={handleAddNote}
+            disabled={uploadingLogImg || (!noteInput.trim() && !logImageFile)}
+            style={{ height: 44, padding: '0 18px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: (uploadingLogImg || (!noteInput.trim() && !logImageFile)) ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: (uploadingLogImg || (!noteInput.trim() && !logImageFile)) ? 0.35 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            {uploadingLogImg && <Loader2 className="animate-spin" style={{ width: 13, height: 13 }} />}
             Send
           </button>
         </div>

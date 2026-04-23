@@ -81,7 +81,10 @@ export function exportProjectAsText(project: KnittingProject): string {
     lines.push('');
     lines.push('## Logg');
     project.logEntries.forEach(e => {
-      lines.push(`- [${new Date(e.timestamp).toLocaleDateString('nb-NO')}] ${e.text}`);
+      const parts: string[] = [];
+      if (e.text) parts.push(e.text);
+      if (e.imageUrl) parts.push('[bilde]');
+      lines.push(`- [${new Date(e.timestamp).toLocaleDateString('nb-NO')}] ${parts.join(' ')}`);
     });
   }
 

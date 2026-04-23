@@ -6,6 +6,15 @@ export interface ReleaseEntry {
 
 export const CHANGELOG: ReleaseEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-04-23',
+    changes: [
+      { type: 'forbedring', text: 'Forsidebilde kan nå endres direkte fra prosjektsiden' },
+      { type: 'forbedring', text: 'Oppskrift støtter nå PDF, Word og bildefiler – ikke bare PDF' },
+      { type: 'forbedring', text: 'Oppskriften kan byttes eller fjernes via menyen på prosjektsiden' },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-04-23',
     changes: [

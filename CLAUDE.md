@@ -69,3 +69,33 @@ Tailwind CSS v4 with custom theme tokens defined in `src/styles/globals.css`. Li
 ### Deployment
 
 Deployed to Vercel. `vercel.json` rewrites all routes to `index.html` for SPA support. Build output goes to `build/`.
+
+## Changelog / Versjonslogg
+
+**Every PR that changes user-visible functionality must update `src/data/changelog.ts`.**
+
+The file exports a `CHANGELOG` array and `LATEST_VERSION`. When a PR adds features, fixes bugs, or improves the UI:
+
+1. Bump `LATEST_VERSION` (semver: patch for fixes, minor for new features, major for breaking changes).
+2. Add a new entry at the **top** of the `CHANGELOG` array:
+
+```ts
+{
+  version: '1.x.y',
+  date: 'YYYY-MM-DD',   // today's date
+  changes: [
+    { type: 'ny',          text: 'Kort beskrivelse på norsk (bokmål)' },
+    { type: 'forbedring',  text: '...' },
+    { type: 'fiks',        text: '...' },
+  ],
+},
+```
+
+Change types:
+- `ny` — new feature
+- `forbedring` — improvement to existing feature
+- `fiks` — bug fix
+
+Keep descriptions short and user-facing (what the user gains, not implementation details). Language is Norwegian bokmål.
+
+PRs that only touch infrastructure, config, or CLAUDE.md do not need a changelog entry.

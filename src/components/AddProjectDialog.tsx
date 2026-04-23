@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import type { KnittingProject, Yarn } from '../types/knitting';
+import type { KnittingProject, Yarn, Needle, NeedleInventoryItem } from '../types/knitting';
 import * as api from '../utils/api';
+
+const NEEDLE_TYPES = ['Rundpinne', 'Strømpepinne', 'Settpinner', 'Utskiftbar', 'Heklenål', 'Annet'];
 
 interface AddProjectDialogProps {
   open: boolean;
@@ -10,11 +12,14 @@ interface AddProjectDialogProps {
   onAddProject: (project: Omit<KnittingProject, 'id' | 'createdAt'>) => void;
   accessToken: string;
   standaloneYarns: Yarn[];
+  needleInventory: NeedleInventoryItem[];
+  onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
+  onUpdateNeedleInventory: (needles: NeedleInventoryItem[]) => void;
 }
 
 const CATEGORIES = ['Genser', 'Sjal', 'Sokker', 'Kofte', 'Teppe', 'Lue', 'Annet'];
 
-export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken, standaloneYarns }: AddProjectDialogProps) {
+export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken, standaloneYarns, needleInventory, onUpdateStandaloneYarns, onUpdateNeedleInventory }: AddProjectDialogProps) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -27,6 +32,16 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   const [newYarnName, setNewYarnName] = useState('');
   const [newYarnColor, setNewYarnColor] = useState('');
   const [newYarnAmount, setNewYarnAmount] = useState('');
+  const [saveYarnToInventory, setSaveYarnToInventory] = useState(false);
+
+  const [selectedNeedles, setSelectedNeedles] = useState<Needle[]>([]);
+  const [showNeedlePicker, setShowNeedlePicker] = useState(false);
+  const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
+  const [newNeedleSize, setNewNeedleSize] = useState('');
+  const [newNeedleType, setNewNeedleType] = useState('Rundpinne');
+  const [newNeedleLength, setNewNeedleLength] = useState('');
+  const [newNeedleMaterial, setNewNeedleMaterial] = useState('');
+  const [saveNeedleToInventory, setSaveNeedleToInventory] = useState(false);
 
   const reset = () => {
     setName('');
@@ -39,6 +54,15 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setNewYarnName('');
     setNewYarnColor('');
     setNewYarnAmount('');
+    setSaveYarnToInventory(false);
+    setSelectedNeedles([]);
+    setShowNeedlePicker(false);
+    setShowNewNeedleForm(false);
+    setNewNeedleSize('');
+    setNewNeedleType('Rundpinne');
+    setNewNeedleLength('');
+    setNewNeedleMaterial('');
+    setSaveNeedleToInventory(false);
   };
 
   const handleClose = () => {
@@ -54,8 +78,8 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
       progress: 0,
       status: 'Planlagt',
       images: uploadedImages,
-      yarns: selectedYarns.map(y => ({ ...y, id: crypto.randomUUID(), standaloneYarnId: y.id })),
-      needles: [],
+      yarns: selectedYarns.map(y => ({ ...y, id: crypto.randomUUID(), standaloneYarnId: y.standaloneYarnId ?? y.id })),
+      needles: selectedNeedles,
       counters: [],
       ...(uploadedPdf ? { pattern: { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } } : {}),
     });
@@ -106,17 +130,77 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
 
   const handleAddNewYarn = () => {
     if (!newYarnName.trim()) return;
+    const id = crypto.randomUUID();
     const newYarn: Yarn = {
-      id: crypto.randomUUID(),
+      id,
       name: newYarnName.trim(),
       color: newYarnColor.trim() || undefined,
       amount: newYarnAmount.trim() || undefined,
     };
-    setSelectedYarns(prev => [...prev, newYarn]);
+    if (saveYarnToInventory) {
+      onUpdateStandaloneYarns([...standaloneYarns, newYarn]);
+      setSelectedYarns(prev => [...prev, { ...newYarn, standaloneYarnId: id }]);
+    } else {
+      setSelectedYarns(prev => [...prev, newYarn]);
+    }
     setNewYarnName('');
     setNewYarnColor('');
     setNewYarnAmount('');
+    setSaveYarnToInventory(false);
     setShowNewYarnForm(false);
+  };
+
+  const toggleNeedle = (item: NeedleInventoryItem) => {
+    setSelectedNeedles(prev => {
+      const already = prev.some(n => n.inventoryNeedleId === item.id);
+      if (already) return prev.filter(n => n.inventoryNeedleId !== item.id);
+      return [...prev, {
+        id: crypto.randomUUID(),
+        size: item.size,
+        type: item.type,
+        length: item.length,
+        material: item.material,
+        inventoryNeedleId: item.id,
+      }];
+    });
+  };
+
+  const handleAddNewNeedle = () => {
+    if (!newNeedleSize.trim()) return;
+    const needleId = crypto.randomUUID();
+    if (saveNeedleToInventory) {
+      const inventoryItem: NeedleInventoryItem = {
+        id: needleId,
+        size: newNeedleSize.trim(),
+        type: newNeedleType,
+        length: newNeedleLength.trim() || undefined,
+        material: newNeedleMaterial.trim() || undefined,
+        quantity: 1,
+      };
+      onUpdateNeedleInventory([...needleInventory, inventoryItem]);
+      setSelectedNeedles(prev => [...prev, {
+        id: crypto.randomUUID(),
+        size: inventoryItem.size,
+        type: inventoryItem.type,
+        length: inventoryItem.length,
+        material: inventoryItem.material,
+        inventoryNeedleId: needleId,
+      }]);
+    } else {
+      setSelectedNeedles(prev => [...prev, {
+        id: crypto.randomUUID(),
+        size: newNeedleSize.trim(),
+        type: newNeedleType,
+        length: newNeedleLength.trim() || undefined,
+        material: newNeedleMaterial.trim() || undefined,
+      }]);
+    }
+    setNewNeedleSize('');
+    setNewNeedleType('Rundpinne');
+    setNewNeedleLength('');
+    setNewNeedleMaterial('');
+    setSaveNeedleToInventory(false);
+    setShowNewNeedleForm(false);
   };
 
   if (!open) return null;
@@ -233,7 +317,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
         {showYarnPicker && (
           <div style={{ marginTop: 8, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             {/* existing inventory yarns */}
-            {standaloneYarns.map((y, i) => {
+            {standaloneYarns.map((y) => {
               const picked = selectedYarns.some(s => s.id === y.id);
               return (
                 <button key={y.id} onClick={() => toggleYarn(y)} style={{
@@ -277,6 +361,26 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
                     style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
                   />
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--muted-fg)' }}>Lagre til garnskapet</span>
+                  <button
+                    onClick={() => setSaveYarnToInventory(v => !v)}
+                    style={{
+                      width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer',
+                      background: saveYarnToInventory ? 'var(--primary)' : 'var(--border)',
+                      position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 2,
+                      left: saveYarnToInventory ? 20 : 2,
+                      width: 18, height: 18, borderRadius: 999,
+                      background: 'white',
+                      transition: 'left 0.15s',
+                      display: 'block',
+                    }} />
+                  </button>
+                </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={handleAddNewYarn} disabled={!newYarnName.trim()} style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnName.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: newYarnName.trim() ? 1 : 0.4 }}>Legg til</button>
                   <button onClick={() => setShowNewYarnForm(false)} style={{ height: 38, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Avbryt</button>
@@ -290,6 +394,129 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
             )}
           </div>
         )}
+
+        {/* pinner */}
+        <div style={{ marginTop: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Pinner</div>
+
+          {/* selected needles */}
+          {selectedNeedles.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+              {selectedNeedles.map(n => (
+                <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                  <div style={{ flex: 1, fontSize: 13.5, fontWeight: 500 }}>{n.size} – {n.type}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[n.length, n.material].filter(Boolean).join(' · ')}</div>
+                  <button onClick={() => setSelectedNeedles(prev => prev.filter(x => x.id !== n.id))} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', cursor: 'pointer', padding: 2, display: 'flex' }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* needle picker toggle */}
+          <button onClick={() => setShowNeedlePicker(v => !v)} style={{ width: '100%', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Velg fra lager eller legg til ny pinne
+          </button>
+
+          {showNeedlePicker && (
+            <div style={{ marginTop: 8, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+              {/* existing inventory needles */}
+              {needleInventory.map((item) => {
+                const picked = selectedNeedles.some(n => n.inventoryNeedleId === item.id);
+                return (
+                  <button key={item.id} onClick={() => toggleNeedle(item)} style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '12px 14px', border: 'none',
+                    background: picked ? 'var(--accent)' : 'transparent',
+                    borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                      {item.size}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{item.size} – {item.type}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>
+                        {[item.length, item.material, item.quantity > 1 ? `×${item.quantity}` : undefined].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    {picked && <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </button>
+                );
+              })}
+
+              {/* add new needle inline */}
+              {showNewNeedleForm ? (
+                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {NEEDLE_TYPES.map(t => (
+                      <button key={t} onClick={() => setNewNeedleType(t)} style={{
+                        height: 28, padding: '0 10px', borderRadius: 999,
+                        border: '1px solid var(--border)',
+                        background: newNeedleType === t ? 'var(--fg)' : 'var(--card)',
+                        color: newNeedleType === t ? 'var(--bg)' : 'var(--fg)',
+                        fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                  <input
+                    autoFocus
+                    placeholder="Størrelse (f.eks. 4mm) *"
+                    value={newNeedleSize}
+                    onChange={e => setNewNeedleSize(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddNewNeedle(); if (e.key === 'Escape') setShowNewNeedleForm(false); }}
+                    style={{ width: '100%', height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      placeholder="Lengde"
+                      value={newNeedleLength}
+                      onChange={e => setNewNeedleLength(e.target.value)}
+                      style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
+                    />
+                    <input
+                      placeholder="Materiale"
+                      value={newNeedleMaterial}
+                      onChange={e => setNewNeedleMaterial(e.target.value)}
+                      style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--muted-fg)' }}>Lagre til pinneskapet</span>
+                    <button
+                      onClick={() => setSaveNeedleToInventory(v => !v)}
+                      style={{
+                        width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer',
+                        background: saveNeedleToInventory ? 'var(--primary)' : 'var(--border)',
+                        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute', top: 2,
+                        left: saveNeedleToInventory ? 20 : 2,
+                        width: 18, height: 18, borderRadius: 999,
+                        background: 'white',
+                        transition: 'left 0.15s',
+                        display: 'block',
+                      }} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={handleAddNewNeedle} disabled={!newNeedleSize.trim()} style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newNeedleSize.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: newNeedleSize.trim() ? 1 : 0.4 }}>Legg til</button>
+                    <button onClick={() => setShowNewNeedleForm(false)} style={{ height: 38, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Avbryt</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowNewNeedleForm(true)} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  Legg til ny pinne
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

@@ -6,6 +6,14 @@ export interface ReleaseEntry {
 
 export const CHANGELOG: ReleaseEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-04-23',
+    changes: [
+      { type: 'ny', text: 'Legg til pinner når du oppretter et nytt prosjekt – velg fra pinneskapet eller legg til nytt' },
+      { type: 'ny', text: 'Nytt garn og nye pinner kan lagres direkte til lageret når du oppretter et prosjekt' },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-04-23',
     changes: [

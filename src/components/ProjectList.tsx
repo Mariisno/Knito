@@ -4,6 +4,7 @@ import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Moon, Sun, Download, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 // ---------- Icons ----------
 const SearchIcon = () => (
@@ -268,6 +269,8 @@ export function ProjectList({
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [, startTransition] = useTransition();
+  const { user } = useAuth();
+  const firstName = user?.name ? user.name.split(' ')[0] : user?.email?.split('@')[0] ?? '';
 
   const FILTERS: Array<{ id: ProjectStatus | 'Alle'; label: string }> = [
     { id: 'Alle',     label: 'Alle' },
@@ -304,9 +307,14 @@ export function ProjectList({
       {/* Header */}
       <div style={{ padding: '12px 20px 8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
             Knito
           </div>
+          {firstName && (
+            <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 500, marginBottom: 2, letterSpacing: 0.2 }}>
+              Hei, {firstName}!
+            </div>
+          )}
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>
             Prosjekter
           </div>

@@ -72,6 +72,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [currentTime, setCurrentTime] = useState(new Date());
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const coverImgInputRef = useRef<HTMLInputElement>(null);
   const logImgInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,13 +122,12 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== 'application/pdf') { toast.error('Kun PDF-filer er støttet'); return; }
     setUploadingPdf(true);
     try {
       const url = await api.uploadImage(file, accessToken);
       handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: url, pdfName: file.name } });
-      toast.success('PDF lastet opp');
-    } catch { toast.error('Kunne ikke laste opp PDF'); }
+      toast.success('Oppskrift lastet opp');
+    } catch { toast.error('Kunne ikke laste opp oppskrift'); }
     finally { setUploadingPdf(false); e.target.value = ''; }
   };
 
@@ -139,6 +139,18 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       const url = await api.uploadImage(file, accessToken);
       handleUpdate({ images: [url, ...editedProject.images] });
       toast.success('Bilde lastet opp');
+    } catch { toast.error('Kunne ikke laste opp bilde'); }
+    finally { setUploadingImg(false); e.target.value = ''; }
+  };
+
+  const handleCoverImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImg(true);
+    try {
+      const url = await api.uploadImage(file, accessToken);
+      handleUpdate({ images: [url, ...editedProject.images.slice(1)] });
+      toast.success('Forsidebilde oppdatert');
     } catch { toast.error('Kunne ikke laste opp bilde'); }
     finally { setUploadingImg(false); e.target.value = ''; }
   };
@@ -244,6 +256,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           ? <img src={heroImage} alt={editedProject.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
           : <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
         }
+        <input ref={coverImgInputRef} type="file" accept="image/*" onChange={handleCoverImgUpload} style={{ display: 'none' }} />
         {/* top bar overlay */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px' }}>
           <button onClick={() => onBack()} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
@@ -253,6 +266,18 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
           </button>
         </div>
+        {/* camera button to change cover image */}
+        <button
+          onClick={() => coverImgInputRef.current?.click()}
+          disabled={uploadingImg}
+          title="Endre forsidebilde"
+          style={{ position: 'absolute', bottom: 12, right: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: uploadingImg ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)', opacity: uploadingImg ? 0.5 : 1 }}
+        >
+          {uploadingImg
+            ? <Loader2 className="animate-spin" style={{ width: 16, height: 16 }} />
+            : <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          }
+        </button>
         {/* status + category chips */}
         <div style={{ position: 'absolute', top: 60, left: 20, display: 'flex', gap: 8 }}>
           <div style={{ position: 'relative' }}>
@@ -339,6 +364,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
       {/* RECIPE */}
       <div style={{ padding: '8px 20px' }}>
+        <input ref={pdfInputRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp" onChange={handlePdfUpload} style={{ display: 'none' }} />
         {editedProject.pattern?.pdfUrl ? (
           <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
             display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
@@ -347,12 +373,12 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           }}>
             <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
               <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>PDF</div>
+              <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>{editedProject.pattern.pdfName?.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift.pdf'}
+                {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift'}
               </div>
               {editedProject.pattern.designer && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 3 }}>{editedProject.pattern.designer}</div>}
             </div>
@@ -365,11 +391,10 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>Ingen oppskrift lagt ved</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>Last opp en PDF-oppskrift</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>Last opp oppskrift (PDF, Word, bilde)</div>
             </div>
-            <input ref={pdfInputRef} type="file" accept=".pdf" onChange={handlePdfUpload} style={{ display: 'none' }} />
             <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} style={{ height: 32, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: uploadingPdf ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', opacity: uploadingPdf ? 0.5 : 1, flexShrink: 0 }}>
-              {uploadingPdf ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : '+ PDF'}
+              {uploadingPdf ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : '+ Last opp'}
             </button>
           </div>
         )}
@@ -626,9 +651,20 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div onClick={() => setShowMoreMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
+            <button onClick={() => { setShowMoreMenu(false); coverImgInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+              {heroImage ? 'Endre forsidebilde' : 'Legg til forsidebilde'}
+            </button>
+            {heroImage && (
+              <button onClick={() => { handleUpdate({ images: editedProject.images.slice(1) }); setShowMoreMenu(false); toast.success('Forsidebilde fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+                Fjern forsidebilde
+              </button>
+            )}
+            <button onClick={() => { setShowMoreMenu(false); pdfInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+              {editedProject.pattern?.pdfUrl ? 'Bytt oppskrift' : 'Legg til oppskrift'}
+            </button>
             {editedProject.pattern?.pdfUrl && (
-              <button onClick={() => { handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } }); setShowMoreMenu(false); toast.success('PDF fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                Fjern PDF
+              <button onClick={() => { handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } }); setShowMoreMenu(false); toast.success('Oppskrift fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+                Fjern oppskrift
               </button>
             )}
             <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>

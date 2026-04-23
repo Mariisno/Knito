@@ -51,7 +51,8 @@ export interface Counter {
 
 export interface LogEntry {
   id: string;
-  text: string;
+  text?: string;
+  imageUrl?: string;
   timestamp: Date;
 }
 

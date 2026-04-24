@@ -31,7 +31,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [showYarnPicker, setShowYarnPicker] = useState(false);
-  const [showNewYarnForm, setShowNewYarnForm] = useState(false);
+  const [showNewYarnModal, setShowNewYarnModal] = useState(false);
   const [newYarnName, setNewYarnName] = useState('');
   const [newYarnColor, setNewYarnColor] = useState('');
   const [newYarnAmount, setNewYarnAmount] = useState('');
@@ -39,7 +39,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
 
   const [selectedNeedles, setSelectedNeedles] = useState<Needle[]>([]);
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
-  const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
+  const [showNewNeedleModal, setShowNewNeedleModal] = useState(false);
   const [newNeedleSize, setNewNeedleSize] = useState('');
   const [newNeedleType, setNewNeedleType] = useState('Rundpinne');
   const [newNeedleLength, setNewNeedleLength] = useState('');
@@ -53,14 +53,14 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setUploadedPdf(null);
     setSelectedYarns([]);
     setShowYarnPicker(false);
-    setShowNewYarnForm(false);
+    setShowNewYarnModal(false);
     setNewYarnName('');
     setNewYarnColor('');
     setNewYarnAmount('');
     setSaveYarnToInventory(false);
     setSelectedNeedles([]);
     setShowNeedlePicker(false);
-    setShowNewNeedleForm(false);
+    setShowNewNeedleModal(false);
     setNewNeedleSize('');
     setNewNeedleType('Rundpinne');
     setNewNeedleLength('');
@@ -150,7 +150,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setNewYarnColor('');
     setNewYarnAmount('');
     setSaveYarnToInventory(false);
-    setShowNewYarnForm(false);
+    setShowNewYarnModal(false);
   };
 
   const toggleNeedle = (item: NeedleInventoryItem) => {
@@ -203,7 +203,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setNewNeedleLength('');
     setNewNeedleMaterial('');
     setSaveNeedleToInventory(false);
-    setShowNewNeedleForm(false);
+    setShowNewNeedleModal(false);
   };
 
   if (!open) return null;
@@ -340,62 +340,10 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
               );
             })}
 
-            {/* add new yarn inline */}
-            {showNewYarnForm ? (
-              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input
-                  autoFocus
-                  placeholder="Garnnavn *"
-                  value={newYarnName}
-                  onChange={e => setNewYarnName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddNewYarn(); if (e.key === 'Escape') setShowNewYarnForm(false); }}
-                  style={{ width: '100%', height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    placeholder="Farge"
-                    value={newYarnColor}
-                    onChange={e => setNewYarnColor(e.target.value)}
-                    style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
-                  />
-                  <input
-                    placeholder="Mengde"
-                    value={newYarnAmount}
-                    onChange={e => setNewYarnAmount(e.target.value)}
-                    style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--muted-fg)' }}>Lagre til garnskapet</span>
-                  <button
-                    onClick={() => setSaveYarnToInventory(v => !v)}
-                    style={{
-                      width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer',
-                      background: saveYarnToInventory ? 'var(--primary)' : 'var(--border)',
-                      position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-                    }}
-                  >
-                    <span style={{
-                      position: 'absolute', top: 2,
-                      left: saveYarnToInventory ? 20 : 2,
-                      width: 18, height: 18, borderRadius: 999,
-                      background: 'white',
-                      transition: 'left 0.15s',
-                      display: 'block',
-                    }} />
-                  </button>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={handleAddNewYarn} disabled={!newYarnName.trim()} style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnName.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: newYarnName.trim() ? 1 : 0.4 }}>Legg til</button>
-                  <button onClick={() => setShowNewYarnForm(false)} style={{ height: 38, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Avbryt</button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setShowNewYarnForm(true)} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                Legg til nytt garn
-              </button>
-            )}
+            <button onClick={() => setShowNewYarnModal(true)} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+              <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Legg til nytt garn
+            </button>
           </div>
         )}
 
@@ -451,77 +399,75 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
                 );
               })}
 
-              {/* add new needle inline */}
-              {showNewNeedleForm ? (
-                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {NEEDLE_TYPES.map(t => (
-                      <button key={t} onClick={() => setNewNeedleType(t)} style={{
-                        height: 28, padding: '0 10px', borderRadius: 999,
-                        border: '1px solid var(--border)',
-                        background: newNeedleType === t ? 'var(--fg)' : 'var(--card)',
-                        color: newNeedleType === t ? 'var(--bg)' : 'var(--fg)',
-                        fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-                      }}>{t}</button>
-                    ))}
-                  </div>
-                  <input
-                    autoFocus
-                    placeholder="Størrelse (f.eks. 4mm) *"
-                    value={newNeedleSize}
-                    onChange={e => setNewNeedleSize(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddNewNeedle(); if (e.key === 'Escape') setShowNewNeedleForm(false); }}
-                    style={{ width: '100%', height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                  />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      placeholder="Lengde"
-                      value={newNeedleLength}
-                      onChange={e => setNewNeedleLength(e.target.value)}
-                      style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
-                    />
-                    <input
-                      placeholder="Materiale"
-                      value={newNeedleMaterial}
-                      onChange={e => setNewNeedleMaterial(e.target.value)}
-                      style={{ flex: 1, height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
-                    <span style={{ fontSize: 12.5, color: 'var(--muted-fg)' }}>Lagre til pinneskapet</span>
-                    <button
-                      onClick={() => setSaveNeedleToInventory(v => !v)}
-                      style={{
-                        width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer',
-                        background: saveNeedleToInventory ? 'var(--primary)' : 'var(--border)',
-                        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-                      }}
-                    >
-                      <span style={{
-                        position: 'absolute', top: 2,
-                        left: saveNeedleToInventory ? 20 : 2,
-                        width: 18, height: 18, borderRadius: 999,
-                        background: 'white',
-                        transition: 'left 0.15s',
-                        display: 'block',
-                      }} />
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={handleAddNewNeedle} disabled={!newNeedleSize.trim()} style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newNeedleSize.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: newNeedleSize.trim() ? 1 : 0.4 }}>Legg til</button>
-                    <button onClick={() => setShowNewNeedleForm(false)} style={{ height: 38, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Avbryt</button>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => setShowNewNeedleForm(true)} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                  Legg til ny pinne
-                </button>
-              )}
+              <button onClick={() => setShowNewNeedleModal(true)} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Legg til ny pinne
+              </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* NEW YARN MODAL */}
+      {showNewYarnModal && (
+        <>
+          <div onClick={() => setShowNewYarnModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'color-mix(in oklab, #000 40%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 111, background: 'var(--bg)', borderRadius: '24px 24px 0 0', padding: '12px 20px 44px' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '4px auto 18px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <button onClick={() => setShowNewYarnModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>Avbryt</button>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>Nytt garn</div>
+              <button onClick={handleAddNewYarn} disabled={!newYarnName.trim()} style={{ background: 'transparent', border: 'none', color: newYarnName.trim() ? 'var(--primary)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: newYarnName.trim() ? 'pointer' : 'default', padding: 0 }}>Legg til</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input autoFocus placeholder="Garnnavn *" value={newYarnName} onChange={e => setNewYarnName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddNewYarn(); if (e.key === 'Escape') setShowNewYarnModal(false); }} style={{ width: '100%', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input placeholder="Farge" value={newYarnColor} onChange={e => setNewYarnColor(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
+                <input placeholder="Mengde" value={newYarnAmount} onChange={e => setNewYarnAmount(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
+                <span style={{ fontSize: 14, color: 'var(--fg)' }}>Lagre til garnskapet</span>
+                <button onClick={() => setSaveYarnToInventory(v => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', background: saveYarnToInventory ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', top: 3, left: saveYarnToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'white', transition: 'left 0.15s', display: 'block' }} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* NEW NEEDLE MODAL */}
+      {showNewNeedleModal && (
+        <>
+          <div onClick={() => setShowNewNeedleModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'color-mix(in oklab, #000 40%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 111, background: 'var(--bg)', borderRadius: '24px 24px 0 0', padding: '12px 20px 44px' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '4px auto 18px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <button onClick={() => setShowNewNeedleModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>Avbryt</button>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>Ny pinne</div>
+              <button onClick={handleAddNewNeedle} disabled={!newNeedleSize.trim()} style={{ background: 'transparent', border: 'none', color: newNeedleSize.trim() ? 'var(--primary)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: newNeedleSize.trim() ? 'pointer' : 'default', padding: 0 }}>Legg til</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {NEEDLE_TYPES.map(t => (
+                  <button key={t} onClick={() => setNewNeedleType(t)} style={{ height: 32, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border)', background: newNeedleType === t ? 'var(--fg)' : 'var(--card)', color: newNeedleType === t ? 'var(--bg)' : 'var(--fg)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{t}</button>
+                ))}
+              </div>
+              <input autoFocus placeholder="Størrelse (f.eks. 4mm) *" value={newNeedleSize} onChange={e => setNewNeedleSize(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddNewNeedle(); if (e.key === 'Escape') setShowNewNeedleModal(false); }} style={{ width: '100%', height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input placeholder="Lengde" value={newNeedleLength} onChange={e => setNewNeedleLength(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
+                <input placeholder="Materiale" value={newNeedleMaterial} onChange={e => setNewNeedleMaterial(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
+                <span style={{ fontSize: 14, color: 'var(--fg)' }}>Lagre til pinneskapet</span>
+                <button onClick={() => setSaveNeedleToInventory(v => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', background: saveNeedleToInventory ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', top: 3, left: saveNeedleToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'white', transition: 'left 0.15s', display: 'block' }} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* image source picker bottom sheet */}
       {showImageSourcePicker && (

@@ -6,6 +6,13 @@ export interface ReleaseEntry {
 
 export const CHANGELOG: ReleaseEntry[] = [
   {
+    version: '1.4.2',
+    date: '2026-04-24',
+    changes: [
+      { type: 'forbedring', text: 'Velg mellom å ta bilde med kamera eller velge fra biblioteket når du legger til bilde på et prosjekt' },
+    ],
+  },
+  {
     version: '1.4.1',
     date: '2026-04-23',
     changes: [

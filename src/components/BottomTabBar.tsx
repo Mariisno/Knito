@@ -53,7 +53,7 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-around', padding: '10px 12px 6px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '10px', paddingLeft: '12px', paddingRight: '12px', paddingBottom: 'calc(6px + env(safe-area-inset-bottom))' }}>
         {TABS.map(({ id, label, Icon }) => {
           const active = activeTab === id;
           return (

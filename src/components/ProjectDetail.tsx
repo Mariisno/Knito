@@ -248,7 +248,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const availableNeedles = needleInventory.filter(n => !(editedProject.needles || []).some(en => en.inventoryNeedleId === n.id));
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+    <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' } as React.CSSProperties}>
 
       {/* HERO */}
       <div style={{ position: 'relative', height: 300, background: 'var(--accent)', flexShrink: 0 }}>
@@ -258,7 +258,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         }
         <input ref={coverImgInputRef} type="file" accept="image/*" onChange={handleCoverImgUpload} style={{ display: 'none' }} />
         {/* top bar overlay */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 'calc(8px + env(safe-area-inset-top))', paddingBottom: '8px', paddingLeft: '14px', paddingRight: '14px' }}>
           <button onClick={() => onBack()} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
             <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           </button>
@@ -279,7 +279,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           }
         </button>
         {/* status + category chips */}
-        <div style={{ position: 'absolute', top: 60, left: 20, display: 'flex', gap: 8 }}>
+        <div style={{ position: 'absolute', top: 'calc(60px + env(safe-area-inset-top))', left: 20, display: 'flex', gap: 8 }}>
           <div style={{ position: 'relative' }}>
             <button onClick={() => setShowStatusMenu(v => !v)} style={{
               height: 28, padding: '0 12px 0 10px', borderRadius: 999, border: 'none',

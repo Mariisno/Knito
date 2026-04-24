@@ -4,7 +4,15 @@ export interface ReleaseEntry {
   changes: { type: 'ny' | 'forbedring' | 'fiks'; text: string }[];
 }
 
-export const CHANGELOG: ReleaseEntry[] = [
+// New releases: add a file in ./changelog-fragments/ named after your branch.
+// Never edit the array below or the CHANGELOG export — they are auto-assembled.
+const fragmentModules = import.meta.glob<{ default: ReleaseEntry }>(
+  './changelog-fragments/*.ts',
+  { eager: true },
+);
+const fragments = Object.values(fragmentModules).map(m => m.default);
+
+const BASE: ReleaseEntry[] = [
   {
     version: '1.4.2',
     date: '2026-04-24',
@@ -68,5 +76,20 @@ export const CHANGELOG: ReleaseEntry[] = [
     ],
   },
 ];
+
+function parseVersion(v: string): number[] {
+  return v.split('.').map(Number);
+}
+
+function compareVersions(a: ReleaseEntry, b: ReleaseEntry): number {
+  const av = parseVersion(a.version);
+  const bv = parseVersion(b.version);
+  for (let i = 0; i < 3; i++) {
+    if (bv[i] !== av[i]) return bv[i] - av[i];
+  }
+  return 0;
+}
+
+export const CHANGELOG: ReleaseEntry[] = [...fragments, ...BASE].sort(compareVersions);
 
 export const LATEST_VERSION = CHANGELOG[0].version;

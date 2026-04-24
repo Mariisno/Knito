@@ -303,7 +303,7 @@ export function ProjectList({
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
 
       {/* Header */}
-      <div style={{ padding: '12px 20px 8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      <div style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))', paddingBottom: '8px', paddingLeft: '20px', paddingRight: '20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
             <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase' }}>
@@ -445,7 +445,7 @@ export function ProjectList({
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 20 }}>
+      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 20, WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' } as React.CSSProperties}>
         {filtered.length === 0 ? (
           <EmptyState onNew={onNewProject} />
         ) : view === 'grid' ? (

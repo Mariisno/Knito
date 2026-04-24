@@ -72,15 +72,18 @@ Deployed to Vercel. `vercel.json` rewrites all routes to `index.html` for SPA su
 
 ## Changelog / Versjonslogg
 
-**Every PR that changes user-visible functionality must update `src/data/changelog.ts`.**
+**Every PR that changes user-visible functionality must add a changelog fragment.**
 
-The file exports a `CHANGELOG` array and `LATEST_VERSION`. When a PR adds features, fixes bugs, or improves the UI:
+Do **not** edit `src/data/changelog.ts` directly — it is auto-assembled. Instead:
 
-1. Bump `LATEST_VERSION` (semver: patch for fixes, minor for new features, major for breaking changes).
-2. Add a new entry at the **top** of the `CHANGELOG` array:
+1. Create a new file in `src/data/changelog-fragments/` named after your branch slug, e.g. `fix-mobile-scrolling.ts`.
+2. Pick the next semver version (patch for fixes, minor for new features, major for breaking changes).
+3. Write the file like this:
 
 ```ts
-{
+import type { ReleaseEntry } from '../changelog';
+
+export default {
   version: '1.x.y',
   date: 'YYYY-MM-DD',   // today's date
   changes: [
@@ -88,8 +91,10 @@ The file exports a `CHANGELOG` array and `LATEST_VERSION`. When a PR adds featur
     { type: 'forbedring',  text: '...' },
     { type: 'fiks',        text: '...' },
   ],
-},
+} satisfies ReleaseEntry;
 ```
+
+`changelog.ts` picks up all fragment files automatically via `import.meta.glob` and sorts them by version. This means branches never conflict on the same file.
 
 Change types:
 - `ny` — new feature

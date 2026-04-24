@@ -55,9 +55,9 @@ export function PWAMeta() {
     if (!viewport) {
       viewport = document.createElement('meta');
       viewport.name = 'viewport';
-      viewport.content = 'width=device-width, initial-scale=1, maximum-scale=5';
       head.appendChild(viewport);
     }
+    viewport.content = 'width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover';
     
     // Description
     let description = document.querySelector('meta[name="description"]') as HTMLMetaElement;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import type { KnittingProject, Yarn, Needle, NeedleInventoryItem } from '../types/knitting';
@@ -27,6 +27,9 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   const [selectedYarns, setSelectedYarns] = useState<Yarn[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [showImageSourcePicker, setShowImageSourcePicker] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [showYarnPicker, setShowYarnPicker] = useState(false);
   const [showNewYarnForm, setShowNewYarnForm] = useState(false);
   const [newYarnName, setNewYarnName] = useState('');
@@ -264,8 +267,9 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Vedlegg</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
           {/* bilde */}
-          <label style={{ padding: '20px 16px', background: 'var(--card)', border: uploadedImages.length ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: uploadingImage ? 'not-allowed' : 'pointer', opacity: uploadingImage ? 0.6 : 1 }}>
-            <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
+          <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
+          <button type="button" onClick={() => !uploadingImage && setShowImageSourcePicker(true)} style={{ padding: '20px 16px', background: 'var(--card)', border: uploadedImages.length ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: uploadingImage ? 'not-allowed' : 'pointer', opacity: uploadingImage ? 0.6 : 1, width: '100%' }}>
             {uploadingImage
               ? <Loader2 className="animate-spin" style={{ width: 24, height: 24, color: 'var(--muted-fg)' }} />
               : uploadedImages.length
@@ -275,7 +279,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
             <span style={{ fontSize: 12.5, fontWeight: 500, color: uploadedImages.length ? 'var(--primary)' : 'var(--muted-fg)' }}>
               {uploadedImages.length ? `${uploadedImages.length} bilde${uploadedImages.length > 1 ? 'r' : ''}` : 'Legg til bilde'}
             </span>
-          </label>
+          </button>
 
           {/* oppskrift */}
           <label style={{ padding: '20px 16px', background: 'var(--card)', border: uploadedPdf ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: uploadingPdf ? 'not-allowed' : 'pointer', opacity: uploadingPdf ? 0.6 : 1 }}>
@@ -518,6 +522,37 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
           )}
         </div>
       </div>
+
+      {/* image source picker bottom sheet */}
+      {showImageSourcePicker && (
+        <div
+          onClick={() => setShowImageSourcePicker(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', background: 'var(--card)', borderRadius: '20px 20px 0 0', padding: '12px 16px 32px', display: 'flex', flexDirection: 'column', gap: 0 }}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <button
+              type="button"
+              onClick={() => { setShowImageSourcePicker(false); cameraInputRef.current?.click(); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 4px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 500, color: 'var(--fg)', width: '100%', borderBottom: '1px solid var(--border)' }}
+            >
+              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Ta bilde
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowImageSourcePicker(false); galleryInputRef.current?.click(); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 4px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 500, color: 'var(--fg)', width: '100%' }}
+            >
+              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Velg fra bibliotek
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

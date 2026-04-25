@@ -55,6 +55,8 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [editedProject, setEditedProject] = useState(project);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRemoveRecipeDialog, setShowRemoveRecipeDialog] = useState(false);
+  const [deleteLogEntryId, setDeleteLogEntryId] = useState<string | null>(null);
+  const [editingLogEntry, setEditingLogEntry] = useState<{ id: string; text: string } | null>(null);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -163,6 +165,24 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setLogImageFile(file);
     setLogImagePreview(URL.createObjectURL(file));
     e.target.value = '';
+  };
+
+  const handleDeleteLogEntry = () => {
+    if (!deleteLogEntryId) return;
+    handleUpdate({ logEntries: (editedProject.logEntries || []).filter(e => e.id !== deleteLogEntryId) });
+    setDeleteLogEntryId(null);
+  };
+
+  const handleSaveEditLogEntry = () => {
+    if (!editingLogEntry) return;
+    const trimmed = editingLogEntry.text.trim();
+    if (!trimmed) return;
+    handleUpdate({
+      logEntries: (editedProject.logEntries || []).map(e =>
+        e.id === editingLogEntry.id ? { ...e, text: trimmed } : e
+      ),
+    });
+    setEditingLogEntry(null);
   };
 
   const handleAddNote = async () => {
@@ -571,25 +591,73 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
         {(editedProject.logEntries || []).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-            {(editedProject.logEntries || []).map(e => (
-              <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                {e.imageUrl && (
-                  <img
-                    src={e.imageUrl}
-                    alt=""
-                    style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }}
-                  />
-                )}
-                <div style={{ padding: '10px 14px' }}>
-                  {e.text && (
-                    <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>
+            {(editedProject.logEntries || []).map(e => {
+              const isEditing = editingLogEntry?.id === e.id;
+              return (
+                <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                  {e.imageUrl && (
+                    <img
+                      src={e.imageUrl}
+                      alt=""
+                      style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }}
+                    />
                   )}
-                  <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: e.text ? 4 : 0 }}>
-                    {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+                  <div style={{ padding: '10px 14px', paddingRight: e.text ? 64 : 64 }}>
+                    {isEditing ? (
+                      <>
+                        <textarea
+                          autoFocus
+                          value={editingLogEntry!.text}
+                          onChange={ev => setEditingLogEntry({ id: e.id, text: ev.target.value })}
+                          onKeyDown={ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); handleSaveEditLogEntry(); } if (ev.key === 'Escape') setEditingLogEntry(null); }}
+                          style={{ width: '100%', minHeight: 72, resize: 'vertical', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13.5, lineHeight: 1.5, padding: '6px 10px', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                          <button onClick={() => setEditingLogEntry(null)} style={{ height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Avbryt</button>
+                          <button onClick={handleSaveEditLogEntry} disabled={!editingLogEntry!.text.trim()} style={{ height: 30, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: !editingLogEntry!.text.trim() ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, opacity: !editingLogEntry!.text.trim() ? 0.4 : 1 }}>Lagre</button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {e.text && <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>}
+                        <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: e.text ? 4 : 0 }}>
+                          {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+                        </div>
+                      </>
+                    )}
                   </div>
+                  {!isEditing && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 2 }}>
+                      {e.text && (
+                        <button
+                          onClick={() => setEditingLogEntry({ id: e.id, text: e.text! })}
+                          style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}
+                          onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
+                          onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                          aria-label="Rediger notat"
+                          title="Rediger notat"
+                        >
+                          <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDeleteLogEntryId(e.id)}
+                        style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1, opacity: 0.5 }}
+                        onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
+                        onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                        aria-label="Slett notat"
+                        title="Slett notat"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -736,6 +804,24 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           </div>
         </>
       )}
+
+      {/* DELETE LOG ENTRY DIALOG */}
+      <AlertDialog open={!!deleteLogEntryId} onOpenChange={open => { if (!open) setDeleteLogEntryId(null); }}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slett notat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette notatet vil bli slettet permanent. Dette kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLogEntry} className="bg-destructive hover:bg-destructive/90">
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* DELETE DIALOG */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

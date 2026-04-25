@@ -804,9 +804,9 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               Dette notatet vil bli slettet permanent. Dette kan ikke angres.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteLogEntry} className="bg-destructive hover:bg-destructive/90">
+          <AlertDialogFooter className="flex-row gap-2 mt-4">
+            <AlertDialogCancel className="flex-1">Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLogEntry} className="flex-1 bg-destructive hover:bg-destructive/90">
               Slett
             </AlertDialogAction>
           </AlertDialogFooter>

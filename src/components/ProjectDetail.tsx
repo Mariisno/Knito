@@ -164,6 +164,10 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     e.target.value = '';
   };
 
+  const handleDeleteLogEntry = (id: string) => {
+    handleUpdate({ logEntries: (editedProject.logEntries || []).filter(e => e.id !== id) });
+  };
+
   const handleAddNote = async () => {
     const trimmedText = noteInput.trim();
     if (!trimmedText && !logImageFile) return;
@@ -562,7 +566,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         {(editedProject.logEntries || []).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
             {(editedProject.logEntries || []).map(e => (
-              <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+              <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
                 {e.imageUrl && (
                   <img
                     src={e.imageUrl}
@@ -570,7 +574,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                     style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }}
                   />
                 )}
-                <div style={{ padding: '10px 14px' }}>
+                <div style={{ padding: '10px 14px', paddingRight: 38 }}>
                   {e.text && (
                     <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>
                   )}
@@ -578,6 +582,16 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                     {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
                   </div>
                 </div>
+                <button
+                  onClick={() => handleDeleteLogEntry(e.id)}
+                  style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1, opacity: 0.5 }}
+                  onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
+                  onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                  aria-label="Slett notat"
+                  title="Slett notat"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>

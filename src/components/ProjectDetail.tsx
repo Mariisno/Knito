@@ -740,7 +740,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             style={{ height: 44, padding: '0 18px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: (uploadingLogImg || (!noteInput.trim() && !logImageFile)) ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: (uploadingLogImg || (!noteInput.trim() && !logImageFile)) ? 0.35 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {uploadingLogImg && <Loader2 className="animate-spin" style={{ width: 13, height: 13 }} />}
-            Send
+            Lagre
           </button>
         </div>
       </div>

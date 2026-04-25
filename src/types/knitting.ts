@@ -37,6 +37,8 @@ export interface NeedleInventoryItem {
 
 export type ProjectStatus = 'Aktiv' | 'Fullført' | 'Planlagt' | 'På vent' | 'Arkivert';
 
+export type CraftType = 'Strikking' | 'Hekling';
+
 export interface TimeLog {
   startTime: Date;
   endTime?: Date;
@@ -91,6 +93,7 @@ export interface KnittingProject {
   timeSpentMinutes?: number;  // Total time spent on project
   currentTimeLog?: TimeLog;   // Active time tracking session
   category?: string;          // e.g. "Sokker", "Genser", "Skjerf"
+  craftType?: CraftType;      // undefined = 'Strikking' for backwards compat
   counters?: Counter[];       // Row/stitch counters
   gauge?: GaugeSwatch;        // Gauge swatch measurement
   pattern?: PatternInfo;      // Pattern reference and tracking

@@ -366,24 +366,33 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       <div style={{ padding: '8px 20px' }}>
         <input ref={pdfInputRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp" onChange={handlePdfUpload} style={{ display: 'none' }} />
         {editedProject.pattern?.pdfUrl ? (
-          <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
-            display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
-            padding: 16, borderRadius: 18, border: '1px solid var(--fg)',
-            background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>{editedProject.pattern.pdfName?.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift'}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
+              display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
+              padding: 16, paddingRight: 52, borderRadius: 18, border: '1px solid var(--fg)',
+              background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>{editedProject.pattern.pdfName?.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
               </div>
-              {editedProject.pattern.designer && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 3 }}>{editedProject.pattern.designer}</div>}
-            </div>
-            <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift'}
+                </div>
+                {editedProject.pattern.designer && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 3 }}>{editedProject.pattern.designer}</div>}
+              </div>
+              <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </button>
+            <button
+              onClick={() => { handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } }); toast.success('Oppskrift fjernet'); }}
+              style={{ position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 18%, transparent)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              title="Fjern oppskrift"
+            >
+              <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, border: '1px dashed var(--border)', borderRadius: 16 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-fg)', flexShrink: 0 }}>

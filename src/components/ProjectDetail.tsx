@@ -297,7 +297,18 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 <div onClick={() => setShowStatusMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
                 <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 51, minWidth: 160, padding: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 12px 28px -8px color-mix(in oklab, var(--fg) 30%, transparent)' }}>
                   {STATUS_OPTIONS.map(s => (
-                    <button key={s} onClick={() => { handleUpdate({ status: s }); setShowStatusMenu(false); }} style={{
+                    <button key={s} onClick={() => {
+                      const updates: Partial<KnittingProject> = { status: s };
+                      if (s === 'Fullført' && editedProject.progress < 100) {
+                        updates.progress = 100;
+                        updates.endDate = new Date();
+                      }
+                      handleUpdate(updates);
+                      if (s === 'Fullført' && editedProject.progress < 100) {
+                        toast.success('Gratulerer! Prosjektet er fullført! 🎉');
+                      }
+                      setShowStatusMenu(false);
+                    }} style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                       padding: '9px 10px', borderRadius: 8, border: 'none',
                       background: editedProject.status === s ? 'var(--accent)' : 'transparent',

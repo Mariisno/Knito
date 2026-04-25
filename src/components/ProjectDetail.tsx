@@ -73,6 +73,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showHeroLightbox, setShowHeroLightbox] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const coverImgInputRef = useRef<HTMLInputElement>(null);
@@ -84,6 +85,15 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       return () => clearInterval(interval);
     }
   }, [editedProject.currentTimeLog]);
+
+  useEffect(() => {
+    if (!showHeroLightbox) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowHeroLightbox(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showHeroLightbox]);
 
   const debouncedOnUpdate = useDebouncedCallback((updated: KnittingProject) => onUpdate(updated), 500);
 
@@ -274,7 +284,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* HERO */}
       <div style={{ position: 'relative', height: 300, background: 'var(--accent)', flexShrink: 0 }}>
         {heroImage
-          ? <img src={heroImage} alt={editedProject.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={heroImage} alt={editedProject.name} onClick={() => setShowHeroLightbox(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
           : <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
         }
         <input ref={coverImgInputRef} type="file" accept="image/*" onChange={handleCoverImgUpload} style={{ display: 'none' }} />
@@ -867,6 +877,41 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {showHeroLightbox && heroImage && (
+        <div
+          onClick={() => setShowHeroLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'color-mix(in oklab, #000 88%, transparent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <img
+            src={heroImage}
+            alt={editedProject.name}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6, boxShadow: '0 24px 64px -12px rgba(0,0,0,0.7)' }}
+          />
+          <button
+            onClick={() => setShowHeroLightbox(false)}
+            aria-label="Lukk"
+            style={{
+              position: 'absolute',
+              top: 'calc(16px + env(safe-area-inset-top))', right: 16,
+              width: 36, height: 36, borderRadius: 10, border: 'none',
+              background: 'color-mix(in oklab, var(--bg) 85%, transparent)',
+              backdropFilter: 'blur(12px)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--fg)', zIndex: 101,
+            }}
+          >
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

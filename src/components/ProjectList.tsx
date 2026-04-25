@@ -3,9 +3,10 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
+import { LATEST_VERSION } from '../data/changelog';
 
 // ---------- Icons ----------
 const SearchIcon = () => (
@@ -267,6 +268,9 @@ export function ProjectList({
   const [, startTransition] = useTransition();
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const [unseenRelease, setUnseenRelease] = useState(hasUnseenRelease);
+  type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'update-available' | 'error';
+  const [updateState, setUpdateState] = useState<UpdateState>('idle');
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
   const { user } = useAuth();
   const firstName = user?.name ? user.name.split(' ')[0] : user?.email?.split('@')[0] ?? '';
 
@@ -296,6 +300,19 @@ export function ProjectList({
     return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [projects, searchQuery, statusFilter]);
 
+  async function checkForUpdate() {
+    setUpdateState('checking');
+    try {
+      const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error();
+      const data = await res.json() as { version: string };
+      setServerVersion(data.version);
+      setUpdateState(data.version !== LATEST_VERSION ? 'update-available' : 'up-to-date');
+    } catch {
+      setUpdateState('error');
+    }
+  }
+
   const active = filtered.filter(p => p.status === 'Aktiv');
   const other  = filtered.filter(p => p.status !== 'Aktiv');
 
@@ -320,7 +337,7 @@ export function ProjectList({
           </div>
         </div>
 
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(open) => { if (!open) setUpdateState('idle'); }}>
           <DropdownMenuTrigger asChild>
             <button style={{
               width: 36, height: 36, borderRadius: 999,
@@ -356,6 +373,25 @@ export function ProjectList({
                 }} />
               )}
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => { if (updateState !== 'checking') checkForUpdate(); }}
+              disabled={updateState === 'checking'}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {updateState === 'idle' && 'Se etter oppdateringer'}
+              {updateState === 'checking' && 'Sjekker…'}
+              {updateState === 'up-to-date' && `Oppdatert (v${LATEST_VERSION})`}
+              {updateState === 'update-available' && 'Oppdatering tilgjengelig!'}
+              {updateState === 'error' && 'Kunne ikke sjekke'}
+            </DropdownMenuItem>
+            {updateState === 'update-available' && (
+              <DropdownMenuItem onClick={() => window.location.reload()}>
+                <RefreshCw className="mr-2 h-4 w-4" style={{ color: 'var(--primary)' }} />
+                <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                  Last inn ny versjon (v{serverVersion})
+                </span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onToggleTheme}>
               {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}

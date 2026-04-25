@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
-import type { KnittingProject, ProjectStatus, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
+import type { KnittingProject, ProjectStatus, CraftType, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -340,6 +340,18 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               display: 'flex', alignItems: 'center', backdropFilter: 'blur(12px)',
             }}>{editedProject.category}</div>
           )}
+          {/* craft type toggle */}
+          {(['Strikking', 'Hekling'] as CraftType[]).map(ct => (
+            <button key={ct} onClick={() => handleUpdate({ craftType: ct })} style={{
+              height: 26, padding: '0 10px', borderRadius: 999, border: 'none',
+              background: (editedProject.craftType ?? 'Strikking') === ct
+                ? 'color-mix(in oklab, var(--primary) 85%, transparent)'
+                : 'color-mix(in oklab, var(--bg) 88%, transparent)',
+              color: (editedProject.craftType ?? 'Strikking') === ct ? 'var(--primary-foreground)' : 'var(--muted-fg)',
+              fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              backdropFilter: 'blur(12px)',
+            }}>{ct}</button>
+          ))}
         </div>
       </div>
 
@@ -530,7 +542,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       </Section>
 
       {/* NEEDLES */}
-      <Section title="Pinner" count={(editedProject.needles || []).length}>
+      <Section title={editedProject.craftType === 'Hekling' ? 'Heklenåler' : 'Pinner'} count={(editedProject.needles || []).length}>
         {(editedProject.needles || []).map(n => (
           <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -542,7 +554,9 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             </div>
           </div>
         ))}
-        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ Legg til pinne</button>
+        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>
+          {editedProject.craftType === 'Hekling' ? '+ Legg til heklenål' : '+ Legg til pinne'}
+        </button>
       </Section>
 
       {/* GAUGE */}
@@ -773,7 +787,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div onClick={() => setShowNeedlePicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Velg pinne</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{editedProject.craftType === 'Hekling' ? 'Velg heklenål' : 'Velg pinne'}</div>
             <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {availableNeedles.map(needle => (
                 <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
@@ -788,7 +802,9 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 </button>
               ))}
               {availableNeedles.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>Ingen pinner tilgjengelig i lager</div>
+                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>
+                  {editedProject.craftType === 'Hekling' ? 'Ingen heklenåler tilgjengelig i lager' : 'Ingen pinner tilgjengelig i lager'}
+                </div>
               )}
             </div>
           </div>

@@ -69,7 +69,11 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [showYarnPicker, setShowYarnPicker] = useState(false);
+  const [showNewYarnForm, setShowNewYarnForm] = useState(false);
+  const [newYarnData, setNewYarnData] = useState<{ name?: string; brand?: string; color?: string; amount?: string; weight?: Yarn['weight'] }>({});
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
+  const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
+  const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -249,10 +253,43 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     toast.success(`${yarn.name} lagt til`);
   };
 
+  const handleAddNewYarn = () => {
+    if (!newYarnData.name?.trim()) return;
+    const yarn: Yarn = {
+      id: crypto.randomUUID(),
+      name: newYarnData.name.trim(),
+      brand: newYarnData.brand?.trim() || undefined,
+      color: newYarnData.color?.trim() || undefined,
+      amount: newYarnData.amount?.trim() || undefined,
+      weight: newYarnData.weight || undefined,
+    };
+    handleUpdate({ yarns: [...editedProject.yarns, yarn] });
+    setShowYarnPicker(false);
+    setShowNewYarnForm(false);
+    setNewYarnData({});
+    toast.success(`${yarn.name} lagt til`);
+  };
+
   const handleAddNeedle = (needle: NeedleInventoryItem) => {
     const newNeedle = { id: crypto.randomUUID(), size: needle.size, type: needle.type, length: needle.length, material: needle.material, inventoryNeedleId: needle.id };
     handleUpdate({ needles: [...(editedProject.needles || []), newNeedle] });
     setShowNeedlePicker(false);
+    toast.success(`Pinne ${needle.size} lagt til`);
+  };
+
+  const handleAddNewNeedle = () => {
+    if (!newNeedleData.size?.trim()) return;
+    const needle = {
+      id: crypto.randomUUID(),
+      size: newNeedleData.size.trim(),
+      type: newNeedleData.type || 'Rundpinne',
+      length: newNeedleData.length?.trim() || undefined,
+      material: newNeedleData.material?.trim() || undefined,
+    };
+    handleUpdate({ needles: [...(editedProject.needles || []), needle] });
+    setShowNeedlePicker(false);
+    setShowNewNeedleForm(false);
+    setNewNeedleData({ type: 'Rundpinne' });
     toast.success(`Pinne ${needle.size} lagt til`);
   };
 
@@ -790,24 +827,63 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => setShowYarnPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Velg garn</div>
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {availableYarns.map(yarn => (
-                <button key={yarn.id} onClick={() => handleAddYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                  {yarn.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
-                  </div>
-                </button>
-              ))}
-              {availableYarns.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>Ingen garn tilgjengelig i lager</div>
-              )}
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : 'Velg garn'}</div>
+            {showNewYarnForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <input
+                  autoFocus
+                  placeholder="Garnnavn *"
+                  value={newYarnData.name || ''}
+                  onChange={e => setNewYarnData(d => ({ ...d, name: e.target.value }))}
+                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input
+                    placeholder="Farge"
+                    value={newYarnData.color || ''}
+                    onChange={e => setNewYarnData(d => ({ ...d, color: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                  <input
+                    placeholder="Mengde"
+                    value={newYarnData.amount || ''}
+                    onChange={e => setNewYarnData(d => ({ ...d, amount: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <select
+                  value={newYarnData.weight || ''}
+                  onChange={e => setNewYarnData(d => ({ ...d, weight: (e.target.value || undefined) as Yarn['weight'] }))}
+                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: newYarnData.weight ? 'var(--fg)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                >
+                  <option value="">Tykkelse (valgfritt)</option>
+                  {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button onClick={handleAddNewYarn} disabled={!newYarnData.name?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnData.name?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newYarnData.name?.trim() ? 1 : 0.35 }}>Legg til</button>
+                  <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {availableYarns.map(yarn => (
+                  <button key={yarn.id} onClick={() => handleAddYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    {yarn.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                    </div>
+                  </button>
+                ))}
+                {availableYarns.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>Ingen garn tilgjengelig i lager</div>
+                )}
+                <button onClick={() => setShowNewYarnForm(true)} style={dashedBtn}>+ Nytt garn</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -815,29 +891,75 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* NEEDLE PICKER */}
       {showNeedlePicker && (
         <>
-          <div onClick={() => setShowNeedlePicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{editedProject.craftType === 'Hekling' ? 'Velg heklenål' : 'Velg pinne'}</div>
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {availableNeedles.map(needle => (
-                <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
-                  </div>
-                  {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>×{needle.quantity}</div>}
-                </button>
-              ))}
-              {availableNeedles.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>
-                  {editedProject.craftType === 'Hekling' ? 'Ingen heklenåler tilgjengelig i lager' : 'Ingen pinner tilgjengelig i lager'}
-                </div>
-              )}
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+              {showNewNeedleForm
+                ? (editedProject.craftType === 'Hekling' ? 'Ny heklenål' : 'Ny pinne')
+                : (editedProject.craftType === 'Hekling' ? 'Velg heklenål' : 'Velg pinne')}
             </div>
+            {showNewNeedleForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <select
+                    value={newNeedleData.type || 'Rundpinne'}
+                    onChange={e => setNewNeedleData(d => ({ ...d, type: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  >
+                    {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <input
+                    autoFocus
+                    placeholder="Størrelse *"
+                    value={newNeedleData.size || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, size: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input
+                    placeholder="Lengde"
+                    value={newNeedleData.length || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, length: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                  <input
+                    placeholder="Materiale"
+                    value={newNeedleData.material || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, material: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button onClick={handleAddNewNeedle} disabled={!newNeedleData.size?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newNeedleData.size?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newNeedleData.size?.trim() ? 1 : 0.35 }}>Legg til</button>
+                  <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {availableNeedles.map(needle => (
+                  <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
+                    </div>
+                    {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>×{needle.quantity}</div>}
+                  </button>
+                ))}
+                {availableNeedles.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>
+                    {editedProject.craftType === 'Hekling' ? 'Ingen heklenåler tilgjengelig i lager' : 'Ingen pinner tilgjengelig i lager'}
+                  </div>
+                )}
+                <button onClick={() => setShowNewNeedleForm(true)} style={dashedBtn}>
+                  {editedProject.craftType === 'Hekling' ? '+ Ny heklenål' : '+ Ny pinne'}
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

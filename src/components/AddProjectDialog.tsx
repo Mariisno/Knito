@@ -1,15 +1,17 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import type { KnittingProject, Yarn, Needle, NeedleInventoryItem } from '../types/knitting';
 import * as api from '../utils/api';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 
 const NEEDLE_TYPES = ['Rundpinne', 'Strømpepinne', 'Settpinner', 'Utskiftbar', 'Heklenål', 'Annet'];
 
 interface AddProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddProject: (project: Omit<KnittingProject, 'id' | 'createdAt'>) => void;
+  onAddProject: (project: Omit<KnittingProject, 'id' | 'createdAt'>) => Promise<KnittingProject | null>;
+  onUpdateProject: (project: KnittingProject) => void;
   accessToken: string;
   standaloneYarns: Yarn[];
   needleInventory: NeedleInventoryItem[];
@@ -19,7 +21,7 @@ interface AddProjectDialogProps {
 
 const CATEGORIES = ['Genser', 'Sjal', 'Sokker', 'Kofte', 'Teppe', 'Lue', 'Annet'];
 
-export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken, standaloneYarns, needleInventory, onUpdateStandaloneYarns, onUpdateNeedleInventory }: AddProjectDialogProps) {
+export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdateProject, accessToken, standaloneYarns, needleInventory, onUpdateStandaloneYarns, onUpdateNeedleInventory }: AddProjectDialogProps) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -46,6 +48,13 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   const [newNeedleMaterial, setNewNeedleMaterial] = useState('');
   const [saveNeedleToInventory, setSaveNeedleToInventory] = useState(false);
 
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const createdAtRef = useRef<Date | null>(null);
+  const isClosingRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const dirtyRef = useRef(false);
+
   const reset = () => {
     setName('');
     setCategory('');
@@ -66,26 +75,91 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setNewNeedleLength('');
     setNewNeedleMaterial('');
     setSaveNeedleToInventory(false);
+    setCreatedProjectId(null);
+    setSaveStatus('idle');
+    createdAtRef.current = null;
   };
 
+  const buildPayload = (): Omit<KnittingProject, 'id' | 'createdAt'> => ({
+    name: name.trim(),
+    category: category || undefined,
+    progress: 0,
+    status: 'Planlagt',
+    images: uploadedImages,
+    yarns: selectedYarns,
+    needles: selectedNeedles,
+    counters: [],
+    ...(uploadedPdf ? { pattern: { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } } : {}),
+  });
+
+  const performSave = async () => {
+    if (!name.trim()) return;
+    if (isSavingRef.current) {
+      dirtyRef.current = true;
+      return;
+    }
+    isSavingRef.current = true;
+    dirtyRef.current = false;
+    setSaveStatus('saving');
+    try {
+      if (createdProjectId === null) {
+        const saved = await onAddProject(buildPayload());
+        if (isClosingRef.current) return;
+        if (saved) {
+          setCreatedProjectId(saved.id);
+          createdAtRef.current = saved.createdAt;
+          setSaveStatus('saved');
+        } else {
+          setSaveStatus('idle');
+        }
+      } else {
+        onUpdateProject({
+          ...buildPayload(),
+          id: createdProjectId,
+          createdAt: createdAtRef.current ?? new Date(),
+        });
+        if (isClosingRef.current) return;
+        setSaveStatus('saved');
+      }
+    } finally {
+      isSavingRef.current = false;
+      if (dirtyRef.current && !isClosingRef.current) {
+        dirtyRef.current = false;
+        debouncedSave();
+      }
+    }
+  };
+
+  const debouncedSave = useDebouncedCallback(() => {
+    void performSave();
+  }, 500);
+
+  useEffect(() => {
+    if (open) isClosingRef.current = false;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!name.trim()) return;
+    debouncedSave();
+  }, [open, name, category, uploadedImages, uploadedPdf, selectedYarns, selectedNeedles, debouncedSave]);
+
   const handleClose = () => {
+    debouncedSave.flush();
+    isClosingRef.current = true;
     reset();
     onOpenChange(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
-    onAddProject({
-      name: name.trim(),
-      category: category || undefined,
-      progress: 0,
-      status: 'Planlagt',
-      images: uploadedImages,
-      yarns: selectedYarns.map(y => ({ ...y, id: crypto.randomUUID(), standaloneYarnId: y.standaloneYarnId ?? y.id })),
-      needles: selectedNeedles,
-      counters: [],
-      ...(uploadedPdf ? { pattern: { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } } : {}),
-    });
+    debouncedSave.flush();
+    if (createdProjectId === null && !isSavingRef.current) {
+      isClosingRef.current = true;
+      await onAddProject(buildPayload());
+    } else {
+      isClosingRef.current = true;
+    }
     reset();
     onOpenChange(false);
   };
@@ -124,11 +198,12 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   };
 
   const toggleYarn = (yarn: Yarn) => {
-    setSelectedYarns(prev =>
-      prev.some(y => y.id === yarn.id)
-        ? prev.filter(y => y.id !== yarn.id)
-        : [...prev, yarn]
-    );
+    setSelectedYarns(prev => {
+      const linkedId = yarn.standaloneYarnId ?? yarn.id;
+      const idx = prev.findIndex(y => (y.standaloneYarnId ?? y.id) === linkedId);
+      if (idx !== -1) return prev.filter((_, i) => i !== idx);
+      return [...prev, { ...yarn, id: crypto.randomUUID(), standaloneYarnId: linkedId }];
+    });
   };
 
   const handleAddNewYarn = () => {
@@ -142,7 +217,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     };
     if (saveYarnToInventory) {
       onUpdateStandaloneYarns([...standaloneYarns, newYarn]);
-      setSelectedYarns(prev => [...prev, { ...newYarn, standaloneYarnId: id }]);
+      setSelectedYarns(prev => [...prev, { ...newYarn, id: crypto.randomUUID(), standaloneYarnId: id }]);
     } else {
       setSelectedYarns(prev => [...prev, newYarn]);
     }
@@ -227,11 +302,18 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <button onClick={handleClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>
-            Avbryt
+            {createdProjectId !== null ? 'Lukk' : 'Avbryt'}
           </button>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>Nytt prosjekt</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>Nytt prosjekt</div>
+            {saveStatus !== 'idle' && (
+              <div style={{ fontSize: 10.5, color: 'var(--muted-fg)', letterSpacing: 0.5 }}>
+                {saveStatus === 'saving' ? 'Lagrer …' : '✓ Lagret'}
+              </div>
+            )}
+          </div>
           <button onClick={handleSave} disabled={!name.trim()} style={{ background: 'transparent', border: 'none', color: name.trim() ? 'var(--primary)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: name.trim() ? 'pointer' : 'default', padding: 0 }}>
-            Lagre
+            {createdProjectId !== null ? 'Ferdig' : 'Lagre'}
           </button>
         </div>
 
@@ -322,7 +404,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
           <div style={{ marginTop: 8, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             {/* existing inventory yarns */}
             {standaloneYarns.map((y) => {
-              const picked = selectedYarns.some(s => s.id === y.id);
+              const picked = selectedYarns.some(s => (s.standaloneYarnId ?? s.id) === y.id);
               return (
                 <button key={y.id} onClick={() => toggleYarn(y)} style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 10,

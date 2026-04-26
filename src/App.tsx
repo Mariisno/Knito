@@ -100,8 +100,7 @@ function AppContent() {
   };
 
   const handleAddProject = async (project: Omit<KnittingProject, 'id' | 'createdAt'>) => {
-    setIsAddDialogOpen(false);
-    await addProject(project);
+    return await addProject(project);
   };
 
   if (loading) {
@@ -180,6 +179,7 @@ function AppContent() {
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onAddProject={handleAddProject}
+        onUpdateProject={updateProject}
         accessToken={accessToken!}
         standaloneYarns={standaloneYarns}
         needleInventory={needleInventory}

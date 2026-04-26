@@ -374,6 +374,7 @@ export function ProjectList({
               )}
             </DropdownMenuItem>
             <DropdownMenuItem
+              onSelect={(e) => e.preventDefault()}
               onClick={() => { if (updateState !== 'checking') checkForUpdate(); }}
               disabled={updateState === 'checking'}
             >

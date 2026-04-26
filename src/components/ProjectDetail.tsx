@@ -132,13 +132,13 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   };
 
   const handleImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setUploadingImg(true);
     try {
-      const url = await api.uploadImage(file, accessToken);
-      handleUpdate({ images: [url, ...editedProject.images] });
-      toast.success('Bilde lastet opp');
+      const urls = await Promise.all(files.map(f => api.uploadImage(f, accessToken)));
+      handleUpdate({ images: [...urls, ...editedProject.images] });
+      toast.success(urls.length === 1 ? 'Bilde lastet opp' : `${urls.length} bilder lastet opp`);
     } catch { toast.error('Kunne ikke laste opp bilde'); }
     finally { setUploadingImg(false); e.target.value = ''; }
   };
@@ -634,7 +634,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
       {/* IMAGE UPLOAD */}
       <div style={{ padding: '8px 20px 20px' }}>
-        <input ref={imgInputRef} type="file" accept="image/*" onChange={handleImgUpload} style={{ display: 'none' }} />
+        <input ref={imgInputRef} type="file" accept="image/*" multiple onChange={handleImgUpload} style={{ display: 'none' }} />
         <button onClick={() => imgInputRef.current?.click()} disabled={uploadingImg} style={{ ...dashedBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: uploadingImg ? 0.5 : 1 }}>
           {uploadingImg ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : (
             <>

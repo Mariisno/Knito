@@ -54,7 +54,6 @@ const dashedBtn: React.CSSProperties = {
 export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns }: ProjectDetailProps) {
   const [editedProject, setEditedProject] = useState(project);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showRemoveRecipeDialog, setShowRemoveRecipeDialog] = useState(false);
   const [deleteLogEntryId, setDeleteLogEntryId] = useState<string | null>(null);
   const [editingLogEntry, setEditingLogEntry] = useState<{ id: string; text: string } | null>(null);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -143,10 +142,21 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setUploadingPdf(true);
     try {
       const url = await api.uploadImage(file, accessToken);
-      handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: url, pdfName: file.name } });
+      const existing = editedProject.pattern?.files ?? [];
+      handleUpdate({ pattern: { ...editedProject.pattern, files: [...existing, { url, name: file.name }] } });
       toast.success('Oppskrift lastet opp');
     } catch { toast.error('Kunne ikke laste opp oppskrift'); }
     finally { setUploadingPdf(false); e.target.value = ''; }
+  };
+
+  const handleDeletePatternFile = (fileUrl: string) => {
+    if (editedProject.pattern?.pdfUrl === fileUrl) {
+      handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } });
+    } else {
+      const updated = (editedProject.pattern?.files ?? []).filter(f => f.url !== fileUrl);
+      handleUpdate({ pattern: { ...editedProject.pattern, files: updated } });
+    }
+    toast.success('Oppskrift fjernet');
   };
 
   const handleImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -463,48 +473,41 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* RECIPE */}
       <div style={{ padding: '8px 20px' }}>
         <input ref={pdfInputRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp" onChange={handlePdfUpload} style={{ display: 'none' }} />
-        {editedProject.pattern?.pdfUrl ? (
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
-              display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
-              padding: 16, paddingRight: 52, borderRadius: 18, border: '1px solid var(--fg)',
-              background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
-                <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>{editedProject.pattern.pdfName?.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift'}
+        {(() => {
+          const patternFiles = [
+            ...(editedProject.pattern?.pdfUrl ? [{ url: editedProject.pattern.pdfUrl, name: editedProject.pattern.pdfName || 'Oppskrift' }] : []),
+            ...(editedProject.pattern?.files ?? []),
+          ];
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {patternFiles.map((pf) => (
+                <div key={pf.url} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--fg)', background: 'var(--fg)', color: 'var(--bg)' }}>
+                  <button onClick={() => window.open(pf.url, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}>
+                    <div style={{ width: 36, height: 44, borderRadius: 5, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <div style={{ position: 'absolute', bottom: -3, right: -3, fontSize: 7, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 3, padding: '1px 3px' }}>{pf.name.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pf.name}</div>
+                    </div>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </button>
+                  <button onClick={() => handleDeletePatternFile(pf.url)} title="Fjern" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'color-mix(in oklab, var(--bg) 12%, transparent)', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  </button>
                 </div>
-                {editedProject.pattern.designer && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 3 }}>{editedProject.pattern.designer}</div>}
-              </div>
-              <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </button>
-            <button
-              onClick={() => setShowRemoveRecipeDialog(true)}
-              style={{ position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 18%, transparent)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              title="Fjern oppskrift"
-            >
-              <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, border: '1px dashed var(--border)', borderRadius: 16 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-fg)', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              ))}
+              <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--primary)', cursor: uploadingPdf ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: uploadingPdf ? 0.5 : 1 }}>
+                {uploadingPdf
+                  ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} />
+                  : <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                }
+                {patternFiles.length === 0 ? 'Legg til oppskrift' : 'Legg til flere'}
+              </button>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500 }}>Ingen oppskrift lagt ved</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>Last opp oppskrift (PDF, Word, bilde)</div>
-            </div>
-            <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} style={{ height: 32, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: uploadingPdf ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', opacity: uploadingPdf ? 0.5 : 1, flexShrink: 0 }}>
-              {uploadingPdf ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : '+ Last opp'}
-            </button>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* PROGRESS */}
@@ -835,14 +838,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 Fjern forsidebilde
               </button>
             )}
-            <button onClick={() => { setShowMoreMenu(false); pdfInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-              {editedProject.pattern?.pdfUrl ? 'Bytt oppskrift' : 'Legg til oppskrift'}
-            </button>
-            {editedProject.pattern?.pdfUrl && (
-              <button onClick={() => { handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } }); setShowMoreMenu(false); toast.success('Oppskrift fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                Fjern oppskrift
-              </button>
-            )}
             <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
               Slett prosjekt…
             </button>
@@ -1029,29 +1024,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* REMOVE RECIPE DIALOG */}
-      <AlertDialog open={showRemoveRecipeDialog} onOpenChange={setShowRemoveRecipeDialog}>
-        <AlertDialogContent className="bg-card">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fjern oppskriften?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Oppskriftsfilen vil bli fjernet fra prosjektet. Dette kan ikke angres.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } });
-                toast.success('Oppskrift fjernet');
-              }}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Fjern
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {showHeroLightbox && heroImage && (
         <div

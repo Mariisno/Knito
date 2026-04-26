@@ -18,6 +18,16 @@ const PlusIcon = () => (
     <path d="M12 5v14M5 12h14"/>
   </svg>
 );
+const StepPlusIcon = () => (
+  <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M12 5v14M5 12h14"/>
+  </svg>
+);
+const MinusIcon = () => (
+  <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M5 12h14"/>
+  </svg>
+);
 const LinkIcon = () => (
   <svg viewBox="0 0 24 24" width={10} height={10} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
     <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/>
@@ -47,6 +57,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     yardage?: string;
     dyeLot?: string;
     amount?: string;
+    quantity?: number;
     price?: number;
     notes?: string;
     usedInProjects: { id: string; name: string }[];
@@ -68,6 +79,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
       yardage: y.yardage,
       dyeLot: y.dyeLot,
       amount: y.amount,
+      quantity: y.quantity,
       price: y.price,
       notes: y.notes,
       usedInProjects: usedIn.map(p => ({ id: p.id, name: p.name })),
@@ -120,11 +132,11 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
       id: crypto.randomUUID(),
       name: newYarn.name.trim(),
       color: newYarn.color?.trim(),
+      quantity: newYarn.quantity ?? 1,
       weight: newYarn.weight,
       fiberContent: newYarn.fiberContent?.trim(),
       yardage: newYarn.yardage?.trim(),
       dyeLot: newYarn.dyeLot?.trim(),
-      amount: newYarn.amount?.trim(),
       price: newYarn.price,
       notes: newYarn.notes?.trim(),
     };
@@ -137,6 +149,16 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
   const handleDelete = (standaloneId: string) => {
     onUpdateStandaloneYarns(standaloneYarns.filter(y => y.id !== standaloneId));
     toast.success('Garn fjernet');
+  };
+
+  const handleQuantityChange = (standaloneId: string, delta: number) => {
+    const yarn = standaloneYarns.find(y => y.id === standaloneId);
+    if (!yarn) return;
+    const current = yarn.quantity ?? 1;
+    const next = Math.max(0, current + delta);
+    onUpdateStandaloneYarns(standaloneYarns.map(y =>
+      y.id === standaloneId ? { ...y, quantity: next } : y
+    ));
   };
 
   return (
@@ -195,37 +217,100 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
           <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted-fg)' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>Ingen garn funnet</div>
           </div>
-        ) : filtered.map(y => (
+        ) : filtered.map(y => {
+          const qty = y.quantity ?? (y.isStandalone ? 1 : undefined);
+          const qtyLabel = qty !== undefined ? `${qty} ${qty === 1 ? 'nøste' : 'nøster'}` : null;
+          return (
           <div key={y.id} style={{
-            display: 'flex', alignItems: 'stretch', gap: 14,
+            display: 'flex', alignItems: 'flex-start', gap: 14,
             padding: 14, marginBottom: 10,
             background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
           }}>
             {/* Color swatch */}
             <div style={{
-              width: 56, height: 56, borderRadius: 12, flexShrink: 0,
+              width: 76, height: 76, borderRadius: 14, flexShrink: 0,
               background: y.colorHex || (y.color ? '#b9aa93' : 'var(--accent)'),
               border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {!y.colorHex && (
-                <svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.5}>
+                <svg viewBox="0 0 24 24" width={32} height={32} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.55}>
                   <circle cx="12" cy="12" r="8.5"/>
                   <path d="M6 7c3 4 9 4 12 0M6 12c3 4 9 4 12 0M6 17c3 4 9 4 12 0"/>
                 </svg>
               )}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
-                {y.amount && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)', flexShrink: 0 }}>{y.amount}</div>}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginTop: 2 }}>
+                    {[y.color && `Farge: ${y.color}`, y.weight, y.fiberContent].filter(Boolean).join(' · ') || ' '}
+                  </div>
+                </div>
+                {y.isStandalone && (
+                  <button
+                    onClick={() => handleDelete(y.standaloneId!)}
+                    aria-label="Slett garn"
+                    style={{
+                      width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginTop: 2 }}>
-                {[y.color, y.weight, y.fiberContent].filter(Boolean).join(' · ')}
-              </div>
+
+              {y.isStandalone ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    height: 32, borderRadius: 999,
+                    border: '1px solid var(--border)', background: 'var(--bg)',
+                    overflow: 'hidden',
+                  }}>
+                    <button
+                      onClick={() => handleQuantityChange(y.standaloneId!, -1)}
+                      disabled={(y.quantity ?? 1) <= 0}
+                      aria-label="Reduser antall"
+                      style={{
+                        width: 36, height: '100%', border: 'none', background: 'transparent',
+                        color: 'var(--fg)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        opacity: (y.quantity ?? 1) <= 0 ? 0.35 : 1,
+                      }}
+                    >
+                      <MinusIcon />
+                    </button>
+                    <div style={{
+                      minWidth: 28, padding: '0 4px', textAlign: 'center',
+                      fontSize: 14, fontWeight: 600, color: 'var(--fg)', fontFamily: 'var(--font-ui)',
+                    }}>{y.quantity ?? 1}</div>
+                    <button
+                      onClick={() => handleQuantityChange(y.standaloneId!, 1)}
+                      aria-label="Øk antall"
+                      style={{
+                        width: 36, height: '100%', border: 'none', background: 'transparent',
+                        color: 'var(--fg)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <StepPlusIcon />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted-fg)' }}>
+                    {qtyLabel}
+                  </div>
+                </div>
+              ) : y.amount ? (
+                <div style={{ fontSize: 12, color: 'var(--muted-fg)' }}>{y.amount}</div>
+              ) : null}
+
               {y.usedInProjects.length > 0 && (
-                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {y.usedInProjects.map(p => (
                     <span key={p.id} style={{
                       height: 22, padding: '0 8px', borderRadius: 999, border: '1px solid var(--border)',
@@ -238,15 +323,9 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 </div>
               )}
             </div>
-
-            {y.isStandalone && (
-              <button onClick={() => handleDelete(y.standaloneId!)} style={{ alignSelf: 'flex-start', marginTop: 2, width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <TrashIcon />
-              </button>
-            )}
-
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* FAB */}
@@ -278,8 +357,16 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 <Input value={newYarn.color || ''} onChange={e => setNewYarn({ ...newYarn, color: e.target.value })} placeholder="F.eks. Natur" />
               </div>
               <div className="space-y-2">
-                <Label>Mengde</Label>
-                <Input value={newYarn.amount || ''} onChange={e => setNewYarn({ ...newYarn, amount: e.target.value })} placeholder="F.eks. 3 nøster" />
+                <Label>Antall (nøster)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={newYarn.quantity ?? 1}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setNewYarn({ ...newYarn, quantity: v === '' ? undefined : Math.max(0, parseInt(v, 10) || 0) });
+                  }}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

@@ -69,6 +69,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
+  const [counterInputValues, setCounterInputValues] = useState<Record<string, string>>({});
   const [currentTime, setCurrentTime] = useState(new Date());
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -198,15 +199,21 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handleCounterChange = (id: string, delta: number) => {
     handleUpdate({
       counters: (editedProject.counters || []).map(c =>
-        c.id === id ? { ...c, previousCount: c.count, count: Math.max(0, c.count + delta) } : c
+        c.id === id ? { ...c, count: Math.max(0, c.count + delta) } : c
       ),
     });
   };
 
-  const handleCounterUndo = (id: string) => {
+  const handleCounterDelete = (id: string) => {
+    handleUpdate({
+      counters: (editedProject.counters || []).filter(c => c.id !== id),
+    });
+  };
+
+  const handleCounterSetValue = (id: string, value: number) => {
     handleUpdate({
       counters: (editedProject.counters || []).map(c =>
-        c.id === id && c.previousCount !== undefined ? { ...c, count: c.previousCount, previousCount: undefined } : c
+        c.id === id ? { ...c, count: Math.max(0, value) } : c
       ),
     });
   };
@@ -461,12 +468,31 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{c.count}</div>
+              <input
+                type="number"
+                min="0"
+                value={counterInputValues[c.id] ?? String(c.count)}
+                onFocus={() => setCounterInputValues(v => ({ ...v, [c.id]: String(c.count) }))}
+                onChange={e => setCounterInputValues(v => ({ ...v, [c.id]: e.target.value }))}
+                onBlur={() => {
+                  const parsed = parseInt(counterInputValues[c.id] ?? '', 10);
+                  if (!isNaN(parsed)) handleCounterSetValue(c.id, parsed);
+                  setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  if (e.key === 'Escape') {
+                    setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent', color: 'var(--fg)', width: '5ch', outline: 'none', padding: 0, MozAppearance: 'textfield' } as React.CSSProperties}
+              />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {c.previousCount !== undefined && (
-                <button onClick={() => handleCounterUndo(c.id)} title="Angre" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>↩</button>
-              )}
+              <button onClick={() => handleCounterDelete(c.id)} title="Slett teller" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
               <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
               </button>

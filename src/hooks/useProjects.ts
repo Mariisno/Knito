@@ -57,10 +57,10 @@ export function useProjects(accessToken: string | null) {
     }
   };
 
-  const addProject = async (project: Omit<KnittingProject, 'id' | 'createdAt'>) => {
+  const addProject = async (project: Omit<KnittingProject, 'id' | 'createdAt'>): Promise<KnittingProject | null> => {
     if (!accessToken) {
       toast.error('Du må være logget inn for å opprette prosjekter');
-      return;
+      return null;
     }
 
     const newProject: KnittingProject = {
@@ -72,15 +72,16 @@ export function useProjects(accessToken: string | null) {
     };
 
     setProjects(prev => [...prev, newProject]);
-    toast.success('Prosjekt opprettet');
 
     try {
       const savedProject = await api.createProject(newProject, accessToken);
       setProjects(prev => prev.map(p => p.id === newProject.id ? savedProject : p));
+      return savedProject;
     } catch (error) {
       console.error('Failed to create project:', error);
       setProjects(prev => prev.filter(p => p.id !== newProject.id));
       toast.error('Kunne ikke lagre prosjekt. Prøv igjen.');
+      return null;
     }
   };
 

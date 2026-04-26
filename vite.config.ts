@@ -3,9 +3,56 @@
   import react from '@vitejs/plugin-react';
   import tailwindcss from '@tailwindcss/vite';
   import path from 'path';
+  import fs from 'node:fs';
+
+  function versionJsonPlugin() {
+    function resolveLatestVersion(): string {
+      const fragDir = path.resolve(__dirname, 'src/data/changelog-fragments');
+      const versions: string[] = [];
+      try {
+        const files = fs.readdirSync(fragDir).filter(f => f.endsWith('.ts'));
+        for (const file of files) {
+          const src = fs.readFileSync(path.join(fragDir, file), 'utf8');
+          const m = src.match(/version:\s*['"]([^'"]+)['"]/);
+          if (m) versions.push(m[1]);
+        }
+      } catch { /* ignore if dir missing */ }
+      const changelogSrc = fs.readFileSync(
+        path.resolve(__dirname, 'src/data/changelog.ts'), 'utf8'
+      );
+      for (const m of changelogSrc.matchAll(/version:\s*['"]([^'"]+)['"]/g)) {
+        versions.push(m[1]);
+      }
+      versions.sort((a, b) => {
+        const pa = a.split('.').map(Number);
+        const pb = b.split('.').map(Number);
+        for (let i = 0; i < 3; i++) if (pb[i] !== pa[i]) return pb[i] - pa[i];
+        return 0;
+      });
+      return versions[0] ?? '0.0.0';
+    }
+
+    return {
+      name: 'knito-version-json',
+      configureServer(server: any) {
+        server.middlewares.use('/version.json', (_req: any, res: any) => {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ version: resolveLatestVersion() }));
+        });
+      },
+      closeBundle() {
+        const outDir = path.resolve(__dirname, 'build');
+        fs.mkdirSync(outDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(outDir, 'version.json'),
+          JSON.stringify({ version: resolveLatestVersion() }, null, 2)
+        );
+      },
+    };
+  }
 
   export default defineConfig({
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), versionJsonPlugin()],
     publicDir: 'src/public',
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],

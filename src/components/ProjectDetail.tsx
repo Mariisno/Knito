@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import useEmblaCarousel from 'embla-carousel-react@8.6.0';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
-import type { KnittingProject, ProjectStatus, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
+import type { KnittingProject, ProjectStatus, CraftType, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -54,6 +55,8 @@ const dashedBtn: React.CSSProperties = {
 export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns }: ProjectDetailProps) {
   const [editedProject, setEditedProject] = useState(project);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLogEntryId, setDeleteLogEntryId] = useState<string | null>(null);
+  const [editingLogEntry, setEditingLogEntry] = useState<{ id: string; text: string } | null>(null);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -66,14 +69,38 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [showYarnPicker, setShowYarnPicker] = useState(false);
+  const [showNewYarnForm, setShowNewYarnForm] = useState(false);
+  const [newYarnData, setNewYarnData] = useState<{ name?: string; brand?: string; color?: string; amount?: string; weight?: Yarn['weight'] }>({});
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
+  const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
+  const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
+  const [counterInputValues, setCounterInputValues] = useState<Record<string, string>>({});
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showHeroLightbox, setShowHeroLightbox] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const coverImgInputRef = useRef<HTMLInputElement>(null);
   const logImgInputRef = useRef<HTMLInputElement>(null);
+  const [currentImgIdx, setCurrentImgIdx] = useState(0);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setCurrentImgIdx(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
+  }, [emblaApi]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.reInit();
+    const clamped = Math.min(currentImgIdx, Math.max(0, editedProject.images.length - 1));
+    emblaApi.scrollTo(clamped, true);
+    setCurrentImgIdx(clamped);
+  }, [editedProject.images.length]);
 
   useEffect(() => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
@@ -81,6 +108,15 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       return () => clearInterval(interval);
     }
   }, [editedProject.currentTimeLog]);
+
+  useEffect(() => {
+    if (!showHeroLightbox) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowHeroLightbox(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showHeroLightbox]);
 
   const debouncedOnUpdate = useDebouncedCallback((updated: KnittingProject) => onUpdate(updated), 500);
 
@@ -125,20 +161,31 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setUploadingPdf(true);
     try {
       const url = await api.uploadImage(file, accessToken);
-      handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: url, pdfName: file.name } });
+      const existing = editedProject.pattern?.files ?? [];
+      handleUpdate({ pattern: { ...editedProject.pattern, files: [...existing, { url, name: file.name }] } });
       toast.success('Oppskrift lastet opp');
     } catch { toast.error('Kunne ikke laste opp oppskrift'); }
     finally { setUploadingPdf(false); e.target.value = ''; }
   };
 
+  const handleDeletePatternFile = (fileUrl: string) => {
+    if (editedProject.pattern?.pdfUrl === fileUrl) {
+      handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } });
+    } else {
+      const updated = (editedProject.pattern?.files ?? []).filter(f => f.url !== fileUrl);
+      handleUpdate({ pattern: { ...editedProject.pattern, files: updated } });
+    }
+    toast.success('Oppskrift fjernet');
+  };
+
   const handleImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setUploadingImg(true);
     try {
-      const url = await api.uploadImage(file, accessToken);
-      handleUpdate({ images: [url, ...editedProject.images] });
-      toast.success('Bilde lastet opp');
+      const urls = await Promise.all(files.map(f => api.uploadImage(f, accessToken)));
+      handleUpdate({ images: [...urls, ...editedProject.images] });
+      toast.success(urls.length === 1 ? 'Bilde lastet opp' : `${urls.length} bilder lastet opp`);
     } catch { toast.error('Kunne ikke laste opp bilde'); }
     finally { setUploadingImg(false); e.target.value = ''; }
   };
@@ -149,10 +196,20 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setUploadingImg(true);
     try {
       const url = await api.uploadImage(file, accessToken);
-      handleUpdate({ images: [url, ...editedProject.images.slice(1)] });
-      toast.success('Forsidebilde oppdatert');
+      handleUpdate({
+        images: editedProject.images.length === 0
+          ? [url]
+          : editedProject.images.map((img, i) => i === currentImgIdx ? url : img),
+      });
+      toast.success('Bilde oppdatert');
     } catch { toast.error('Kunne ikke laste opp bilde'); }
     finally { setUploadingImg(false); e.target.value = ''; }
+  };
+
+  const handleDeleteImg = (index: number) => {
+    const newImages = editedProject.images.filter((_, i) => i !== index);
+    handleUpdate({ images: newImages });
+    toast.success('Bilde fjernet');
   };
 
   const handleLogImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,6 +219,24 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setLogImageFile(file);
     setLogImagePreview(URL.createObjectURL(file));
     e.target.value = '';
+  };
+
+  const handleDeleteLogEntry = () => {
+    if (!deleteLogEntryId) return;
+    handleUpdate({ logEntries: (editedProject.logEntries || []).filter(e => e.id !== deleteLogEntryId) });
+    setDeleteLogEntryId(null);
+  };
+
+  const handleSaveEditLogEntry = () => {
+    if (!editingLogEntry) return;
+    const trimmed = editingLogEntry.text.trim();
+    if (!trimmed) return;
+    handleUpdate({
+      logEntries: (editedProject.logEntries || []).map(e =>
+        e.id === editingLogEntry.id ? { ...e, text: trimmed } : e
+      ),
+    });
+    setEditingLogEntry(null);
   };
 
   const handleAddNote = async () => {
@@ -198,15 +273,21 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const handleCounterChange = (id: string, delta: number) => {
     handleUpdate({
       counters: (editedProject.counters || []).map(c =>
-        c.id === id ? { ...c, previousCount: c.count, count: Math.max(0, c.count + delta) } : c
+        c.id === id ? { ...c, count: Math.max(0, c.count + delta) } : c
       ),
     });
   };
 
-  const handleCounterUndo = (id: string) => {
+  const handleCounterDelete = (id: string) => {
+    handleUpdate({
+      counters: (editedProject.counters || []).filter(c => c.id !== id),
+    });
+  };
+
+  const handleCounterSetValue = (id: string, value: number) => {
     handleUpdate({
       counters: (editedProject.counters || []).map(c =>
-        c.id === id && c.previousCount !== undefined ? { ...c, count: c.previousCount, previousCount: undefined } : c
+        c.id === id ? { ...c, count: Math.max(0, value) } : c
       ),
     });
   };
@@ -218,10 +299,43 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     toast.success(`${yarn.name} lagt til`);
   };
 
+  const handleAddNewYarn = () => {
+    if (!newYarnData.name?.trim()) return;
+    const yarn: Yarn = {
+      id: crypto.randomUUID(),
+      name: newYarnData.name.trim(),
+      brand: newYarnData.brand?.trim() || undefined,
+      color: newYarnData.color?.trim() || undefined,
+      amount: newYarnData.amount?.trim() || undefined,
+      weight: newYarnData.weight || undefined,
+    };
+    handleUpdate({ yarns: [...editedProject.yarns, yarn] });
+    setShowYarnPicker(false);
+    setShowNewYarnForm(false);
+    setNewYarnData({});
+    toast.success(`${yarn.name} lagt til`);
+  };
+
   const handleAddNeedle = (needle: NeedleInventoryItem) => {
     const newNeedle = { id: crypto.randomUUID(), size: needle.size, type: needle.type, length: needle.length, material: needle.material, inventoryNeedleId: needle.id };
     handleUpdate({ needles: [...(editedProject.needles || []), newNeedle] });
     setShowNeedlePicker(false);
+    toast.success(`Pinne ${needle.size} lagt til`);
+  };
+
+  const handleAddNewNeedle = () => {
+    if (!newNeedleData.size?.trim()) return;
+    const needle = {
+      id: crypto.randomUUID(),
+      size: newNeedleData.size.trim(),
+      type: newNeedleData.type || 'Rundpinne',
+      length: newNeedleData.length?.trim() || undefined,
+      material: newNeedleData.material?.trim() || undefined,
+    };
+    handleUpdate({ needles: [...(editedProject.needles || []), needle] });
+    setShowNeedlePicker(false);
+    setShowNewNeedleForm(false);
+    setNewNeedleData({ type: 'Rundpinne' });
     toast.success(`Pinne ${needle.size} lagt til`);
   };
 
@@ -252,10 +366,19 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
       {/* HERO */}
       <div style={{ position: 'relative', height: 300, background: 'var(--accent)', flexShrink: 0 }}>
-        {heroImage
-          ? <img src={heroImage} alt={editedProject.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
-        }
+        {editedProject.images.length > 0 ? (
+          <div ref={emblaRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', height: '100%' }}>
+              {editedProject.images.map((img, i) => (
+                <div key={i} style={{ flex: '0 0 100%', minWidth: 0, height: '100%' }}>
+                  <img src={img} alt={`${editedProject.name} ${i + 1}`} onClick={() => setShowHeroLightbox(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
+        )}
         <input ref={coverImgInputRef} type="file" accept="image/*" onChange={handleCoverImgUpload} style={{ display: 'none' }} />
         {/* top bar overlay */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 'calc(8px + env(safe-area-inset-top))', paddingBottom: '8px', paddingLeft: '14px', paddingRight: '14px' }}>
@@ -266,11 +389,29 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
           </button>
         </div>
-        {/* camera button to change cover image */}
+        {/* dot indicators */}
+        {editedProject.images.length > 1 && (
+          <div style={{ position: 'absolute', bottom: 54, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 2, pointerEvents: 'none' }}>
+            {editedProject.images.map((_, i) => (
+              <div key={i} style={{ width: i === currentImgIdx ? 16 : 6, height: 6, borderRadius: 999, background: i === currentImgIdx ? 'white' : 'rgba(255,255,255,0.5)', transition: 'width 0.2s' }} />
+            ))}
+          </div>
+        )}
+        {/* delete current image button */}
+        {editedProject.images.length > 0 && (
+          <button
+            onClick={() => handleDeleteImg(currentImgIdx)}
+            title="Slett bilde"
+            style={{ position: 'absolute', bottom: 12, left: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}
+          >
+            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        )}
+        {/* camera button to change current image */}
         <button
           onClick={() => coverImgInputRef.current?.click()}
           disabled={uploadingImg}
-          title="Endre forsidebilde"
+          title="Endre bilde"
           style={{ position: 'absolute', bottom: 12, right: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: uploadingImg ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)', opacity: uploadingImg ? 0.5 : 1 }}
         >
           {uploadingImg
@@ -297,7 +438,18 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 <div onClick={() => setShowStatusMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
                 <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 51, minWidth: 160, padding: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 12px 28px -8px color-mix(in oklab, var(--fg) 30%, transparent)' }}>
                   {STATUS_OPTIONS.map(s => (
-                    <button key={s} onClick={() => { handleUpdate({ status: s }); setShowStatusMenu(false); }} style={{
+                    <button key={s} onClick={() => {
+                      const updates: Partial<KnittingProject> = { status: s };
+                      if (s === 'Fullført' && editedProject.progress < 100) {
+                        updates.progress = 100;
+                        updates.endDate = new Date();
+                      }
+                      handleUpdate(updates);
+                      if (s === 'Fullført' && editedProject.progress < 100) {
+                        toast.success('Gratulerer! Prosjektet er fullført! 🎉');
+                      }
+                      setShowStatusMenu(false);
+                    }} style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                       padding: '9px 10px', borderRadius: 8, border: 'none',
                       background: editedProject.status === s ? 'var(--accent)' : 'transparent',
@@ -320,6 +472,18 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               display: 'flex', alignItems: 'center', backdropFilter: 'blur(12px)',
             }}>{editedProject.category}</div>
           )}
+          {/* craft type toggle */}
+          {(['Strikking', 'Hekling'] as CraftType[]).map(ct => (
+            <button key={ct} onClick={() => handleUpdate({ craftType: ct })} style={{
+              height: 26, padding: '0 10px', borderRadius: 999, border: 'none',
+              background: (editedProject.craftType ?? 'Strikking') === ct
+                ? 'color-mix(in oklab, var(--primary) 85%, transparent)'
+                : 'color-mix(in oklab, var(--bg) 88%, transparent)',
+              color: (editedProject.craftType ?? 'Strikking') === ct ? 'var(--primary-foreground)' : 'var(--muted-fg)',
+              fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              backdropFilter: 'blur(12px)',
+            }}>{ct}</button>
+          ))}
         </div>
       </div>
 
@@ -365,39 +529,41 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* RECIPE */}
       <div style={{ padding: '8px 20px' }}>
         <input ref={pdfInputRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp" onChange={handlePdfUpload} style={{ display: 'none' }} />
-        {editedProject.pattern?.pdfUrl ? (
-          <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
-            display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
-            padding: 16, borderRadius: 18, border: '1px solid var(--fg)',
-            background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>{editedProject.pattern.pdfName?.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
+        {(() => {
+          const patternFiles = [
+            ...(editedProject.pattern?.pdfUrl ? [{ url: editedProject.pattern.pdfUrl, name: editedProject.pattern.pdfName || 'Oppskrift' }] : []),
+            ...(editedProject.pattern?.files ?? []),
+          ];
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {patternFiles.map((pf) => (
+                <div key={pf.url} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)' }}>
+                  <button onClick={() => window.open(pf.url, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}>
+                    <div style={{ width: 36, height: 44, borderRadius: 5, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <div style={{ position: 'absolute', bottom: -3, right: -3, fontSize: 7, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 3, padding: '1px 3px' }}>{pf.name.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pf.name}</div>
+                    </div>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </button>
+                  <button onClick={() => handleDeletePatternFile(pf.url)} title="Fjern" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--primary)', cursor: uploadingPdf ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: uploadingPdf ? 0.5 : 1 }}>
+                {uploadingPdf
+                  ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} />
+                  : <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                }
+                {patternFiles.length === 0 ? 'Legg til oppskrift' : 'Legg til flere'}
+              </button>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 10.5, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.6 }}>Oppskrift</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {editedProject.pattern.pdfName || editedProject.pattern.name || 'Oppskrift'}
-              </div>
-              {editedProject.pattern.designer && <div style={{ fontSize: 11, opacity: 0.6, marginTop: 3 }}>{editedProject.pattern.designer}</div>}
-            </div>
-            <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </button>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, border: '1px dashed var(--border)', borderRadius: 16 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-fg)', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500 }}>Ingen oppskrift lagt ved</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>Last opp oppskrift (PDF, Word, bilde)</div>
-            </div>
-            <button onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} style={{ height: 32, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: uploadingPdf ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', opacity: uploadingPdf ? 0.5 : 1, flexShrink: 0 }}>
-              {uploadingPdf ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : '+ Last opp'}
-            </button>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* PROGRESS */}
@@ -455,18 +621,37 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         </button>
       </div>
 
-      {/* COUNTERS */}
-      <Section title="Teller" count={(editedProject.counters || []).length}>
+      {/* COUNTERS — skjult inntil videre */}
+      {false && <Section title="Teller" count={(editedProject.counters || []).length}>
         {(editedProject.counters || []).map(c => (
           <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{c.count}</div>
+              <input
+                type="number"
+                min="0"
+                value={counterInputValues[c.id] ?? String(c.count)}
+                onFocus={() => setCounterInputValues(v => ({ ...v, [c.id]: String(c.count) }))}
+                onChange={e => setCounterInputValues(v => ({ ...v, [c.id]: e.target.value }))}
+                onBlur={() => {
+                  const parsed = parseInt(counterInputValues[c.id] ?? '', 10);
+                  if (!isNaN(parsed)) handleCounterSetValue(c.id, parsed);
+                  setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  if (e.key === 'Escape') {
+                    setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent', color: 'var(--fg)', width: '5ch', outline: 'none', padding: 0, MozAppearance: 'textfield' } as React.CSSProperties}
+              />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {c.previousCount !== undefined && (
-                <button onClick={() => handleCounterUndo(c.id)} title="Angre" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>↩</button>
-              )}
+              <button onClick={() => handleCounterDelete(c.id)} title="Slett teller" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
               <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
               </button>
@@ -492,7 +677,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         ) : (
           <button onClick={() => setShowCounterAdd(true)} style={dashedBtn}>+ Legg til teller</button>
         )}
-      </Section>
+      </Section>}
 
       {/* YARN */}
       <Section title="Garn" count={editedProject.yarns.length}>
@@ -510,7 +695,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       </Section>
 
       {/* NEEDLES */}
-      <Section title="Pinner" count={(editedProject.needles || []).length}>
+      <Section title={editedProject.craftType === 'Hekling' ? 'Heklenåler' : 'Pinner'} count={(editedProject.needles || []).length}>
         {(editedProject.needles || []).map(n => (
           <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -522,7 +707,9 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             </div>
           </div>
         ))}
-        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ Legg til pinne</button>
+        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>
+          {editedProject.craftType === 'Hekling' ? '+ Legg til heklenål' : '+ Legg til pinne'}
+        </button>
       </Section>
 
       {/* GAUGE */}
@@ -561,25 +748,73 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
         {(editedProject.logEntries || []).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-            {(editedProject.logEntries || []).map(e => (
-              <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-                {e.imageUrl && (
-                  <img
-                    src={e.imageUrl}
-                    alt=""
-                    style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }}
-                  />
-                )}
-                <div style={{ padding: '10px 14px' }}>
-                  {e.text && (
-                    <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>
+            {(editedProject.logEntries || []).map(e => {
+              const isEditing = editingLogEntry?.id === e.id;
+              return (
+                <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                  {e.imageUrl && (
+                    <img
+                      src={e.imageUrl}
+                      alt=""
+                      style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }}
+                    />
                   )}
-                  <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: e.text ? 4 : 0 }}>
-                    {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+                  <div style={{ padding: '10px 14px', paddingRight: e.text ? 64 : 64 }}>
+                    {isEditing ? (
+                      <>
+                        <textarea
+                          autoFocus
+                          value={editingLogEntry!.text}
+                          onChange={ev => setEditingLogEntry({ id: e.id, text: ev.target.value })}
+                          onKeyDown={ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); handleSaveEditLogEntry(); } if (ev.key === 'Escape') setEditingLogEntry(null); }}
+                          style={{ width: '100%', minHeight: 72, resize: 'vertical', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13.5, lineHeight: 1.5, padding: '6px 10px', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                          <button onClick={() => setEditingLogEntry(null)} style={{ height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Avbryt</button>
+                          <button onClick={handleSaveEditLogEntry} disabled={!editingLogEntry!.text.trim()} style={{ height: 30, padding: '0 12px', borderRadius: 8, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: !editingLogEntry!.text.trim() ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, opacity: !editingLogEntry!.text.trim() ? 0.4 : 1 }}>Lagre</button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {e.text && <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{e.text}</div>}
+                        <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: e.text ? 4 : 0 }}>
+                          {format(new Date(e.timestamp), 'd. MMM yyyy, HH:mm', { locale: nb })}
+                        </div>
+                      </>
+                    )}
                   </div>
+                  {!isEditing && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 2 }}>
+                      {e.text && (
+                        <button
+                          onClick={() => setEditingLogEntry({ id: e.id, text: e.text! })}
+                          style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}
+                          onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
+                          onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                          aria-label="Rediger notat"
+                          title="Rediger notat"
+                        >
+                          <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDeleteLogEntryId(e.id)}
+                        style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1, opacity: 0.5 }}
+                        onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
+                        onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                        aria-label="Slett notat"
+                        title="Slett notat"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -627,14 +862,14 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             style={{ height: 44, padding: '0 18px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: (uploadingLogImg || (!noteInput.trim() && !logImageFile)) ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, opacity: (uploadingLogImg || (!noteInput.trim() && !logImageFile)) ? 0.35 : 1, display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {uploadingLogImg && <Loader2 className="animate-spin" style={{ width: 13, height: 13 }} />}
-            Send
+            Lagre
           </button>
         </div>
       </div>
 
       {/* IMAGE UPLOAD */}
       <div style={{ padding: '8px 20px 20px' }}>
-        <input ref={imgInputRef} type="file" accept="image/*" onChange={handleImgUpload} style={{ display: 'none' }} />
+        <input ref={imgInputRef} type="file" accept="image/*" multiple onChange={handleImgUpload} style={{ display: 'none' }} />
         <button onClick={() => imgInputRef.current?.click()} disabled={uploadingImg} style={{ ...dashedBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: uploadingImg ? 0.5 : 1 }}>
           {uploadingImg ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : (
             <>
@@ -652,22 +887,14 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <button onClick={() => { setShowMoreMenu(false); coverImgInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-              {heroImage ? 'Endre forsidebilde' : 'Legg til forsidebilde'}
+              {heroImage ? 'Endre bilde' : 'Legg til bilde'}
             </button>
             {heroImage && (
-              <button onClick={() => { handleUpdate({ images: editedProject.images.slice(1) }); setShowMoreMenu(false); toast.success('Forsidebilde fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                Fjern forsidebilde
+              <button onClick={() => { handleDeleteImg(currentImgIdx); setShowMoreMenu(false); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+                Fjern dette bildet
               </button>
             )}
-            <button onClick={() => { setShowMoreMenu(false); pdfInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-              {editedProject.pattern?.pdfUrl ? 'Bytt oppskrift' : 'Legg til oppskrift'}
-            </button>
-            {editedProject.pattern?.pdfUrl && (
-              <button onClick={() => { handleUpdate({ pattern: { ...editedProject.pattern, pdfUrl: undefined, pdfName: undefined } }); setShowMoreMenu(false); toast.success('Oppskrift fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                Fjern oppskrift
-              </button>
-            )}
-            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
+            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
               Slett prosjekt…
             </button>
           </div>
@@ -677,24 +904,63 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => setShowYarnPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Velg garn</div>
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {availableYarns.map(yarn => (
-                <button key={yarn.id} onClick={() => handleAddYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                  {yarn.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
-                  </div>
-                </button>
-              ))}
-              {availableYarns.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>Ingen garn tilgjengelig i lager</div>
-              )}
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : 'Velg garn'}</div>
+            {showNewYarnForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <input
+                  autoFocus
+                  placeholder="Garnnavn *"
+                  value={newYarnData.name || ''}
+                  onChange={e => setNewYarnData(d => ({ ...d, name: e.target.value }))}
+                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input
+                    placeholder="Farge"
+                    value={newYarnData.color || ''}
+                    onChange={e => setNewYarnData(d => ({ ...d, color: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                  <input
+                    placeholder="Mengde"
+                    value={newYarnData.amount || ''}
+                    onChange={e => setNewYarnData(d => ({ ...d, amount: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <select
+                  value={newYarnData.weight || ''}
+                  onChange={e => setNewYarnData(d => ({ ...d, weight: (e.target.value || undefined) as Yarn['weight'] }))}
+                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: newYarnData.weight ? 'var(--fg)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                >
+                  <option value="">Tykkelse (valgfritt)</option>
+                  {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button onClick={handleAddNewYarn} disabled={!newYarnData.name?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnData.name?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newYarnData.name?.trim() ? 1 : 0.35 }}>Legg til</button>
+                  <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {availableYarns.map(yarn => (
+                  <button key={yarn.id} onClick={() => handleAddYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    {yarn.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                    </div>
+                  </button>
+                ))}
+                {availableYarns.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>Ingen garn tilgjengelig i lager</div>
+                )}
+                <button onClick={() => setShowNewYarnForm(true)} style={dashedBtn}>+ Nytt garn</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -702,30 +968,96 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* NEEDLE PICKER */}
       {showNeedlePicker && (
         <>
-          <div onClick={() => setShowNeedlePicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Velg pinne</div>
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {availableNeedles.map(needle => (
-                <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
-                  </div>
-                  {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>×{needle.quantity}</div>}
-                </button>
-              ))}
-              {availableNeedles.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '24px 0' }}>Ingen pinner tilgjengelig i lager</div>
-              )}
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+              {showNewNeedleForm
+                ? (editedProject.craftType === 'Hekling' ? 'Ny heklenål' : 'Ny pinne')
+                : (editedProject.craftType === 'Hekling' ? 'Velg heklenål' : 'Velg pinne')}
             </div>
+            {showNewNeedleForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <select
+                    value={newNeedleData.type || 'Rundpinne'}
+                    onChange={e => setNewNeedleData(d => ({ ...d, type: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  >
+                    {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <input
+                    autoFocus
+                    placeholder="Størrelse *"
+                    value={newNeedleData.size || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, size: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input
+                    placeholder="Lengde"
+                    value={newNeedleData.length || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, length: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                  <input
+                    placeholder="Materiale"
+                    value={newNeedleData.material || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, material: e.target.value }))}
+                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button onClick={handleAddNewNeedle} disabled={!newNeedleData.size?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newNeedleData.size?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newNeedleData.size?.trim() ? 1 : 0.35 }}>Legg til</button>
+                  <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {availableNeedles.map(needle => (
+                  <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
+                    </div>
+                    {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>×{needle.quantity}</div>}
+                  </button>
+                ))}
+                {availableNeedles.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>
+                    {editedProject.craftType === 'Hekling' ? 'Ingen heklenåler tilgjengelig i lager' : 'Ingen pinner tilgjengelig i lager'}
+                  </div>
+                )}
+                <button onClick={() => setShowNewNeedleForm(true)} style={dashedBtn}>
+                  {editedProject.craftType === 'Hekling' ? '+ Ny heklenål' : '+ Ny pinne'}
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
+
+      {/* DELETE LOG ENTRY DIALOG */}
+      <AlertDialog open={!!deleteLogEntryId} onOpenChange={open => { if (!open) setDeleteLogEntryId(null); }}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slett notat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette notatet vil bli slettet permanent. Dette kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 mt-4">
+            <AlertDialogCancel className="flex-1">Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLogEntry} className="flex-1 bg-destructive hover:bg-destructive/90">
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* DELETE DIALOG */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -747,6 +1079,42 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+
+      {showHeroLightbox && editedProject.images[currentImgIdx] && (
+        <div
+          onClick={() => setShowHeroLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'color-mix(in oklab, #000 88%, transparent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <img
+            src={editedProject.images[currentImgIdx]}
+            alt={editedProject.name}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6, boxShadow: '0 24px 64px -12px rgba(0,0,0,0.7)' }}
+          />
+          <button
+            onClick={() => setShowHeroLightbox(false)}
+            aria-label="Lukk"
+            style={{
+              position: 'absolute',
+              top: 'calc(16px + env(safe-area-inset-top))', right: 16,
+              width: 36, height: 36, borderRadius: 10, border: 'none',
+              background: 'color-mix(in oklab, var(--bg) 85%, transparent)',
+              backdropFilter: 'blur(12px)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--fg)', zIndex: 101,
+            }}
+          >
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

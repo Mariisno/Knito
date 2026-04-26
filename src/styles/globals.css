@@ -45,6 +45,8 @@
   --sidebar-accent-foreground: #6b4e3d;
   --sidebar-border: #e8ddd4;
   --sidebar-ring: #d97757;
+  --status-pending: #c9856b;
+  --status-completed: #7a8a6a;
 }
 
 .dark {
@@ -85,6 +87,8 @@
   --sidebar-accent-foreground: #f5f1ed;
   --sidebar-border: #3a342f;
   --sidebar-ring: #e89b7e;
+  --status-pending: #e89b7e;
+  --status-completed: #9caf8c;
 }
 
 @theme inline {

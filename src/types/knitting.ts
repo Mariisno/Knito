@@ -8,6 +8,7 @@ export interface Yarn {
   brand?: string;
   color?: string;
   amount?: string;
+  quantity?: number;          // number of skeins/balls in inventory
   weight?: YarnWeight;        // yarn weight category
   fiberContent?: string;      // e.g. "100% Merino", "80% Alpakka, 20% Silke"
   yardage?: string;           // e.g. "200m per 50g"
@@ -65,14 +66,20 @@ export interface GaugeSwatch {
   notes?: string;             // swatch notes
 }
 
+export interface PatternFile {
+  url: string;
+  name: string;
+}
+
 export interface PatternInfo {
   url?: string;               // link to pattern (Ravelry, etc.)
   name?: string;              // pattern name
   designer?: string;          // pattern designer
   currentRow?: number;        // where user is in the pattern
   totalRows?: number;         // total rows in pattern (if known)
-  pdfUrl?: string;            // uploaded PDF file URL
-  pdfName?: string;           // original PDF filename
+  pdfUrl?: string;            // uploaded PDF file URL (legacy, single file)
+  pdfName?: string;           // original PDF filename (legacy, single file)
+  files?: PatternFile[];      // multiple uploaded files
 }
 
 export interface KnittingProject {

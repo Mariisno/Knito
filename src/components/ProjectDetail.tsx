@@ -423,10 +423,10 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div style={{ position: 'relative' }}>
             <button onClick={() => window.open(editedProject.pattern!.pdfUrl!, '_blank')} style={{
               display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left',
-              padding: 16, paddingRight: 52, borderRadius: 18, border: '1px solid var(--fg)',
-              background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit',
+              padding: 16, paddingRight: 52, borderRadius: 18, border: '1px solid var(--border)',
+              background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit',
             }}>
-              <div style={{ width: 54, height: 66, borderRadius: 6, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: 54, height: 66, borderRadius: 6, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
                 <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 <div style={{ position: 'absolute', bottom: -4, right: -4, fontSize: 8, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 4, padding: '2px 4px' }}>{editedProject.pattern.pdfName?.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
               </div>
@@ -441,7 +441,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             </button>
             <button
               onClick={() => setShowRemoveRecipeDialog(true)}
-              style={{ position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 18%, transparent)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               title="Fjern oppskrift"
             >
               <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -780,7 +780,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 Fjern oppskrift
               </button>
             )}
-            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
+            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
               Slett prosjekt…
             </button>
           </div>

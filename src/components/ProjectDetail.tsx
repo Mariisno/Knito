@@ -459,8 +459,8 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         </button>
       </div>
 
-      {/* COUNTERS */}
-      <Section title="Teller" count={(editedProject.counters || []).length}>
+      {/* COUNTERS — skjult inntil videre */}
+      {false && <Section title="Teller" count={(editedProject.counters || []).length}>
         {(editedProject.counters || []).map(c => (
           <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1 }}>
@@ -496,7 +496,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
         ) : (
           <button onClick={() => setShowCounterAdd(true)} style={dashedBtn}>+ Legg til teller</button>
         )}
-      </Section>
+      </Section>}
 
       {/* YARN */}
       <Section title="Garn" count={editedProject.yarns.length}>

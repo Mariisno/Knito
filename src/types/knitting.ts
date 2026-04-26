@@ -8,6 +8,7 @@ export interface Yarn {
   brand?: string;
   color?: string;
   amount?: string;
+  quantity?: number;          // number of skeins/balls in inventory
   weight?: YarnWeight;        // yarn weight category
   fiberContent?: string;      // e.g. "100% Merino", "80% Alpakka, 20% Silke"
   yardage?: string;           // e.g. "200m per 50g"

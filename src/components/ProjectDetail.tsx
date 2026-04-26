@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import useEmblaCarousel from 'embla-carousel-react@8.6.0';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import type { KnittingProject, ProjectStatus, CraftType, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
 import {
@@ -82,6 +83,24 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const imgInputRef = useRef<HTMLInputElement>(null);
   const coverImgInputRef = useRef<HTMLInputElement>(null);
   const logImgInputRef = useRef<HTMLInputElement>(null);
+  const [currentImgIdx, setCurrentImgIdx] = useState(0);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setCurrentImgIdx(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
+  }, [emblaApi]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.reInit();
+    const clamped = Math.min(currentImgIdx, Math.max(0, editedProject.images.length - 1));
+    emblaApi.scrollTo(clamped, true);
+    setCurrentImgIdx(clamped);
+  }, [editedProject.images.length]);
 
   useEffect(() => {
     if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
@@ -177,10 +196,20 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setUploadingImg(true);
     try {
       const url = await api.uploadImage(file, accessToken);
-      handleUpdate({ images: [url, ...editedProject.images.slice(1)] });
-      toast.success('Forsidebilde oppdatert');
+      handleUpdate({
+        images: editedProject.images.length === 0
+          ? [url]
+          : editedProject.images.map((img, i) => i === currentImgIdx ? url : img),
+      });
+      toast.success('Bilde oppdatert');
     } catch { toast.error('Kunne ikke laste opp bilde'); }
     finally { setUploadingImg(false); e.target.value = ''; }
+  };
+
+  const handleDeleteImg = (index: number) => {
+    const newImages = editedProject.images.filter((_, i) => i !== index);
+    handleUpdate({ images: newImages });
+    toast.success('Bilde fjernet');
   };
 
   const handleLogImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -337,10 +366,19 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
       {/* HERO */}
       <div style={{ position: 'relative', height: 300, background: 'var(--accent)', flexShrink: 0 }}>
-        {heroImage
-          ? <img src={heroImage} alt={editedProject.name} onClick={() => setShowHeroLightbox(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
-          : <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
-        }
+        {editedProject.images.length > 0 ? (
+          <div ref={emblaRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', height: '100%' }}>
+              {editedProject.images.map((img, i) => (
+                <div key={i} style={{ flex: '0 0 100%', minWidth: 0, height: '100%' }}>
+                  <img src={img} alt={`${editedProject.name} ${i + 1}`} onClick={() => setShowHeroLightbox(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <KnitTexture variant={paletteForId(editedProject.id)} style={{ position: 'absolute', inset: 0 }} />
+        )}
         <input ref={coverImgInputRef} type="file" accept="image/*" onChange={handleCoverImgUpload} style={{ display: 'none' }} />
         {/* top bar overlay */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 'calc(8px + env(safe-area-inset-top))', paddingBottom: '8px', paddingLeft: '14px', paddingRight: '14px' }}>
@@ -351,11 +389,29 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
           </button>
         </div>
-        {/* camera button to change cover image */}
+        {/* dot indicators */}
+        {editedProject.images.length > 1 && (
+          <div style={{ position: 'absolute', bottom: 54, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 2, pointerEvents: 'none' }}>
+            {editedProject.images.map((_, i) => (
+              <div key={i} style={{ width: i === currentImgIdx ? 16 : 6, height: 6, borderRadius: 999, background: i === currentImgIdx ? 'white' : 'rgba(255,255,255,0.5)', transition: 'width 0.2s' }} />
+            ))}
+          </div>
+        )}
+        {/* delete current image button */}
+        {editedProject.images.length > 0 && (
+          <button
+            onClick={() => handleDeleteImg(currentImgIdx)}
+            title="Slett bilde"
+            style={{ position: 'absolute', bottom: 12, left: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}
+          >
+            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        )}
+        {/* camera button to change current image */}
         <button
           onClick={() => coverImgInputRef.current?.click()}
           disabled={uploadingImg}
-          title="Endre forsidebilde"
+          title="Endre bilde"
           style={{ position: 'absolute', bottom: 12, right: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: uploadingImg ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)', opacity: uploadingImg ? 0.5 : 1 }}
         >
           {uploadingImg
@@ -831,11 +887,11 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <button onClick={() => { setShowMoreMenu(false); coverImgInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-              {heroImage ? 'Endre forsidebilde' : 'Legg til forsidebilde'}
+              {heroImage ? 'Endre bilde' : 'Legg til bilde'}
             </button>
             {heroImage && (
-              <button onClick={() => { handleUpdate({ images: editedProject.images.slice(1) }); setShowMoreMenu(false); toast.success('Forsidebilde fjernet'); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
-                Fjern forsidebilde
+              <button onClick={() => { handleDeleteImg(currentImgIdx); setShowMoreMenu(false); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+                Fjern dette bildet
               </button>
             )}
             <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
@@ -1025,7 +1081,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       </AlertDialog>
 
 
-      {showHeroLightbox && heroImage && (
+      {showHeroLightbox && editedProject.images[currentImgIdx] && (
         <div
           onClick={() => setShowHeroLightbox(false)}
           style={{
@@ -1035,7 +1091,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           }}
         >
           <img
-            src={heroImage}
+            src={editedProject.images[currentImgIdx]}
             alt={editedProject.name}
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6, boxShadow: '0 24px 64px -12px rgba(0,0,0,0.7)' }}

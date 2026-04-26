@@ -46,8 +46,8 @@ const DocIcon = () => (
 const STATUS_COLORS: Record<string, string> = {
   'Aktiv':    'var(--primary)',
   'Planlagt': 'var(--muted-fg)',
-  'På vent':  '#c9856b',
-  'Fullført': '#7a8a6a',
+  'På vent':  'var(--status-pending)',
+  'Fullført': 'var(--status-completed)',
   'Arkivert': 'var(--muted-fg)',
 };
 

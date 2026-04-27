@@ -74,6 +74,8 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [showYarnPicker, setShowYarnPicker] = useState(false);
   const [showNewYarnForm, setShowNewYarnForm] = useState(false);
   const [newYarnData, setNewYarnData] = useState<{ name?: string; brand?: string; color?: string; amount?: string; weight?: Yarn['weight'] }>({});
+  const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
+  const [pendingYarnAmount, setPendingYarnAmount] = useState('');
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
   const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
   const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
@@ -331,10 +333,12 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     });
   };
 
-  const handleAddYarn = (yarn: Yarn) => {
-    const newYarn: Yarn = { ...yarn, id: crypto.randomUUID(), standaloneYarnId: yarn.id };
+  const handleAddYarn = (yarn: Yarn, amount?: string) => {
+    const newYarn: Yarn = { ...yarn, id: crypto.randomUUID(), standaloneYarnId: yarn.id, amount: amount?.trim() || yarn.amount };
     handleUpdate({ yarns: [...editedProject.yarns, newYarn] });
     setShowYarnPicker(false);
+    setPendingYarn(null);
+    setPendingYarnAmount('');
     toast.success(`${yarn.name} lagt til`);
   };
 
@@ -773,12 +777,23 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       <Section title="Garn" count={editedProject.yarns.length}>
         {editedProject.yarns.map(y => (
           <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
-            {y.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />}
+            {y.imageUrl ? (
+              <img src={y.imageUrl} alt={y.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+            ) : y.color ? (
+              <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />
+            ) : null}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
               <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[y.brand, y.color, y.weight].filter(Boolean).join(' · ')}</div>
             </div>
             {y.amount && <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{y.amount}</div>}
+            <button
+              onClick={() => handleUpdate({ yarns: editedProject.yarns.filter(y2 => y2.id !== y.id) })}
+              aria-label="Fjern garn"
+              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
+            >
+              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
+            </button>
           </div>
         ))}
         <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ Legg til garn</button>
@@ -994,10 +1009,10 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnAmount(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : 'Velg garn'}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : pendingYarn ? 'Legg til mengde' : 'Velg garn'}</div>
             {showNewYarnForm ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <input
@@ -1034,11 +1049,41 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                   <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
                 </div>
               </div>
+            ) : pendingYarn ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                  {pendingYarn.imageUrl ? (
+                    <img src={pendingYarn.imageUrl} alt={pendingYarn.name} style={{ width: 24, height: 24, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
+                  ) : pendingYarn.color ? (
+                    <div style={{ width: 24, height: 24, borderRadius: 999, background: pendingYarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                  ) : null}
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{pendingYarn.name}</div>
+                    {pendingYarn.brand && <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{pendingYarn.brand}</div>}
+                  </div>
+                </div>
+                <input
+                  autoFocus
+                  placeholder="Mengde (f.eks. 400m, 3 nøster)"
+                  value={pendingYarnAmount}
+                  onChange={e => setPendingYarnAmount(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddYarn(pendingYarn, pendingYarnAmount); }}
+                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button onClick={() => handleAddYarn(pendingYarn, pendingYarnAmount)} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>Legg til</button>
+                  <button onClick={() => { setPendingYarn(null); setPendingYarnAmount(''); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
+                </div>
+              </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {availableYarns.map(yarn => (
-                  <button key={yarn.id} onClick={() => handleAddYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                    {yarn.color && <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />}
+                  <button key={yarn.id} onClick={() => setPendingYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    {yarn.imageUrl ? (
+                      <img src={yarn.imageUrl} alt={yarn.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                    ) : yarn.color ? (
+                      <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                    ) : null}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>

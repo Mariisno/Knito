@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -6,6 +6,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner@2.0.3';
+import * as api from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface YarnInventoryProps {
   projects: KnittingProject[];
@@ -41,10 +43,15 @@ const TrashIcon = () => (
 );
 
 export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYarns }: YarnInventoryProps) {
+  const { accessToken } = useAuth();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
+  const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const addImgInputRef = useRef<HTMLInputElement>(null);
+  const editImgInputRef = useRef<HTMLInputElement>(null);
 
   // Combine project yarns + standalone yarns into unified list
   interface YarnEntry {
@@ -60,6 +67,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     quantity?: number;
     price?: number;
     notes?: string;
+    imageUrl?: string;
     usedInProjects: { id: string; name: string }[];
     isStandalone: boolean;
     standaloneId?: string;
@@ -82,6 +90,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
       quantity: y.quantity,
       price: y.price,
       notes: y.notes,
+      imageUrl: y.imageUrl,
       usedInProjects: usedIn.map(p => ({ id: p.id, name: p.name })),
       isStandalone: true,
       standaloneId: y.id,
@@ -108,6 +117,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
           yardage: y.yardage,
           dyeLot: y.dyeLot,
           amount: y.amount,
+          imageUrl: y.imageUrl,
           usedInProjects: [{ id: p.id, name: p.name }],
           isStandalone: false,
         });
@@ -139,11 +149,46 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
       dyeLot: newYarn.dyeLot?.trim(),
       price: newYarn.price,
       notes: newYarn.notes?.trim(),
+      imageUrl: newYarn.imageUrl,
     };
     onUpdateStandaloneYarns([...standaloneYarns, yarn]);
     setNewYarn({});
     setShowAdd(false);
     toast.success('Garn lagt til');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingYarn) return;
+    if (!editingYarn.name?.trim()) { toast.error('Garnnavn er påkrevd'); return; }
+    const updated: Yarn = {
+      ...editingYarn,
+      name: editingYarn.name.trim(),
+      color: editingYarn.color?.trim(),
+      fiberContent: editingYarn.fiberContent?.trim(),
+      yardage: editingYarn.yardage?.trim(),
+      dyeLot: editingYarn.dyeLot?.trim(),
+      notes: editingYarn.notes?.trim(),
+    };
+    onUpdateStandaloneYarns(standaloneYarns.map(y => y.id === updated.id ? updated : y));
+    setEditingYarn(null);
+    toast.success('Garn oppdatert');
+  };
+
+  const handleUploadImage = async (
+    file: File,
+    setImage: (url: string) => void,
+  ) => {
+    if (!accessToken) { toast.error('Du må være logget inn'); return; }
+    setUploadingImg(true);
+    try {
+      const url = await api.uploadImage(file, accessToken);
+      setImage(url);
+      toast.success('Bilde lastet opp');
+    } catch {
+      toast.error('Kunne ikke laste opp bilde');
+    } finally {
+      setUploadingImg(false);
+    }
   };
 
   const handleDelete = (standaloneId: string) => {
@@ -221,19 +266,28 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
           const qty = y.quantity ?? (y.isStandalone ? 1 : undefined);
           const qtyLabel = qty !== undefined ? `${qty} ${qty === 1 ? 'nøste' : 'nøster'}` : null;
           return (
-          <div key={y.id} style={{
-            display: 'flex', alignItems: 'flex-start', gap: 14,
-            padding: 14, marginBottom: 10,
-            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
-          }}>
-            {/* Color swatch */}
+          <div key={y.id}
+            onClick={y.isStandalone && y.standaloneId ? () => {
+              const yarn = standaloneYarns.find(yy => yy.id === y.standaloneId);
+              if (yarn) setEditingYarn({ ...yarn });
+            } : undefined}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 14,
+              padding: 14, marginBottom: 10,
+              background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
+              cursor: y.isStandalone ? 'pointer' : 'default',
+            }}>
+            {/* Color swatch / image */}
             <div style={{
               width: 76, height: 76, borderRadius: 14, flexShrink: 0,
-              background: y.colorHex || (y.color ? '#b9aa93' : 'var(--accent)'),
+              background: y.imageUrl ? 'var(--bg)' : (y.colorHex || (y.color ? '#b9aa93' : 'var(--accent)')),
               border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
             }}>
-              {!y.colorHex && (
+              {y.imageUrl ? (
+                <img src={y.imageUrl} alt={y.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : !y.colorHex && (
                 <svg viewBox="0 0 24 24" width={32} height={32} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.55}>
                   <circle cx="12" cy="12" r="8.5"/>
                   <path d="M6 7c3 4 9 4 12 0M6 12c3 4 9 4 12 0M6 17c3 4 9 4 12 0"/>
@@ -251,7 +305,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 </div>
                 {y.isStandalone && (
                   <button
-                    onClick={() => handleDelete(y.standaloneId!)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(y.standaloneId!); }}
                     aria-label="Slett garn"
                     style={{
                       width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
@@ -265,7 +319,8 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
               </div>
 
               {y.isStandalone ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+                  onClick={(e) => e.stopPropagation()}>
                   <div style={{
                     display: 'inline-flex', alignItems: 'center',
                     height: 32, borderRadius: 999,
@@ -273,7 +328,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                     overflow: 'hidden',
                   }}>
                     <button
-                      onClick={() => handleQuantityChange(y.standaloneId!, -1)}
+                      onClick={(e) => { e.stopPropagation(); handleQuantityChange(y.standaloneId!, -1); }}
                       disabled={(y.quantity ?? 1) <= 0}
                       aria-label="Reduser antall"
                       style={{
@@ -290,7 +345,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                       fontSize: 14, fontWeight: 600, color: 'var(--fg)', fontFamily: 'var(--font-ui)',
                     }}>{y.quantity ?? 1}</div>
                     <button
-                      onClick={() => handleQuantityChange(y.standaloneId!, 1)}
+                      onClick={(e) => { e.stopPropagation(); handleQuantityChange(y.standaloneId!, 1); }}
                       aria-label="Øk antall"
                       style={{
                         width: 36, height: '100%', border: 'none', background: 'transparent',
@@ -394,14 +449,175 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Notater</Label>
+              <Label>Bilde</Label>
+              <div className="flex items-center gap-3">
+                <div style={{
+                  width: 72, height: 72, borderRadius: 12, flexShrink: 0,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden',
+                }}>
+                  {newYarn.imageUrl ? (
+                    <img src={newYarn.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.6}>
+                      <rect x="3" y="5" width="18" height="14" rx="2"/>
+                      <circle cx="9" cy="11" r="1.6"/>
+                      <path d="M21 17l-6-5-9 7"/>
+                    </svg>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={addImgInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      await handleUploadImage(file, (url) => setNewYarn(curr => ({ ...curr, imageUrl: url })));
+                      e.target.value = '';
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="sm"
+                    onClick={() => addImgInputRef.current?.click()}
+                    disabled={uploadingImg}>
+                    {uploadingImg ? 'Laster opp…' : (newYarn.imageUrl ? 'Bytt bilde' : 'Last opp bilde')}
+                  </Button>
+                  {newYarn.imageUrl && (
+                    <Button type="button" variant="ghost" size="sm"
+                      onClick={() => setNewYarn(curr => ({ ...curr, imageUrl: undefined }))}>
+                      Fjern bilde
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Kommentar</Label>
               <Textarea value={newYarn.notes || ''} onChange={e => setNewYarn({ ...newYarn, notes: e.target.value })} placeholder="F.eks. Kjøpt på salg..." className="min-h-[60px] resize-none" />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleAdd} className="flex-1">Legg til</Button>
+              <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>Legg til</Button>
               <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">Avbryt</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editingYarn} onOpenChange={(open) => { if (!open) setEditingYarn(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Rediger garn</DialogTitle>
+          </DialogHeader>
+          {editingYarn && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Garnnavn *</Label>
+                <Input value={editingYarn.name || ''} onChange={e => setEditingYarn({ ...editingYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Farge</Label>
+                  <Input value={editingYarn.color || ''} onChange={e => setEditingYarn({ ...editingYarn, color: e.target.value })} placeholder="F.eks. Natur" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Antall (nøster)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={editingYarn.quantity ?? 1}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setEditingYarn({ ...editingYarn, quantity: v === '' ? undefined : Math.max(0, parseInt(v, 10) || 0) });
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Tykkelse</Label>
+                  <select value={editingYarn.weight || ''} onChange={e => setEditingYarn({ ...editingYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="">Velg...</option>
+                    {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Fiberinnhold</Label>
+                  <Input value={editingYarn.fiberContent || ''} onChange={e => setEditingYarn({ ...editingYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Løpelengde</Label>
+                  <Input value={editingYarn.yardage || ''} onChange={e => setEditingYarn({ ...editingYarn, yardage: e.target.value })} placeholder="200m / 50g" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fargebad</Label>
+                  <Input value={editingYarn.dyeLot || ''} onChange={e => setEditingYarn({ ...editingYarn, dyeLot: e.target.value })} placeholder="Lot 2345" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Bilde</Label>
+                <div className="flex items-center gap-3">
+                  <div style={{
+                    width: 72, height: 72, borderRadius: 12, flexShrink: 0,
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}>
+                    {editingYarn.imageUrl ? (
+                      <img src={editingYarn.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.6}>
+                        <rect x="3" y="5" width="18" height="14" rx="2"/>
+                        <circle cx="9" cy="11" r="1.6"/>
+                        <path d="M21 17l-6-5-9 7"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={editImgInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        await handleUploadImage(file, (url) => setEditingYarn(curr => curr ? { ...curr, imageUrl: url } : curr));
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={() => editImgInputRef.current?.click()}
+                      disabled={uploadingImg}>
+                      {uploadingImg ? 'Laster opp…' : (editingYarn.imageUrl ? 'Bytt bilde' : 'Last opp bilde')}
+                    </Button>
+                    {editingYarn.imageUrl && (
+                      <Button type="button" variant="ghost" size="sm"
+                        onClick={() => setEditingYarn(curr => curr ? { ...curr, imageUrl: undefined } : curr)}>
+                        Fjern bilde
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Kommentar</Label>
+                <Textarea value={editingYarn.notes || ''} onChange={e => setEditingYarn({ ...editingYarn, notes: e.target.value })} placeholder="F.eks. Kjøpt på salg..." className="min-h-[60px] resize-none" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleSaveEdit} className="flex-1" disabled={uploadingImg}>Lagre</Button>
+                <Button variant="outline" onClick={() => setEditingYarn(null)} className="flex-1">Avbryt</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

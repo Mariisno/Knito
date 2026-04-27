@@ -35,6 +35,7 @@ function ProjectDetailRoute({
   accessToken,
   needleInventory,
   standaloneYarns,
+  onUpdateStandaloneYarns,
 }: {
   projects: KnittingProject[];
   onUpdate: (project: KnittingProject) => void;
@@ -42,6 +43,7 @@ function ProjectDetailRoute({
   accessToken: string;
   needleInventory: NeedleInventoryItem[];
   standaloneYarns: Yarn[];
+  onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -64,6 +66,7 @@ function ProjectDetailRoute({
       accessToken={accessToken}
       needleInventory={needleInventory}
       standaloneYarns={standaloneYarns}
+      onUpdateStandaloneYarns={onUpdateStandaloneYarns}
     />
   );
 }
@@ -234,6 +237,7 @@ function AppContent() {
                   accessToken={accessToken!}
                   needleInventory={needleInventory}
                   standaloneYarns={standaloneYarns}
+                  onUpdateStandaloneYarns={updateStandaloneYarns}
                 />
               </ErrorBoundary>
             }

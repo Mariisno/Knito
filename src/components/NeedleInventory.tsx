@@ -73,7 +73,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
       {/* Header */}
       <div style={{ padding: '12px 20px 8px' }}>
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>Verktøy</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>Pinner & heklenåler</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>Pinner</div>
       </div>
 
       {/* List */}
@@ -85,8 +85,8 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                 <path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/>
               </svg>
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>Ingen pinner eller heklenåler registrert</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>Legg til dine pinner og heklenåler for å holde oversikt</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>Ingen pinner registrert</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>Legg til dine pinner for å holde oversikt</div>
           </div>
         ) : (
           Object.entries(byType).map(([type, items]) => (
@@ -163,7 +163,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Legg til pinne</DialogTitle>
-            <DialogDescription>Registrer en ny pinne eller heklenål i din samling.</DialogDescription>
+            <DialogDescription>Registrer en ny pinne i din samling.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">

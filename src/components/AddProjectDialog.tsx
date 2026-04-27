@@ -483,7 +483,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
 
         {/* pinner */}
         <div style={{ marginTop: 24 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>{craftType === 'Hekling' ? 'Heklenåler' : 'Pinner'}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Pinner</div>
 
           {/* selected needles */}
           {selectedNeedles.length > 0 && (
@@ -503,7 +503,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
           {/* needle picker toggle */}
           <button onClick={() => setShowNeedlePicker(v => !v)} style={{ width: '100%', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
             <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-            {craftType === 'Hekling' ? 'Velg fra lager eller legg til ny heklenål' : 'Velg fra lager eller legg til ny pinne'}
+            Velg fra lager eller legg til ny pinne
           </button>
 
           {showNeedlePicker && (
@@ -535,7 +535,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
 
               <button onClick={() => { setNewNeedleType(craftType === 'Hekling' ? 'Heklenål' : 'Rundpinne'); setShowNewNeedleModal(true); }} style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--primary)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
                 <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                {craftType === 'Hekling' ? 'Legg til ny heklenål' : 'Legg til ny pinne'}
+                Legg til ny pinne
               </button>
             </div>
           )}
@@ -578,7 +578,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '4px auto 18px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <button onClick={() => setShowNewNeedleModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>Avbryt</button>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>{craftType === 'Hekling' ? 'Ny heklenål' : 'Ny pinne'}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>Ny pinne</div>
               <button onClick={handleAddNewNeedle} disabled={!newNeedleSize.trim()} style={{ background: 'transparent', border: 'none', color: newNeedleSize.trim() ? 'var(--primary)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: newNeedleSize.trim() ? 'pointer' : 'default', padding: 0 }}>Legg til</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -593,7 +593,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
                 <input placeholder="Materiale" value={newNeedleMaterial} onChange={e => setNewNeedleMaterial(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
-                <span style={{ fontSize: 14, color: 'var(--fg)' }}>{craftType === 'Hekling' ? 'Lagre til heklenålskapet' : 'Lagre til pinneskapet'}</span>
+                <span style={{ fontSize: 14, color: 'var(--fg)' }}>Lagre til pinneskapet</span>
                 <button onClick={() => setSaveNeedleToInventory(v => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', background: saveNeedleToInventory ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <span style={{ position: 'absolute', top: 3, left: saveNeedleToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'white', transition: 'left 0.15s', display: 'block' }} />
                 </button>

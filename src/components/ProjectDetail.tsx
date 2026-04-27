@@ -60,6 +60,8 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [editingPatternUrl, setEditingPatternUrl] = useState(false);
+  const [patternUrlDraft, setPatternUrlDraft] = useState('');
   const [uploadingImg, setUploadingImg] = useState(false);
   const [noteInput, setNoteInput] = useState('');
   const [logImageFile, setLogImageFile] = useState<File | null>(null);
@@ -176,6 +178,42 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       handleUpdate({ pattern: { ...editedProject.pattern, files: updated } });
     }
     toast.success('Oppskrift fjernet');
+  };
+
+  const normalizePatternUrl = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const prettyHost = (raw: string): string => {
+    try {
+      return new URL(normalizePatternUrl(raw)).hostname.replace(/^www\./, '');
+    } catch {
+      return raw;
+    }
+  };
+
+  const startEditPatternUrl = () => {
+    setPatternUrlDraft(editedProject.pattern?.url ?? '');
+    setEditingPatternUrl(true);
+  };
+
+  const handleSavePatternUrl = () => {
+    const next = patternUrlDraft.trim();
+    handleUpdate({
+      pattern: {
+        ...editedProject.pattern,
+        url: next ? normalizePatternUrl(next) : undefined,
+      },
+    });
+    setEditingPatternUrl(false);
+  };
+
+  const handleDeletePatternUrl = () => {
+    handleUpdate({ pattern: { ...editedProject.pattern, url: undefined } });
+    toast.success('Lenke fjernet');
   };
 
   const handleImgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -534,8 +572,46 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             ...(editedProject.pattern?.pdfUrl ? [{ url: editedProject.pattern.pdfUrl, name: editedProject.pattern.pdfName || 'Oppskrift' }] : []),
             ...(editedProject.pattern?.files ?? []),
           ];
+          const patternUrl = editedProject.pattern?.url;
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {editingPatternUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--card)' }}>
+                  <input
+                    autoFocus
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://garnstudio.com/..."
+                    value={patternUrlDraft}
+                    onChange={e => setPatternUrlDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); handleSavePatternUrl(); }
+                      if (e.key === 'Escape') { e.preventDefault(); setEditingPatternUrl(false); }
+                    }}
+                    onBlur={handleSavePatternUrl}
+                    style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+              ) : patternUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--fg)', background: 'var(--fg)', color: 'var(--bg)' }}>
+                  <button onClick={() => window.open(normalizePatternUrl(patternUrl), '_blank', 'noopener,noreferrer')} title={patternUrl} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}>
+                    <div style={{ width: 36, height: 44, borderRadius: 5, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', opacity: 0.6 }}>Lenke</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prettyHost(patternUrl)}</div>
+                    </div>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </button>
+                  <button onClick={startEditPatternUrl} title="Rediger lenke" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'color-mix(in oklab, var(--bg) 12%, transparent)', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>
+                  </button>
+                  <button onClick={handleDeletePatternUrl} title="Fjern" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'color-mix(in oklab, var(--bg) 12%, transparent)', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  </button>
+                </div>
+              ) : null}
               {patternFiles.map((pf) => (
                 <div key={pf.url} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--fg)', background: 'var(--fg)', color: 'var(--bg)' }}>
                   <button onClick={() => window.open(pf.url, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}>
@@ -561,6 +637,12 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 }
                 {patternFiles.length === 0 ? 'Legg til oppskrift' : 'Legg til flere'}
               </button>
+              {!patternUrl && !editingPatternUrl && (
+                <button onClick={startEditPatternUrl} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>
+                  <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+                  Legg til lenke
+                </button>
+              )}
             </div>
           );
         })()}

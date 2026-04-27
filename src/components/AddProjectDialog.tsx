@@ -25,6 +25,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
   const [category, setCategory] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploadedPdf, setUploadedPdf] = useState<{ url: string; name: string } | null>(null);
+  const [recipeUrl, setRecipeUrl] = useState('');
   const [selectedYarns, setSelectedYarns] = useState<Yarn[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -53,6 +54,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
     setCategory('');
     setUploadedImages([]);
     setUploadedPdf(null);
+    setRecipeUrl('');
     setSelectedYarns([]);
     setShowYarnPicker(false);
     setShowNewYarnModal(false);
@@ -78,6 +80,14 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
 
   const handleSave = () => {
     if (!name.trim()) return;
+    const trimmedUrl = recipeUrl.trim();
+    const normalizedUrl = trimmedUrl
+      ? (/^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`)
+      : undefined;
+    const patternFields = {
+      ...(uploadedPdf ? { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } : {}),
+      ...(normalizedUrl ? { url: normalizedUrl } : {}),
+    };
     onAddProject({
       name: name.trim(),
       craftType,
@@ -88,7 +98,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
       yarns: selectedYarns.map(y => ({ ...y, id: crypto.randomUUID(), standaloneYarnId: y.standaloneYarnId ?? y.id })),
       needles: selectedNeedles,
       counters: [],
-      ...(uploadedPdf ? { pattern: { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } } : {}),
+      ...(Object.keys(patternFields).length ? { pattern: patternFields } : {}),
     });
     reset();
     onOpenChange(false);
@@ -284,7 +294,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
 
         {/* vedlegg */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Vedlegg</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           {/* bilde */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
           <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
@@ -312,6 +322,27 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, accessToken
             </span>
           </label>
         </div>
+
+        <input
+          type="url"
+          inputMode="url"
+          placeholder="Lenke til oppskrift (valgfritt)"
+          value={recipeUrl}
+          onChange={e => setRecipeUrl(e.target.value)}
+          style={{
+            width: '100%',
+            marginBottom: 24,
+            padding: '14px',
+            background: 'var(--card)',
+            border: recipeUrl ? '1px solid var(--primary)' : '1px solid var(--border)',
+            borderRadius: 14,
+            color: 'var(--fg)',
+            fontFamily: 'inherit',
+            fontSize: 13.5,
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
 
         {/* garn */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Garn</div>

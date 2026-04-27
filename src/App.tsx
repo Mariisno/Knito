@@ -15,6 +15,7 @@ import { PasswordResetAdmin } from './components/PasswordResetAdmin';
 import { PasswordResetFlow } from './components/PasswordResetFlow';
 import { BottomTabBar } from './components/BottomTabBar';
 import { PrivacyDialog } from './components/PrivacyDialog';
+import { FeedbackDialog } from './components/FeedbackDialog';
 
 import { Loader2 } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
@@ -80,6 +81,7 @@ function AppContent() {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('prosjekter');
 
   const loading = authLoading || dataLoading;
@@ -146,6 +148,7 @@ function AppContent() {
                 toast.success('Sikkerhetskopi lastet ned');
               }}
               onPrivacy={() => setIsPrivacyOpen(true)}
+              onFeedback={() => setIsFeedbackOpen(true)}
             />
           </ErrorBoundary>
         )}
@@ -195,6 +198,12 @@ function AppContent() {
         needleInventory={needleInventory}
         accessToken={accessToken!}
         onAccountDeleted={handleSignOut}
+      />
+
+      <FeedbackDialog
+        open={isFeedbackOpen}
+        onOpenChange={setIsFeedbackOpen}
+        accessToken={accessToken}
       />
     </div>
   );

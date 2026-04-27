@@ -1,5 +1,6 @@
 import { projectId, publicAnonKey } from './supabase/info.tsx';
 import type { KnittingProject, Yarn, NeedleInventoryItem } from '../types/knitting';
+import type { PublicReport, ReportType } from '../types/feedback';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
 
@@ -191,4 +192,55 @@ export async function deleteAccount(accessToken: string): Promise<void> {
     console.error('Error deleting account:', error);
     throw new Error('Failed to delete account');
   }
+}
+
+export async function getReports(accessToken: string): Promise<PublicReport[]> {
+  const response = await fetch(`${API_BASE}/reports`, {
+    headers: getHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error fetching reports:', error);
+    throw new Error('Failed to fetch reports');
+  }
+
+  const data = await response.json();
+  return data.reports || [];
+}
+
+export async function createReport(
+  input: { type: ReportType; title: string; description: string },
+  accessToken: string,
+): Promise<PublicReport> {
+  const response = await fetch(`${API_BASE}/reports`, {
+    method: 'POST',
+    headers: getHeaders(accessToken),
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error creating report:', error);
+    throw new Error('Failed to create report');
+  }
+
+  const data = await response.json();
+  return data.report;
+}
+
+export async function toggleReportVote(id: string, accessToken: string): Promise<PublicReport> {
+  const response = await fetch(`${API_BASE}/reports/${id}/vote`, {
+    method: 'POST',
+    headers: getHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Error voting on report:', error);
+    throw new Error('Failed to vote on report');
+  }
+
+  const data = await response.json();
+  return data.report;
 }

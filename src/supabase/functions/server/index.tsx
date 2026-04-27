@@ -299,6 +299,163 @@ app.put('/make-server-b06c9f7a/needle-inventory', async (c) => {
   }
 });
 
+// ---------- Feedback (bug reports / feature requests) ----------
+// Globally visible across all users. Stored as `report:{id}`.
+
+type ReportType = 'bug' | 'feature';
+type ReportStatus = 'open' | 'in-progress' | 'resolved' | 'wontfix';
+
+interface StoredReport {
+  id: string;
+  type: ReportType;
+  title: string;
+  description: string;
+  status: ReportStatus;
+  upvotes: number;
+  voters: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function sanitizeReport(r: StoredReport, userId: string) {
+  return {
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    description: r.description,
+    status: r.status,
+    upvotes: r.upvotes,
+    hasVoted: Array.isArray(r.voters) && r.voters.includes(userId),
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
+// List all reports
+app.get('/make-server-b06c9f7a/reports', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const reports = (await kv.getByPrefix('report:')) as StoredReport[];
+    return c.json({ reports: reports.map(r => sanitizeReport(r, userId)) });
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    return c.json({ error: 'Failed to fetch reports' }, 500);
+  }
+});
+
+// Create a new report
+app.post('/make-server-b06c9f7a/reports', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const body = await c.req.json();
+    const type = body?.type;
+    const title = typeof body?.title === 'string' ? body.title.trim() : '';
+    const description = typeof body?.description === 'string' ? body.description.trim() : '';
+
+    if (type !== 'bug' && type !== 'feature') {
+      return c.json({ error: 'type must be "bug" or "feature"' }, 400);
+    }
+    if (title.length < 3 || title.length > 120) {
+      return c.json({ error: 'title must be between 3 and 120 characters' }, 400);
+    }
+    if (description.length < 3 || description.length > 2000) {
+      return c.json({ error: 'description must be between 3 and 2000 characters' }, 400);
+    }
+
+    const now = new Date().toISOString();
+    const report: StoredReport = {
+      id: crypto.randomUUID(),
+      type,
+      title,
+      description,
+      status: 'open',
+      upvotes: 0,
+      voters: [],
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await kv.set(`report:${report.id}`, report);
+    return c.json({ report: sanitizeReport(report, userId) });
+  } catch (error) {
+    console.error('Error creating report:', error);
+    return c.json({ error: 'Failed to create report' }, 500);
+  }
+});
+
+// Toggle a vote on a report
+app.post('/make-server-b06c9f7a/reports/:id/vote', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const existing = (await kv.get(`report:${id}`)) as StoredReport | null;
+    if (!existing) {
+      return c.json({ error: 'Report not found' }, 404);
+    }
+
+    const voters = Array.isArray(existing.voters) ? existing.voters : [];
+    const hasVoted = voters.includes(userId);
+    const updated: StoredReport = {
+      ...existing,
+      voters: hasVoted ? voters.filter(v => v !== userId) : [...voters, userId],
+      upvotes: hasVoted ? Math.max(0, (existing.upvotes ?? 0) - 1) : (existing.upvotes ?? 0) + 1,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`report:${id}`, updated);
+    return c.json({ report: sanitizeReport(updated, userId) });
+  } catch (error) {
+    console.error('Error voting on report:', error);
+    return c.json({ error: 'Failed to vote on report' }, 500);
+  }
+});
+
+// Update a report (status / title / description) — used by Claude externally
+app.put('/make-server-b06c9f7a/reports/:id', async (c) => {
+  try {
+    const userId = await getUserFromToken(c);
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const id = c.req.param('id');
+    const existing = (await kv.get(`report:${id}`)) as StoredReport | null;
+    if (!existing) {
+      return c.json({ error: 'Report not found' }, 404);
+    }
+
+    const body = await c.req.json();
+    const allowedStatuses: ReportStatus[] = ['open', 'in-progress', 'resolved', 'wontfix'];
+    const updated: StoredReport = {
+      ...existing,
+      ...(body.status && allowedStatuses.includes(body.status) ? { status: body.status } : {}),
+      ...(typeof body.title === 'string' ? { title: body.title.trim() } : {}),
+      ...(typeof body.description === 'string' ? { description: body.description.trim() } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`report:${id}`, updated);
+    return c.json({ report: sanitizeReport(updated, userId) });
+  } catch (error) {
+    console.error('Error updating report:', error);
+    return c.json({ error: 'Failed to update report' }, 500);
+  }
+});
+
 // Delete account: removes all user data and auth account
 app.delete('/make-server-b06c9f7a/account', async (c) => {
   try {

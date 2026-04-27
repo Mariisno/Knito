@@ -27,6 +27,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
   const [category, setCategory] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploadedPdf, setUploadedPdf] = useState<{ url: string; name: string } | null>(null);
+  const [recipeUrl, setRecipeUrl] = useState('');
   const [selectedYarns, setSelectedYarns] = useState<Yarn[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -62,6 +63,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
     setCategory('');
     setUploadedImages([]);
     setUploadedPdf(null);
+    setRecipeUrl('');
     setSelectedYarns([]);
     setShowYarnPicker(false);
     setShowNewYarnModal(false);
@@ -83,18 +85,28 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
     createdAtRef.current = null;
   };
 
-  const buildPayload = (): Omit<KnittingProject, 'id' | 'createdAt'> => ({
-    name: name.trim(),
-    craftType,
-    category: category || undefined,
-    progress: 0,
-    status: 'Planlagt',
-    images: uploadedImages,
-    yarns: selectedYarns,
-    needles: selectedNeedles,
-    counters: [],
-    ...(uploadedPdf ? { pattern: { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } } : {}),
-  });
+  const buildPayload = (): Omit<KnittingProject, 'id' | 'createdAt'> => {
+    const trimmedUrl = recipeUrl.trim();
+    const normalizedUrl = trimmedUrl
+      ? (/^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`)
+      : undefined;
+    const patternFields = {
+      ...(uploadedPdf ? { pdfUrl: uploadedPdf.url, pdfName: uploadedPdf.name } : {}),
+      ...(normalizedUrl ? { url: normalizedUrl } : {}),
+    };
+    return {
+      name: name.trim(),
+      craftType,
+      category: category || undefined,
+      progress: 0,
+      status: 'Planlagt',
+      images: uploadedImages,
+      yarns: selectedYarns,
+      needles: selectedNeedles,
+      counters: [],
+      ...(Object.keys(patternFields).length ? { pattern: patternFields } : {}),
+    };
+  };
 
   const performSave = async () => {
     if (!name.trim()) return;
@@ -146,7 +158,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
     if (!open) return;
     if (!name.trim()) return;
     debouncedSave();
-  }, [open, name, craftType, category, uploadedImages, uploadedPdf, selectedYarns, selectedNeedles, debouncedSave]);
+  }, [open, name, craftType, category, uploadedImages, uploadedPdf, recipeUrl, selectedYarns, selectedNeedles, debouncedSave]);
 
   const handleClose = () => {
     debouncedSave.flush();
@@ -366,7 +378,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
 
         {/* vedlegg */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Vedlegg</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           {/* bilde */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
           <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
@@ -394,6 +406,27 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
             </span>
           </label>
         </div>
+
+        <input
+          type="url"
+          inputMode="url"
+          placeholder="Lenke til oppskrift (valgfritt)"
+          value={recipeUrl}
+          onChange={e => setRecipeUrl(e.target.value)}
+          style={{
+            width: '100%',
+            marginBottom: 24,
+            padding: '14px',
+            background: 'var(--card)',
+            border: recipeUrl ? '1px solid var(--primary)' : '1px solid var(--border)',
+            borderRadius: 14,
+            color: 'var(--fg)',
+            fontFamily: 'inherit',
+            fontSize: 13.5,
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
 
         {/* garn */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Garn</div>

@@ -1,6 +1,8 @@
 import * as React from "react"
 import { Button } from "./button"
 
+const AlertDialogContext = React.createContext<{ close: () => void }>({ close: () => {} })
+
 interface AlertDialogProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -8,18 +10,22 @@ interface AlertDialogProps {
 }
 
 const AlertDialog = ({ open, onOpenChange, children }: AlertDialogProps) => {
+  const close = () => onOpenChange?.(false)
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div 
-        className="fixed inset-0 bg-black/50"
-        onClick={() => onOpenChange?.(false)}
-      />
-      <div className="relative z-50">
-        {children}
+    <AlertDialogContext.Provider value={{ close }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div
+          className="fixed inset-0 bg-black/50"
+          onClick={close}
+        />
+        <div className="relative z-50">
+          {children}
+        </div>
       </div>
-    </div>
+    </AlertDialogContext.Provider>
   )
 }
 
@@ -78,26 +84,40 @@ AlertDialogFooter.displayName = "AlertDialogFooter"
 const AlertDialogAction = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className = '', ...props }, ref) => (
-  <Button
-    ref={ref}
-    className={className}
-    {...props}
-  />
-))
+>(({ className = '', onClick, ...props }, ref) => {
+  const { close } = React.useContext(AlertDialogContext)
+  return (
+    <Button
+      ref={ref}
+      className={className}
+      onClick={(e) => {
+        onClick?.(e)
+        close()
+      }}
+      {...props}
+    />
+  )
+})
 AlertDialogAction.displayName = "AlertDialogAction"
 
 const AlertDialogCancel = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className = '', ...props }, ref) => (
-  <Button
-    ref={ref}
-    variant="outline"
-    className={className}
-    {...props}
-  />
-))
+>(({ className = '', onClick, ...props }, ref) => {
+  const { close } = React.useContext(AlertDialogContext)
+  return (
+    <Button
+      ref={ref}
+      variant="outline"
+      className={className}
+      onClick={(e) => {
+        onClick?.(e)
+        close()
+      }}
+      {...props}
+    />
+  )
+})
 AlertDialogCancel.displayName = "AlertDialogCancel"
 
 export {

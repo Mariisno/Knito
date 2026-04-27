@@ -613,9 +613,9 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 </div>
               ) : null}
               {patternFiles.map((pf) => (
-                <div key={pf.url} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--fg)', background: 'var(--fg)', color: 'var(--bg)' }}>
+                <div key={pf.url} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)' }}>
                   <button onClick={() => window.open(pf.url, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', padding: 0 }}>
-                    <div style={{ width: 36, height: 44, borderRadius: 5, background: 'color-mix(in oklab, var(--bg) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                    <div style={{ width: 36, height: 44, borderRadius: 5, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
                       <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                       <div style={{ position: 'absolute', bottom: -3, right: -3, fontSize: 7, fontWeight: 700, background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 3, padding: '1px 3px' }}>{pf.name.split('.').pop()?.toUpperCase().slice(0, 4) || 'FIL'}</div>
                     </div>
@@ -625,7 +625,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                     </div>
                     <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   </button>
-                  <button onClick={() => handleDeletePatternFile(pf.url)} title="Fjern" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'color-mix(in oklab, var(--bg) 12%, transparent)', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <button onClick={() => handleDeletePatternFile(pf.url)} title="Fjern" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                   </button>
                 </div>
@@ -976,7 +976,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 Fjern dette bildet
               </button>
             )}
-            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: '#c9856b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
+            <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
               Slett prosjekt…
             </button>
           </div>

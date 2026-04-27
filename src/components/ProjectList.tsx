@@ -3,7 +3,7 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
 import { LATEST_VERSION } from '../data/changelog';
@@ -46,8 +46,8 @@ const DocIcon = () => (
 const STATUS_COLORS: Record<string, string> = {
   'Aktiv':    'var(--primary)',
   'Planlagt': 'var(--muted-fg)',
-  'På vent':  '#c9856b',
-  'Fullført': '#7a8a6a',
+  'På vent':  'var(--status-pending)',
+  'Fullført': 'var(--status-completed)',
   'Arkivert': 'var(--muted-fg)',
 };
 
@@ -256,11 +256,12 @@ interface ProjectListProps {
   theme: string;
   onExport: () => void;
   onPrivacy: () => void;
+  onFeedback: () => void;
 }
 
 export function ProjectList({
   projects, onSelectProject, onProgressChange,
-  onNewProject, onSignOut, onToggleTheme, theme, onExport, onPrivacy,
+  onNewProject, onSignOut, onToggleTheme, theme, onExport, onPrivacy, onFeedback,
 }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
@@ -405,6 +406,10 @@ export function ProjectList({
             <DropdownMenuItem onClick={onPrivacy}>
               <Shield className="mr-2 h-4 w-4" />
               Personvern og vilkår
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onFeedback}>
+              <MessageSquareWarning className="mr-2 h-4 w-4" />
+              Rapporter feil / foreslå
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">

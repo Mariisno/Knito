@@ -21,6 +21,7 @@ interface ProjectDetailProps {
   accessToken: string;
   needleInventory: NeedleInventoryItem[];
   standaloneYarns: Yarn[];
+  onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
 }
 
 const STATUS_OPTIONS: ProjectStatus[] = ['Planlagt', 'Aktiv', 'På vent', 'Fullført', 'Arkivert'];
@@ -52,7 +53,7 @@ const dashedBtn: React.CSSProperties = {
   fontSize: 13, fontWeight: 500,
 };
 
-export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns }: ProjectDetailProps) {
+export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
   const [editedProject, setEditedProject] = useState(project);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteLogEntryId, setDeleteLogEntryId] = useState<string | null>(null);
@@ -301,19 +302,26 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
   const handleAddNewYarn = () => {
     if (!newYarnData.name?.trim()) return;
-    const yarn: Yarn = {
+    const inventoryYarn: Yarn = {
       id: crypto.randomUUID(),
       name: newYarnData.name.trim(),
       brand: newYarnData.brand?.trim() || undefined,
       color: newYarnData.color?.trim() || undefined,
       amount: newYarnData.amount?.trim() || undefined,
       weight: newYarnData.weight || undefined,
+      quantity: 1,
     };
-    handleUpdate({ yarns: [...editedProject.yarns, yarn] });
+    const projectYarn: Yarn = {
+      ...inventoryYarn,
+      id: crypto.randomUUID(),
+      standaloneYarnId: inventoryYarn.id,
+    };
+    onUpdateStandaloneYarns([...standaloneYarns, inventoryYarn]);
+    handleUpdate({ yarns: [...editedProject.yarns, projectYarn] });
     setShowYarnPicker(false);
     setShowNewYarnForm(false);
     setNewYarnData({});
-    toast.success(`${yarn.name} lagt til`);
+    toast.success(`${projectYarn.name} lagt til`);
   };
 
   const handleAddNeedle = (needle: NeedleInventoryItem) => {

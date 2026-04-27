@@ -639,7 +639,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       </Section>
 
       {/* NEEDLES */}
-      <Section title={editedProject.craftType === 'Hekling' ? 'Heklenåler' : 'Pinner'} count={(editedProject.needles || []).length}>
+      <Section title="Pinner" count={(editedProject.needles || []).length}>
         {(editedProject.needles || []).map(n => (
           <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -651,9 +651,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             </div>
           </div>
         ))}
-        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>
-          {editedProject.craftType === 'Hekling' ? '+ Legg til heklenål' : '+ Legg til pinne'}
-        </button>
+        <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ Legg til pinne</button>
       </Section>
 
       {/* GAUGE */}
@@ -916,9 +914,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
-              {showNewNeedleForm
-                ? (editedProject.craftType === 'Hekling' ? 'Ny heklenål' : 'Ny pinne')
-                : (editedProject.craftType === 'Hekling' ? 'Velg heklenål' : 'Velg pinne')}
+              {showNewNeedleForm ? 'Ny pinne' : 'Velg pinne'}
             </div>
             {showNewNeedleForm ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -973,12 +969,10 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
                 ))}
                 {availableNeedles.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>
-                    {editedProject.craftType === 'Hekling' ? 'Ingen heklenåler tilgjengelig i lager' : 'Ingen pinner tilgjengelig i lager'}
+                    Ingen pinner tilgjengelig i lager
                   </div>
                 )}
-                <button onClick={() => setShowNewNeedleForm(true)} style={dashedBtn}>
-                  {editedProject.craftType === 'Hekling' ? '+ Ny heklenål' : '+ Ny pinne'}
-                </button>
+                <button onClick={() => setShowNewNeedleForm(true)} style={dashedBtn}>+ Ny pinne</button>
               </div>
             )}
           </div>

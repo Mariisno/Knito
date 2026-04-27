@@ -15,6 +15,7 @@ export interface Yarn {
   dyeLot?: string;            // dye lot number for color matching
   price?: number;             // price per skein/ball in local currency
   notes?: string;             // For standalone yarn inventory
+  imageUrl?: string;          // optional photo of the yarn
   standaloneYarnId?: string;  // links to standalone Yarn.id if chosen from inventory
 }
 

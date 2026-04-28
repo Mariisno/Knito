@@ -82,7 +82,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
   const [counterInputValues, setCounterInputValues] = useState<Record<string, string>>({});
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [showHeroLightbox, setShowHeroLightbox] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -108,13 +107,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   }, [editedProject.images.length]);
 
   useEffect(() => {
-    if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
-      const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-      return () => clearInterval(interval);
-    }
-  }, [editedProject.currentTimeLog]);
-
-  useEffect(() => {
     if (!showHeroLightbox) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowHeroLightbox(false);
@@ -138,27 +130,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       return updated;
     });
   }, [debouncedOnUpdate]);
-
-  const handleToggleTimer = () => {
-    if (editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime) {
-      const startTime = new Date(editedProject.currentTimeLog.startTime);
-      const minutesElapsed = Math.round((new Date().getTime() - startTime.getTime()) / 60000);
-      handleUpdate({ timeSpentMinutes: (editedProject.timeSpentMinutes || 0) + minutesElapsed, currentTimeLog: undefined });
-      toast.success(`${minutesElapsed} minutter lagt til`);
-    } else {
-      handleUpdate({ currentTimeLog: { startTime: new Date() } });
-      toast.success('Tidtaker startet');
-    }
-  };
-
-  const getTimerDisplay = () => {
-    if (!editedProject.currentTimeLog?.startTime) return null;
-    const elapsed = Math.floor((currentTime.getTime() - new Date(editedProject.currentTimeLog.startTime).getTime()) / 1000);
-    const h = Math.floor(elapsed / 3600);
-    const m = Math.floor((elapsed % 3600) / 60);
-    const s = elapsed % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -403,10 +374,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setShowDateEdit(false);
   };
 
-  const isTimerRunning = !!(editedProject.currentTimeLog?.startTime && !editedProject.currentTimeLog.endTime);
-  const totalMins = editedProject.timeSpentMinutes || 0;
-  const displayHrs = Math.floor(totalMins / 60);
-  const displayMins = totalMins % 60;
   const heroImage = editedProject.images[0];
   const availableYarns = standaloneYarns.filter(y => !editedProject.yarns.some(ey => ey.standaloneYarnId === y.id));
   const availableNeedles = needleInventory.filter(n => !(editedProject.needles || []).some(en => en.inventoryNeedleId === n.id));
@@ -669,13 +636,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1.2, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {editedProject.progress}<span style={{ fontSize: 18, opacity: 0.5, marginLeft: 2 }}>%</span>
               </div>
-              {totalMins > 0 && (
-                <div style={{ fontSize: 12, color: 'var(--muted-fg)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  ·
-                  <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  {displayHrs}t{displayMins > 0 ? ` ${displayMins}min` : ''}
-                </div>
-              )}
             </div>
             <div style={{ marginTop: 10, height: 4, background: 'var(--accent)', borderRadius: 999, overflow: 'hidden' }}>
               <div style={{ width: editedProject.progress + '%', height: '100%', background: 'var(--primary)', transition: 'width .3s' }} />
@@ -690,29 +650,6 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             </button>
           </div>
         </div>
-      </div>
-
-      {/* TIMER */}
-      <div style={{ padding: '4px 20px 8px' }}>
-        <button onClick={handleToggleTimer} style={{
-          width: '100%', height: 48, borderRadius: 14, border: '1px solid var(--border)',
-          background: isTimerRunning ? 'var(--primary)' : 'var(--card)',
-          color: isTimerRunning ? 'var(--primary-foreground)' : 'var(--fg)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
-        }}>
-          {isTimerRunning ? (
-            <>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--primary-foreground)' }} />
-              Stopp økt · <span style={{ fontVariantNumeric: 'tabular-nums' }}>{getTimerDisplay()}</span>
-            </>
-          ) : (
-            <>
-              <svg viewBox="0 0 24 24" width={15} height={15} fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>
-              Start økt
-            </>
-          )}
-        </button>
       </div>
 
       {/* COUNTERS — skjult inntil videre */}

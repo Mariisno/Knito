@@ -19,12 +19,6 @@ export function exportProjectAsText(project: KnittingProject): string {
   if (project.category) lines.push(`Kategori: ${project.category}`);
   if (project.startDate) lines.push(`Startdato: ${new Date(project.startDate).toLocaleDateString('nb-NO')}`);
   if (project.endDate) lines.push(`Sluttdato: ${new Date(project.endDate).toLocaleDateString('nb-NO')}`);
-  if (project.timeSpentMinutes) {
-    const h = Math.floor(project.timeSpentMinutes / 60);
-    const m = project.timeSpentMinutes % 60;
-    lines.push(`Tid brukt: ${h}t ${m}m`);
-  }
-
   if (project.gauge) {
     lines.push('');
     lines.push('## Strikkefasthet');

@@ -9,11 +9,9 @@ export interface ProjectStats {
   planned: number;
   archived: number;
   avgProgress: number;
-  totalTime: number;
   totalYarns: number;
   completionRate: number;
   projectsThisYear: number;
-  avgTimePerProject: number;
   categories: [string, number][];
   totalCost: number;
   avgCostPerProject: number;
@@ -38,7 +36,6 @@ export function useProjectStats(
       ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / total)
       : 0;
 
-    const totalTime = projects.reduce((sum, p) => sum + (p.timeSpentMinutes || 0), 0);
     const totalYarns = projects.reduce((sum, p) => sum + p.yarns.length, 0) + standaloneYarns.length;
 
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -49,9 +46,6 @@ export function useProjectStats(
     ).length;
 
     const completedProjects = projects.filter(p => p.status === 'Fullført');
-    const avgTimePerProject = completedProjects.length > 0
-      ? Math.round(completedProjects.reduce((sum, p) => sum + (p.timeSpentMinutes || 0), 0) / completedProjects.length)
-      : 0;
 
     const categoryMap = new Map<string, number>();
     projects.forEach(p => {
@@ -95,8 +89,8 @@ export function useProjectStats(
 
     return {
       total, active, completed, paused, planned, archived,
-      avgProgress, totalTime, totalYarns,
-      completionRate, projectsThisYear, avgTimePerProject, categories,
+      avgProgress, totalYarns,
+      completionRate, projectsThisYear, categories,
       totalCost, avgCostPerProject, avgDurationDays, longestProject, mostUsedYarnWeight,
     };
   }, [projects, standaloneYarns]);

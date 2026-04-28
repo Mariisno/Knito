@@ -41,11 +41,6 @@ export type ProjectStatus = 'Aktiv' | 'Fullført' | 'Planlagt' | 'På vent' | 'A
 
 export type CraftType = 'Strikking' | 'Hekling';
 
-export interface TimeLog {
-  startTime: Date;
-  endTime?: Date;
-}
-
 export interface Counter {
   id: string;
   label: string;
@@ -98,8 +93,6 @@ export interface KnittingProject {
   needles: Needle[];
   otherInfo?: string;
   createdAt: Date;
-  timeSpentMinutes?: number;  // Total time spent on project
-  currentTimeLog?: TimeLog;   // Active time tracking session
   category?: string;          // e.g. "Sokker", "Genser", "Skjerf"
   craftType?: CraftType;      // undefined = 'Strikking' for backwards compat
   counters?: Counter[];       // Row/stitch counters

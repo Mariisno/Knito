@@ -216,3 +216,11 @@ body {
   height: 100vh;
   height: 100dvh;
 }
+
+/* Log entry actions: visible on touch, dim until hover on desktop */
+.log-entry-action { opacity: 0.55; transition: opacity 0.15s; }
+.log-entry-action:hover,
+.log-entry-action:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .log-entry-action { opacity: 1; }
+}

@@ -406,7 +406,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
               <Label>Garnnavn *</Label>
               <Input value={newYarn.name || ''} onChange={e => setNewYarn({ ...newYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Farge</Label>
                 <Input value={newYarn.color || ''} onChange={e => setNewYarn({ ...newYarn, color: e.target.value })} placeholder="F.eks. Natur" />
@@ -424,7 +424,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Tykkelse</Label>
                 <select value={newYarn.weight || ''} onChange={e => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
@@ -438,7 +438,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 <Input value={newYarn.fiberContent || ''} onChange={e => setNewYarn({ ...newYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Løpelengde</Label>
                 <Input value={newYarn.yardage || ''} onChange={e => setNewYarn({ ...newYarn, yardage: e.target.value })} placeholder="200m / 50g" />
@@ -519,7 +519,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 <Label>Garnnavn *</Label>
                 <Input value={editingYarn.name || ''} onChange={e => setEditingYarn({ ...editingYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                 <div className="space-y-2">
                   <Label>Farge</Label>
                   <Input value={editingYarn.color || ''} onChange={e => setEditingYarn({ ...editingYarn, color: e.target.value })} placeholder="F.eks. Natur" />
@@ -537,7 +537,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                 <div className="space-y-2">
                   <Label>Tykkelse</Label>
                   <select value={editingYarn.weight || ''} onChange={e => setEditingYarn({ ...editingYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
@@ -551,7 +551,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                   <Input value={editingYarn.fiberContent || ''} onChange={e => setEditingYarn({ ...editingYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                 <div className="space-y-2">
                   <Label>Løpelengde</Label>
                   <Input value={editingYarn.yardage || ''} onChange={e => setEditingYarn({ ...editingYarn, yardage: e.target.value })} placeholder="200m / 50g" />

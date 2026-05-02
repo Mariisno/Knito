@@ -305,7 +305,13 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   };
 
   const handleAddYarn = (yarn: Yarn, amount?: string) => {
-    const newYarn: Yarn = { ...yarn, id: crypto.randomUUID(), standaloneYarnId: yarn.id, amount: amount?.trim() || yarn.amount };
+    const { id: _id, quantity: _q, price: _p, standaloneYarnId: _s, ...shared } = yarn;
+    const newYarn: Yarn = {
+      ...shared,
+      id: crypto.randomUUID(),
+      standaloneYarnId: yarn.id,
+      amount: amount?.trim() || yarn.amount,
+    };
     handleUpdate({ yarns: [...editedProject.yarns, newYarn] });
     setShowYarnPicker(false);
     setPendingYarn(null);
@@ -325,9 +331,13 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       quantity: 1,
     };
     const projectYarn: Yarn = {
-      ...inventoryYarn,
       id: crypto.randomUUID(),
       standaloneYarnId: inventoryYarn.id,
+      name: inventoryYarn.name,
+      brand: inventoryYarn.brand,
+      color: inventoryYarn.color,
+      amount: inventoryYarn.amount,
+      weight: inventoryYarn.weight,
     };
     onUpdateStandaloneYarns([...standaloneYarns, inventoryYarn]);
     handleUpdate({ yarns: [...editedProject.yarns, projectYarn] });

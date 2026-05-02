@@ -59,7 +59,7 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
                   setIsEditingLabel(false);
                 }
               }}
-              className="max-w-[200px]"
+              className="flex-1"
               autoFocus
             />
             <Button
@@ -96,14 +96,15 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
         </Button>
       </div>
 
-      <div className="flex items-center justify-center gap-4 mb-4">
+      <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4">
         <div className="flex flex-col items-center gap-2">
           <Button
             size="lg"
             onClick={() => decrement(1)}
-            className="h-16 w-16 rounded-full bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 shadow-md active:scale-95 transition-transform"
+            className="rounded-full bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 shadow-md active:scale-95 transition-transform p-0"
+            style={{ width: 'clamp(48px, 14vw, 64px)', height: 'clamp(48px, 14vw, 64px)' }}
           >
-            <Minus className="h-8 w-8" />
+            <Minus style={{ width: 'clamp(20px, 5vw, 32px)', height: 'clamp(20px, 5vw, 32px)' }} />
           </Button>
           <div className="flex gap-1">
             <Button
@@ -125,8 +126,17 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl px-8 py-6 min-w-[140px] text-center shadow-inner border-2 border-purple-200 dark:border-purple-700">
-          <div className="text-5xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">
+        <div
+          className="bg-white dark:bg-gray-800 rounded-2xl text-center shadow-inner border-2 border-purple-200 dark:border-purple-700"
+          style={{
+            minWidth: 'clamp(96px, 28vw, 140px)',
+            padding: 'clamp(12px, 4vw, 24px) clamp(16px, 6vw, 32px)',
+          }}
+        >
+          <div
+            className="font-bold text-purple-600 dark:text-purple-400 tabular-nums"
+            style={{ fontSize: 'clamp(36px, 10vw, 48px)', lineHeight: 1 }}
+          >
             {counter.count}
           </div>
         </div>
@@ -135,9 +145,10 @@ export function CounterWidget({ counter, onUpdate, onRemove }: CounterWidgetProp
           <Button
             size="lg"
             onClick={() => increment(1)}
-            className="h-16 w-16 rounded-full bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 shadow-md active:scale-95 transition-transform"
+            className="rounded-full bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 shadow-md active:scale-95 transition-transform p-0"
+            style={{ width: 'clamp(48px, 14vw, 64px)', height: 'clamp(48px, 14vw, 64px)' }}
           >
-            <Plus className="h-8 w-8" />
+            <Plus style={{ width: 'clamp(20px, 5vw, 32px)', height: 'clamp(20px, 5vw, 32px)' }} />
           </Button>
           <div className="flex gap-1">
             <Button

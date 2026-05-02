@@ -445,7 +445,7 @@ export function YarnInventory({
               <Label>Merke</Label>
               <Input value={newYarn.brand || ''} onChange={e => setNewYarn({ ...newYarn, brand: e.target.value })} placeholder="F.eks. Sandnes Garn" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Farge</Label>
                 <Input value={newYarn.color || ''} onChange={e => setNewYarn({ ...newYarn, color: e.target.value })} placeholder="F.eks. Natur" />
@@ -463,7 +463,7 @@ export function YarnInventory({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Tykkelse</Label>
                 <select value={newYarn.weight || ''} onChange={e => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
@@ -477,7 +477,7 @@ export function YarnInventory({
                 <Input value={newYarn.fiberContent || ''} onChange={e => setNewYarn({ ...newYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Løpelengde</Label>
                 <Input value={newYarn.yardage || ''} onChange={e => setNewYarn({ ...newYarn, yardage: e.target.value })} placeholder="200m / 50g" />
@@ -582,7 +582,7 @@ export function YarnInventory({
                 <Label>Merke</Label>
                 <Input value={editingYarn.brand || ''} onChange={e => setEditingYarn({ ...editingYarn, brand: e.target.value })} placeholder="F.eks. Sandnes Garn" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                 <div className="space-y-2">
                   <Label>Farge</Label>
                   <Input value={editingYarn.color || ''} onChange={e => setEditingYarn({ ...editingYarn, color: e.target.value })} placeholder="F.eks. Natur" />
@@ -600,7 +600,7 @@ export function YarnInventory({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                 <div className="space-y-2">
                   <Label>Tykkelse</Label>
                   <select value={editingYarn.weight || ''} onChange={e => setEditingYarn({ ...editingYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
@@ -614,7 +614,7 @@ export function YarnInventory({
                   <Input value={editingYarn.fiberContent || ''} onChange={e => setEditingYarn({ ...editingYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                 <div className="space-y-2">
                   <Label>Løpelengde</Label>
                   <Input value={editingYarn.yardage || ''} onChange={e => setEditingYarn({ ...editingYarn, yardage: e.target.value })} placeholder="200m / 50g" />

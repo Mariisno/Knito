@@ -215,7 +215,7 @@ function ProgressRingSmall({ value }: { value: number }) {
 // ---------- Empty state ----------
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
-    <div style={{ padding: '60px 30px', textAlign: 'center', color: 'var(--muted-fg)' }}>
+    <div style={{ padding: 'clamp(40px, 12vw, 60px) clamp(20px, 6vw, 30px)', textAlign: 'center', color: 'var(--muted-fg)' }}>
       <div style={{
         width: 72, height: 72, borderRadius: 999, margin: '0 auto 16px',
         background: 'var(--accent)', color: 'var(--fg)',
@@ -491,7 +491,7 @@ export function ProjectList({
         {filtered.length === 0 ? (
           <EmptyState onNew={onNewProject} />
         ) : view === 'grid' ? (
-          <div style={{ padding: '4px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ padding: '4px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
             {filtered.map(p => (
               <ProjectGridCard key={p.id} project={p} onOpen={() => onSelectProject(p.id)} />
             ))}

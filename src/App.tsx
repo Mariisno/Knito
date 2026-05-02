@@ -122,7 +122,7 @@ function AppContent() {
   if (!user) {
     return (
       <div style={{
-        width: '100%', maxWidth: 480, minHeight: '100vh',
+        width: '100%', maxWidth: 'var(--shell-max-w)', minHeight: '100vh',
         background: 'var(--bg)',
         boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 24px 48px -12px rgba(45,37,32,0.15)',
       }}>
@@ -214,7 +214,7 @@ function AppContent() {
   return (
     <div style={{
       width: '100%',
-      maxWidth: 480,
+      maxWidth: 'var(--shell-max-w)',
       height: '100%',
       overflow: 'hidden',
       background: 'var(--bg)',

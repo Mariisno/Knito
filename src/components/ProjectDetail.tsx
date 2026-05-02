@@ -922,7 +922,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {showMoreMenu && (
         <>
           <div onClick={() => setShowMoreMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <button onClick={() => { setShowMoreMenu(false); coverImgInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
               {heroImage ? 'Endre bilde' : 'Legg til bilde'}
@@ -943,7 +943,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {showYarnPicker && (
         <>
           <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnAmount(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : pendingYarn ? 'Legg til mengde' : 'Velg garn'}</div>
             {showNewYarnForm ? (
@@ -1037,7 +1037,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       {showNeedlePicker && (
         <>
           <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
               {showNewNeedleForm ? 'Ny pinne' : 'Velg pinne'}

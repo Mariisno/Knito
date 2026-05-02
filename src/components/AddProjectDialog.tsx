@@ -307,7 +307,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
       {/* sheet */}
       <div style={{
         position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: 480, zIndex: 101,
+        width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 101,
         background: 'var(--bg)', borderRadius: '24px 24px 0 0',
         padding: '12px 20px 44px',
         maxHeight: '90%', overflowY: 'auto',
@@ -546,7 +546,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
       {showNewYarnModal && (
         <>
           <div onClick={() => setShowNewYarnModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'color-mix(in oklab, #000 40%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 111, background: 'var(--bg)', borderRadius: '24px 24px 0 0', padding: '12px 20px 44px' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 111, background: 'var(--bg)', borderRadius: '24px 24px 0 0', padding: '12px 20px 44px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '4px auto 18px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <button onClick={() => setShowNewYarnModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>Avbryt</button>
@@ -574,7 +574,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
       {showNewNeedleModal && (
         <>
           <div onClick={() => setShowNewNeedleModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'color-mix(in oklab, #000 40%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 111, background: 'var(--bg)', borderRadius: '24px 24px 0 0', padding: '12px 20px 44px' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 111, background: 'var(--bg)', borderRadius: '24px 24px 0 0', padding: '12px 20px 44px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '4px auto 18px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <button onClick={() => setShowNewNeedleModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>Avbryt</button>

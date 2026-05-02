@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { KnitTexture, paletteForId } from './KnitTexture';
+import { YarnFormFields } from './YarnFormFields';
 import { format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -73,7 +74,7 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
   const [dateEnd, setDateEnd] = useState('');
   const [showYarnPicker, setShowYarnPicker] = useState(false);
   const [showNewYarnForm, setShowNewYarnForm] = useState(false);
-  const [newYarnData, setNewYarnData] = useState<{ name?: string; brand?: string; color?: string; amount?: string; weight?: Yarn['weight'] }>({});
+  const [newYarnData, setNewYarnData] = useState<Partial<Yarn>>({});
   const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
   const [pendingYarnAmount, setPendingYarnAmount] = useState('');
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
@@ -328,7 +329,13 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       color: newYarnData.color?.trim() || undefined,
       amount: newYarnData.amount?.trim() || undefined,
       weight: newYarnData.weight || undefined,
-      quantity: 1,
+      quantity: newYarnData.quantity ?? 1,
+      fiberContent: newYarnData.fiberContent?.trim() || undefined,
+      yardage: newYarnData.yardage?.trim() || undefined,
+      dyeLot: newYarnData.dyeLot?.trim() || undefined,
+      price: newYarnData.price,
+      notes: newYarnData.notes?.trim() || undefined,
+      imageUrl: newYarnData.imageUrl,
     };
     const projectYarn: Yarn = {
       id: crypto.randomUUID(),
@@ -338,6 +345,11 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
       color: inventoryYarn.color,
       amount: inventoryYarn.amount,
       weight: inventoryYarn.weight,
+      fiberContent: inventoryYarn.fiberContent,
+      yardage: inventoryYarn.yardage,
+      dyeLot: inventoryYarn.dyeLot,
+      notes: inventoryYarn.notes,
+      imageUrl: inventoryYarn.imageUrl,
     };
     onUpdateStandaloneYarns([...standaloneYarns, inventoryYarn]);
     handleUpdate({ yarns: [...editedProject.yarns, projectYarn] });
@@ -345,6 +357,20 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
     setShowNewYarnForm(false);
     setNewYarnData({});
     toast.success(`${projectYarn.name} lagt til`);
+  };
+
+  const handleYarnImageUpload = async (file: File, setUrl: (url: string) => void) => {
+    if (!accessToken) { toast.error('Du må være logget inn'); return; }
+    setUploadingImg(true);
+    try {
+      const url = await api.uploadImage(file, accessToken);
+      setUrl(url);
+      toast.success('Bilde lastet opp');
+    } catch {
+      toast.error('Kunne ikke laste opp bilde');
+    } finally {
+      setUploadingImg(false);
+    }
   };
 
   const handleAddNeedle = (needle: NeedleInventoryItem) => {
@@ -957,38 +983,15 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : pendingYarn ? 'Legg til mengde' : 'Velg garn'}</div>
             {showNewYarnForm ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input
-                  autoFocus
-                  placeholder="Garnnavn *"
-                  value={newYarnData.name || ''}
-                  onChange={e => setNewYarnData(d => ({ ...d, name: e.target.value }))}
-                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+                <YarnFormFields
+                  value={newYarnData}
+                  onChange={setNewYarnData}
+                  uploadingImg={uploadingImg}
+                  onUploadImage={handleYarnImageUpload}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <input
-                    placeholder="Farge"
-                    value={newYarnData.color || ''}
-                    onChange={e => setNewYarnData(d => ({ ...d, color: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
-                  <input
-                    placeholder="Mengde"
-                    value={newYarnData.amount || ''}
-                    onChange={e => setNewYarnData(d => ({ ...d, amount: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
-                </div>
-                <select
-                  value={newYarnData.weight || ''}
-                  onChange={e => setNewYarnData(d => ({ ...d, weight: (e.target.value || undefined) as Yarn['weight'] }))}
-                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: newYarnData.weight ? 'var(--fg)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                >
-                  <option value="">Tykkelse (valgfritt)</option>
-                  {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={handleAddNewYarn} disabled={!newYarnData.name?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnData.name?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newYarnData.name?.trim() ? 1 : 0.35 }}>Legg til</button>
+                  <button onClick={handleAddNewYarn} disabled={!newYarnData.name?.trim() || uploadingImg} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnData.name?.trim() && !uploadingImg ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newYarnData.name?.trim() && !uploadingImg ? 1 : 0.35 }}>Legg til</button>
                   <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
                 </div>
               </div>

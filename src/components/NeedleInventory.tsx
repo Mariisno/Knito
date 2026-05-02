@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { KnittingProject, NeedleInventoryItem } from '../types/knitting';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
+import { formatNeedleStatus, getAllNeedleAvailability } from '../utils/needles';
 
 interface NeedleInventoryProps {
   projects: KnittingProject[];
@@ -28,21 +29,15 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
   const [showAdd, setShowAdd] = useState(false);
   const [newNeedle, setNewNeedle] = useState<Partial<NeedleInventoryItem>>({ type: 'Rundpinne', quantity: 1 });
 
-  const getInUseProjects = (inventoryId: string) =>
-    projects.filter(p => p.needles.some(n => n.inventoryNeedleId === inventoryId)).map(p => p.name);
+  const availabilityMap = useMemo(
+    () => getAllNeedleAvailability(needleInventory, projects),
+    [needleInventory, projects],
+  );
 
   // Group by type
   const byType: Record<string, NeedleInventoryItem[]> = {};
   needleInventory.forEach(n => {
     (byType[n.type] ||= []).push(n);
-  });
-  // Also gather project needles not in inventory, grouped by type
-  const projectNeedlesByType: Record<string, { size: string; length?: string; material?: string; projectName: string }[]> = {};
-  projects.forEach(p => {
-    p.needles.forEach(n => {
-      const tp = n.type || 'Annet';
-      (projectNeedlesByType[tp] ||= []).push({ size: n.size, length: n.length, material: n.material, projectName: p.name });
-    });
   });
 
   const handleAdd = () => {
@@ -94,8 +89,14 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
               <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500, padding: '6px 2px 10px' }}>{type}</div>
               <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
                 {items.map((n, i) => {
-                  const inUse = getInUseProjects(n.id);
-                  const available = n.quantity - inUse.length;
+                  const availability = availabilityMap.get(n.id) ?? {
+                    totalQuantity: n.quantity,
+                    takenCount: 0,
+                    availableCount: n.quantity,
+                    takenBy: [],
+                  };
+                  const statusLabel = formatNeedleStatus(availability);
+                  const isFullyTaken = availability.availableCount === 0 && availability.totalQuantity > 0;
                   return (
                     <div key={n.id} style={{
                       display: 'flex', alignItems: 'center', gap: 12,
@@ -114,25 +115,31 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.material || type}</div>
-                        {inUse.length > 0 ? (
+                        <div style={{
+                          fontSize: 11, marginTop: 2, fontWeight: isFullyTaken ? 600 : 500,
+                          color: isFullyTaken ? 'var(--primary)' : 'var(--muted-fg)',
+                        }}>
+                          {statusLabel}
+                        </div>
+                        {availability.takenBy.length > 0 && (
                           <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {inUse.map((name, idx) => (
+                            {availability.takenBy.map((p, idx) => (
                               <span key={idx} style={{
                                 height: 18, padding: '0 6px', borderRadius: 4, border: 'none',
                                 background: 'var(--accent)', color: 'var(--fg)', fontSize: 10.5,
                                 display: 'inline-flex', alignItems: 'center',
-                              }}>{name}</span>
+                              }}>{p.projectName}</span>
                             ))}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: 2 }}>
-                            {available > 0 ? 'Ledig' : 'Opptatt'}
                           </div>
                         )}
                       </div>
 
                       <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>×{n.quantity}</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                          {n.quantity > 1
+                            ? `×${availability.availableCount}/${availability.totalQuantity}`
+                            : `×${n.quantity}`}
+                        </div>
                         <button onClick={() => handleDelete(n.id)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <TrashIcon />
                         </button>

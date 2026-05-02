@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react@8.6.0';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import type { KnittingProject, ProjectStatus, CraftType, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
+import { getAllNeedleAvailability } from '../utils/needles';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -15,6 +16,7 @@ import { nb } from 'date-fns/locale';
 
 interface ProjectDetailProps {
   project: KnittingProject;
+  projects: KnittingProject[];
   onBack: (tab?: string) => void;
   onUpdate: (project: KnittingProject) => void;
   onDelete: (projectId: string) => void;
@@ -53,7 +55,7 @@ const dashedBtn: React.CSSProperties = {
   fontSize: 13, fontWeight: 500,
 };
 
-export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
+export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
   const [editedProject, setEditedProject] = useState(project);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteLogEntryId, setDeleteLogEntryId] = useState<string | null>(null);
@@ -386,7 +388,17 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
 
   const heroImage = editedProject.images[0];
   const availableYarns = standaloneYarns.filter(y => !editedProject.yarns.some(ey => ey.standaloneYarnId === y.id));
-  const availableNeedles = needleInventory.filter(n => !(editedProject.needles || []).some(en => en.inventoryNeedleId === n.id));
+  const needleAvailability = useMemo(
+    () => getAllNeedleAvailability(needleInventory, projects),
+    [needleInventory, projects],
+  );
+  const remainingForOffer = (n: NeedleInventoryItem) => {
+    const alreadyInThisProject = (editedProject.needles || []).some(en => en.inventoryNeedleId === n.id);
+    if (alreadyInThisProject) return 0;
+    const a = needleAvailability.get(n.id);
+    return a ? a.availableCount : n.quantity;
+  };
+  const availableNeedles = needleInventory.filter(n => remainingForOffer(n) > 0);
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' } as React.CSSProperties}>
@@ -757,6 +769,16 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.size} · {n.type}</div>
               <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[n.material, n.length].filter(Boolean).join(' · ')}</div>
             </div>
+            <button
+              onClick={() => {
+                handleUpdate({ needles: (editedProject.needles || []).filter(n2 => n2.id !== n.id) });
+                toast.success('Pinne fjernet');
+              }}
+              aria-label="Fjern pinne"
+              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
+            >
+              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
+            </button>
           </div>
         ))}
         <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ Legg til pinne</button>
@@ -1093,18 +1115,21 @@ export function ProjectDetail({ project, onBack, onUpdate, onDelete, accessToken
               </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {availableNeedles.map(needle => (
-                  <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
-                    </div>
-                    {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>×{needle.quantity}</div>}
-                  </button>
-                ))}
+                {availableNeedles.map(needle => {
+                  const remaining = remainingForOffer(needle);
+                  return (
+                    <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{needle.size} · {needle.type}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[needle.material, needle.length].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      {needle.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>{remaining} av {needle.quantity} ledig</div>}
+                    </button>
+                  );
+                })}
                 {availableNeedles.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>
                     Ingen pinner tilgjengelig i lager

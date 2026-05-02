@@ -57,6 +57,7 @@ function ProjectDetailRoute({
     <ProjectDetail
       key={project.id}
       project={project}
+      projects={projects}
       onBack={() => navigate('/')}
       onUpdate={onUpdate}
       onDelete={(projectId) => {

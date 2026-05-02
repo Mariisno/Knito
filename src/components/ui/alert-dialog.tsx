@@ -35,7 +35,7 @@ const AlertDialogContent = React.forwardRef<
 >(({ className = '', ...props }, ref) => (
   <div
     ref={ref}
-    className={`relative bg-card border border-border rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 ${className}`}
+    className={`relative bg-card border border-border rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90dvh] overflow-y-auto overscroll-contain ${className}`}
     {...props}
   />
 ))

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowUp, Bug, Lightbulb, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useReports } from '../hooks/useReports';
@@ -49,6 +49,18 @@ export function FeedbackDialog({ open, onOpenChange, accessToken }: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
 
+  useEffect(() => {
+    if (open) {
+      setTab('submit');
+      setType('bug');
+      setTitle('');
+      setDescription('');
+      setSubmitting(false);
+      setTypeFilter('all');
+      setStatusFilter('active');
+    }
+  }, [open]);
+
   const trimmedTitle = title.trim();
   const trimmedDescription = description.trim();
   const canSubmit =
@@ -86,7 +98,7 @@ export function FeedbackDialog({ open, onOpenChange, accessToken }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent style={{ maxWidth: 460, maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 0, padding: 0 }}>
-        <DialogHeader style={{ padding: '20px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <DialogHeader style={{ padding: '20px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0, marginBottom: 0 }}>
           <DialogTitle style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 500, letterSpacing: -0.5 }}>
             Tilbakemelding
           </DialogTitle>
@@ -160,6 +172,7 @@ export function FeedbackDialog({ open, onOpenChange, accessToken }: Props) {
               </div>
 
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
                 style={{
@@ -221,6 +234,7 @@ export function FeedbackDialog({ open, onOpenChange, accessToken }: Props) {
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         flex: 1,
@@ -244,6 +258,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 function TypeChoice({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         flex: 1,
@@ -268,6 +283,7 @@ function TypeChoice({ active, icon, label, onClick }: { active: boolean; icon: R
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
         padding: '5px 11px',
@@ -355,6 +371,7 @@ function ReportRow({ report, onVote }: { report: PublicReport; onVote: () => voi
       borderRadius: 12,
     }}>
       <button
+        type="button"
         onClick={onVote}
         aria-label={report.hasVoted ? 'Fjern stemme' : 'Stem opp'}
         style={{

@@ -79,7 +79,8 @@ function AppContent() {
   const {
     projects, standaloneYarns, needleInventory, loading: dataLoading,
     addProject, updateProject, deleteProject, changeProgress,
-    updateStandaloneYarns, updateNeedleInventory,
+    updateStandaloneYarns, updateStandaloneYarn, deleteStandaloneYarn,
+    updateNeedleInventory,
   } = useProjects(accessToken);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -160,6 +161,8 @@ function AppContent() {
               projects={projects}
               standaloneYarns={standaloneYarns}
               onUpdateStandaloneYarns={updateStandaloneYarns}
+              onUpdateStandaloneYarn={updateStandaloneYarn}
+              onDeleteStandaloneYarn={deleteStandaloneYarn}
             />
           </ErrorBoundary>
         )}

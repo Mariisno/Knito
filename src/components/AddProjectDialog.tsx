@@ -218,7 +218,8 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
       const linkedId = yarn.standaloneYarnId ?? yarn.id;
       const idx = prev.findIndex(y => (y.standaloneYarnId ?? y.id) === linkedId);
       if (idx !== -1) return prev.filter((_, i) => i !== idx);
-      return [...prev, { ...yarn, id: crypto.randomUUID(), standaloneYarnId: linkedId }];
+      const { id: _id, quantity: _q, price: _p, standaloneYarnId: _s, ...shared } = yarn;
+      return [...prev, { ...shared, id: crypto.randomUUID(), standaloneYarnId: linkedId }];
     });
   };
 

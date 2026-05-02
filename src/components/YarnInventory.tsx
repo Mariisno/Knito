@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from './ui/alert-dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -13,6 +17,8 @@ interface YarnInventoryProps {
   projects: KnittingProject[];
   standaloneYarns: Yarn[];
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
+  onUpdateStandaloneYarn: (yarn: Yarn) => void;
+  onDeleteStandaloneYarn: (id: string) => void;
 }
 
 const PlusIcon = () => (
@@ -42,13 +48,20 @@ const TrashIcon = () => (
   </svg>
 );
 
-export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYarns }: YarnInventoryProps) {
+export function YarnInventory({
+  projects,
+  standaloneYarns,
+  onUpdateStandaloneYarns,
+  onUpdateStandaloneYarn,
+  onDeleteStandaloneYarn,
+}: YarnInventoryProps) {
   const { accessToken } = useAuth();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; usedIn: string[] } | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
   const addImgInputRef = useRef<HTMLInputElement>(null);
   const editImgInputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +70,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
   interface YarnEntry {
     id: string;
     name: string;
+    brand?: string;
     color?: string;
     colorHex?: string;
     weight?: YarnWeight;
@@ -81,6 +95,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     entries.push({
       id: y.id,
       name: y.name,
+      brand: y.brand,
       color: y.color,
       weight: y.weight,
       fiberContent: y.fiberContent,
@@ -141,7 +156,9 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     const yarn: Yarn = {
       id: crypto.randomUUID(),
       name: newYarn.name.trim(),
+      brand: newYarn.brand?.trim() || undefined,
       color: newYarn.color?.trim(),
+      amount: newYarn.amount?.trim() || undefined,
       quantity: newYarn.quantity ?? 1,
       weight: newYarn.weight,
       fiberContent: newYarn.fiberContent?.trim(),
@@ -163,13 +180,15 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     const updated: Yarn = {
       ...editingYarn,
       name: editingYarn.name.trim(),
+      brand: editingYarn.brand?.trim() || undefined,
       color: editingYarn.color?.trim(),
+      amount: editingYarn.amount?.trim() || undefined,
       fiberContent: editingYarn.fiberContent?.trim(),
       yardage: editingYarn.yardage?.trim(),
       dyeLot: editingYarn.dyeLot?.trim(),
       notes: editingYarn.notes?.trim(),
     };
-    onUpdateStandaloneYarns(standaloneYarns.map(y => y.id === updated.id ? updated : y));
+    onUpdateStandaloneYarn(updated);
     setEditingYarn(null);
     toast.success('Garn oppdatert');
   };
@@ -191,9 +210,25 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
     }
   };
 
-  const handleDelete = (standaloneId: string) => {
-    onUpdateStandaloneYarns(standaloneYarns.filter(y => y.id !== standaloneId));
-    toast.success('Garn fjernet');
+  const requestDelete = (standaloneId: string) => {
+    const yarn = standaloneYarns.find(y => y.id === standaloneId);
+    if (!yarn) return;
+    const usedIn = projects
+      .filter(p => p.yarns.some(py => py.standaloneYarnId === standaloneId))
+      .map(p => p.name);
+    if (usedIn.length === 0) {
+      onDeleteStandaloneYarn(standaloneId);
+      toast.success('Garn fjernet');
+      return;
+    }
+    setPendingDelete({ id: standaloneId, name: yarn.name, usedIn });
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    onDeleteStandaloneYarn(pendingDelete.id);
+    setPendingDelete(null);
+    toast.success('Garn fjernet fra lager');
   };
 
   const handleQuantityChange = (standaloneId: string, delta: number) => {
@@ -305,7 +340,7 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 </div>
                 {y.isStandalone && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(y.standaloneId!); }}
+                    onClick={(e) => { e.stopPropagation(); requestDelete(y.standaloneId!); }}
                     aria-label="Slett garn"
                     style={{
                       width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
@@ -406,6 +441,10 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
               <Label>Garnnavn *</Label>
               <Input value={newYarn.name || ''} onChange={e => setNewYarn({ ...newYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
             </div>
+            <div className="space-y-2">
+              <Label>Merke</Label>
+              <Input value={newYarn.brand || ''} onChange={e => setNewYarn({ ...newYarn, brand: e.target.value })} placeholder="F.eks. Sandnes Garn" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Farge</Label>
@@ -446,6 +485,26 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
               <div className="space-y-2">
                 <Label>Fargebad</Label>
                 <Input value={newYarn.dyeLot || ''} onChange={e => setNewYarn({ ...newYarn, dyeLot: e.target.value })} placeholder="Lot 2345" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Mengde</Label>
+                <Input value={newYarn.amount || ''} onChange={e => setNewYarn({ ...newYarn, amount: e.target.value })} placeholder="F.eks. 200g" />
+              </div>
+              <div className="space-y-2">
+                <Label>Pris (kr)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={newYarn.price ?? ''}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setNewYarn({ ...newYarn, price: v === '' ? undefined : Math.max(0, parseFloat(v) || 0) });
+                  }}
+                  placeholder="0"
+                />
               </div>
             </div>
             <div className="space-y-2">
@@ -519,6 +578,10 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 <Label>Garnnavn *</Label>
                 <Input value={editingYarn.name || ''} onChange={e => setEditingYarn({ ...editingYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
               </div>
+              <div className="space-y-2">
+                <Label>Merke</Label>
+                <Input value={editingYarn.brand || ''} onChange={e => setEditingYarn({ ...editingYarn, brand: e.target.value })} placeholder="F.eks. Sandnes Garn" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Farge</Label>
@@ -559,6 +622,26 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
                 <div className="space-y-2">
                   <Label>Fargebad</Label>
                   <Input value={editingYarn.dyeLot || ''} onChange={e => setEditingYarn({ ...editingYarn, dyeLot: e.target.value })} placeholder="Lot 2345" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Mengde</Label>
+                  <Input value={editingYarn.amount || ''} onChange={e => setEditingYarn({ ...editingYarn, amount: e.target.value })} placeholder="F.eks. 200g" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Pris (kr)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={editingYarn.price ?? ''}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setEditingYarn({ ...editingYarn, price: v === '' ? undefined : Math.max(0, parseFloat(v) || 0) });
+                    }}
+                    placeholder="0"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
@@ -620,6 +703,30 @@ export function YarnInventory({ projects, standaloneYarns, onUpdateStandaloneYar
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slette {pendingDelete?.name} fra lager?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete && (
+                <>
+                  Garnet brukes i {pendingDelete.usedIn.length} {pendingDelete.usedIn.length === 1 ? 'prosjekt' : 'prosjekter'}
+                  {': '}{pendingDelete.usedIn.join(', ')}.
+                  {' '}Prosjektene beholder sine kopier av garnet, men koblingen til lageret forsvinner.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 mt-4">
+            <AlertDialogCancel className="flex-1">Avbryt</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="flex-1 bg-destructive hover:bg-destructive/90">
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

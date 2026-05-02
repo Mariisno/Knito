@@ -148,6 +148,107 @@ export function useProjects(accessToken: string | null) {
     }
   };
 
+  // Fields that are shared between an inventory yarn and the project copies that link to it.
+  // `id`, `standaloneYarnId`, `amount` (project-specific) and `quantity`/`price` (inventory-only)
+  // are intentionally excluded.
+  const SHARED_YARN_FIELDS = ['name', 'brand', 'color', 'weight', 'fiberContent', 'yardage', 'dyeLot', 'imageUrl', 'notes'] as const;
+
+  const syncProjectYarn = (projectYarn: Yarn, source: Yarn): Yarn => {
+    const synced: Yarn = {
+      id: projectYarn.id,
+      standaloneYarnId: projectYarn.standaloneYarnId,
+      name: source.name,
+      amount: projectYarn.amount,
+    };
+    for (const field of SHARED_YARN_FIELDS) {
+      if (field === 'name') continue;
+      const value = source[field];
+      if (value !== undefined && value !== '') {
+        (synced as any)[field] = value;
+      }
+    }
+    return synced;
+  };
+
+  const updateStandaloneYarn = async (updated: Yarn) => {
+    if (!accessToken) return;
+
+    const previousYarns = standaloneYarns;
+    const previousProjects = projects;
+
+    const newYarns = standaloneYarns.map(y => y.id === updated.id ? updated : y);
+
+    const projectsToPersist: KnittingProject[] = [];
+    const newProjects = projects.map(project => {
+      const hasLink = project.yarns.some(y => y.standaloneYarnId === updated.id);
+      if (!hasLink) return project;
+      const updatedProject = {
+        ...project,
+        yarns: project.yarns.map(y =>
+          y.standaloneYarnId === updated.id ? syncProjectYarn(y, updated) : y
+        ),
+      };
+      projectsToPersist.push(updatedProject);
+      return updatedProject;
+    });
+
+    setStandaloneYarns(newYarns);
+    setProjects(newProjects);
+
+    try {
+      await Promise.all([
+        api.updateStandaloneYarns(newYarns, accessToken),
+        ...projectsToPersist.map(p => api.updateProject(p.id, p, accessToken)),
+      ]);
+    } catch (error) {
+      console.error('Failed to update standalone yarn:', error);
+      setStandaloneYarns(previousYarns);
+      setProjects(previousProjects);
+      toast.error('Kunne ikke lagre garn. Prøv igjen.');
+    }
+  };
+
+  const deleteStandaloneYarn = async (id: string) => {
+    if (!accessToken) return;
+
+    const previousYarns = standaloneYarns;
+    const previousProjects = projects;
+
+    const newYarns = standaloneYarns.filter(y => y.id !== id);
+
+    // Keep prosjekt-kopier intakt, men fjern lenke slik at vi ikke har dødt referanse.
+    const projectsToPersist: KnittingProject[] = [];
+    const newProjects = projects.map(project => {
+      const hasLink = project.yarns.some(y => y.standaloneYarnId === id);
+      if (!hasLink) return project;
+      const updatedProject = {
+        ...project,
+        yarns: project.yarns.map(y => {
+          if (y.standaloneYarnId !== id) return y;
+          const { standaloneYarnId: _, ...rest } = y;
+          return rest;
+        }),
+      };
+      projectsToPersist.push(updatedProject);
+      return updatedProject;
+    });
+
+    setStandaloneYarns(newYarns);
+    setProjects(newProjects);
+
+    try {
+      await Promise.all([
+        api.updateStandaloneYarns(newYarns, accessToken),
+        ...projectsToPersist.map(p => api.updateProject(p.id, p, accessToken)),
+      ]);
+    } catch (error) {
+      console.error('Failed to delete standalone yarn:', error);
+      setStandaloneYarns(previousYarns);
+      setProjects(previousProjects);
+      toast.error('Kunne ikke slette garn. Prøv igjen.');
+    }
+  };
+
   const updateNeedleInventory = async (needles: NeedleInventoryItem[]) => {
     if (!accessToken) return;
 
@@ -173,6 +274,8 @@ export function useProjects(accessToken: string | null) {
     deleteProject,
     changeProgress,
     updateStandaloneYarns,
+    updateStandaloneYarn,
+    deleteStandaloneYarn,
     updateNeedleInventory,
   };
 }

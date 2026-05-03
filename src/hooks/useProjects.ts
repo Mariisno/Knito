@@ -216,18 +216,13 @@ export function useProjects(accessToken: string | null) {
 
     const newYarns = standaloneYarns.filter(y => y.id !== id);
 
-    // Keep prosjekt-kopier intakt, men fjern lenke slik at vi ikke har dødt referanse.
     const projectsToPersist: KnittingProject[] = [];
     const newProjects = projects.map(project => {
       const hasLink = project.yarns.some(y => y.standaloneYarnId === id);
       if (!hasLink) return project;
       const updatedProject = {
         ...project,
-        yarns: project.yarns.map(y => {
-          if (y.standaloneYarnId !== id) return y;
-          const { standaloneYarnId: _, ...rest } = y;
-          return rest;
-        }),
+        yarns: project.yarns.filter(y => y.standaloneYarnId !== id),
       };
       projectsToPersist.push(updatedProject);
       return updatedProject;

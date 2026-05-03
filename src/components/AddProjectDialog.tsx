@@ -317,11 +317,11 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
         <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '4px auto 14px' }} />
 
         {/* header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <button onClick={handleClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 8 }}>
+          <button onClick={handleClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer', padding: '8px 12px', marginLeft: -12, borderRadius: 10 }}>
             {createdProjectId !== null ? 'Lukk' : 'Avbryt'}
           </button>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500 }}>Nytt prosjekt</div>
             {saveStatus !== 'idle' && (
               <div style={{ fontSize: 10.5, color: 'var(--muted-fg)', letterSpacing: 0.5 }}>
@@ -329,7 +329,19 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
               </div>
             )}
           </div>
-          <button onClick={handleSave} disabled={!name.trim()} style={{ background: 'transparent', border: 'none', color: name.trim() ? 'var(--primary)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: name.trim() ? 'pointer' : 'default', padding: 0 }}>
+          <button onClick={handleSave} disabled={!name.trim()} style={{
+            background: name.trim() ? 'var(--primary)' : 'var(--accent)',
+            border: 'none',
+            color: name.trim() ? 'var(--primary-foreground)' : 'var(--muted-fg)',
+            fontFamily: 'inherit',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: name.trim() ? 'pointer' : 'default',
+            padding: '9px 18px',
+            borderRadius: 999,
+            marginRight: -4,
+            transition: 'background 0.15s, color 0.15s',
+          }}>
             {createdProjectId !== null ? 'Ferdig' : 'Lagre'}
           </button>
         </div>
@@ -349,13 +361,16 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
 
         {/* craft type */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Håndverk</div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           {(['Strikking', 'Hekling'] as CraftType[]).map(ct => (
-            <button key={ct} onClick={() => setCraftType(ct)} style={{
-              height: 32, padding: '0 14px', borderRadius: 999, border: '1px solid var(--border)',
+            <button key={ct} className="chip-btn" onClick={() => setCraftType(ct)} style={{
+              height: 40, padding: '0 18px', borderRadius: 999,
+              border: craftType === ct ? '1.5px solid var(--fg)' : '1.5px solid var(--border)',
               background: craftType === ct ? 'var(--fg)' : 'var(--card)',
               color: craftType === ct ? 'var(--bg)' : 'var(--fg)',
-              fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: craftType === ct ? 'none' : '0 1px 0 rgba(0,0,0,0.02)',
+              transition: 'background 0.15s, border-color 0.15s, color 0.15s',
             }}>
               {ct}
             </button>
@@ -364,13 +379,16 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
 
         {/* category */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Kategori</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
           {CATEGORIES.map(c => (
-            <button key={c} onClick={() => setCategory(category === c ? '' : c)} style={{
-              height: 32, padding: '0 14px', borderRadius: 999, border: '1px solid var(--border)',
+            <button key={c} className="chip-btn" onClick={() => setCategory(category === c ? '' : c)} style={{
+              height: 40, padding: '0 18px', borderRadius: 999,
+              border: category === c ? '1.5px solid var(--fg)' : '1.5px solid var(--border)',
               background: category === c ? 'var(--fg)' : 'var(--card)',
               color: category === c ? 'var(--bg)' : 'var(--fg)',
-              fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: category === c ? 'none' : '0 1px 0 rgba(0,0,0,0.02)',
+              transition: 'background 0.15s, border-color 0.15s, color 0.15s',
             }}>
               {c}
             </button>
@@ -383,51 +401,53 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
           {/* bilde */}
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
           <input ref={galleryInputRef} type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} style={{ display: 'none' }} />
-          <button type="button" onClick={() => !uploadingImage && setShowImageSourcePicker(true)} style={{ padding: '20px 16px', background: 'var(--card)', border: uploadedImages.length ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: uploadingImage ? 'not-allowed' : 'pointer', opacity: uploadingImage ? 0.6 : 1, width: '100%' }}>
+          <button type="button" onClick={() => !uploadingImage && setShowImageSourcePicker(true)} style={{ padding: '22px 16px', background: 'var(--card)', border: uploadedImages.length ? '1.5px solid var(--primary)' : '1.5px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: uploadingImage ? 'not-allowed' : 'pointer', opacity: uploadingImage ? 0.6 : 1, width: '100%', boxShadow: '0 1px 0 rgba(0,0,0,0.02)', transition: 'border-color 0.15s' }}>
             {uploadingImage
-              ? <Loader2 className="animate-spin" style={{ width: 24, height: 24, color: 'var(--muted-fg)' }} />
+              ? <Loader2 className="animate-spin" style={{ width: 28, height: 28, color: 'var(--primary)' }} />
               : uploadedImages.length
-                ? <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden' }}><img src={uploadedImages[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
-                : <svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke="var(--muted-fg)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                ? <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden' }}><img src={uploadedImages[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
+                : <svg viewBox="0 0 24 24" width={28} height={28} fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             }
-            <span style={{ fontSize: 12.5, fontWeight: 500, color: uploadedImages.length ? 'var(--primary)' : 'var(--muted-fg)' }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: uploadedImages.length ? 'var(--primary)' : 'var(--fg)' }}>
               {uploadedImages.length ? `${uploadedImages.length} bilde${uploadedImages.length > 1 ? 'r' : ''}` : 'Legg til bilde'}
             </span>
           </button>
 
           {/* oppskrift */}
-          <label style={{ padding: '20px 16px', background: 'var(--card)', border: uploadedPdf ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: uploadingPdf ? 'not-allowed' : 'pointer', opacity: uploadingPdf ? 0.6 : 1 }}>
+          <label style={{ padding: '22px 16px', background: 'var(--card)', border: uploadedPdf ? '1.5px solid var(--primary)' : '1.5px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: uploadingPdf ? 'not-allowed' : 'pointer', opacity: uploadingPdf ? 0.6 : 1, boxShadow: '0 1px 0 rgba(0,0,0,0.02)', transition: 'border-color 0.15s' }}>
             <input type="file" accept=".pdf" onChange={handlePdfUpload} disabled={uploadingPdf} style={{ display: 'none' }} />
             {uploadingPdf
-              ? <Loader2 className="animate-spin" style={{ width: 24, height: 24, color: 'var(--muted-fg)' }} />
-              : <svg viewBox="0 0 24 24" width={24} height={24} fill="none" stroke={uploadedPdf ? 'var(--primary)' : 'var(--muted-fg)'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              ? <Loader2 className="animate-spin" style={{ width: 28, height: 28, color: 'var(--primary)' }} />
+              : <svg viewBox="0 0 24 24" width={28} height={28} fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             }
-            <span style={{ fontSize: 12.5, fontWeight: 500, color: uploadedPdf ? 'var(--primary)' : 'var(--muted-fg)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: uploadedPdf ? 'var(--primary)' : 'var(--fg)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
               {uploadedPdf ? uploadedPdf.name : 'Last opp oppskrift'}
             </span>
           </label>
         </div>
 
-        <input
-          type="url"
-          inputMode="url"
-          placeholder="Lenke til oppskrift (valgfritt)"
-          value={recipeUrl}
-          onChange={e => setRecipeUrl(e.target.value)}
-          style={{
-            width: '100%',
-            marginBottom: 24,
-            padding: '14px',
-            background: 'var(--card)',
-            border: recipeUrl ? '1px solid var(--primary)' : '1px solid var(--border)',
-            borderRadius: 14,
-            color: 'var(--fg)',
-            fontFamily: 'inherit',
-            fontSize: 13.5,
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
+        <div style={{ padding: '14px 16px', background: 'var(--card)', border: recipeUrl ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: 14, marginBottom: 24, transition: 'border-color 0.15s' }}>
+          <div style={{ fontSize: 10.5, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase', fontWeight: 500, marginBottom: 6 }}>
+            Lenke til oppskrift <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted-fg)', fontWeight: 400 }}>(valgfritt)</span>
+          </div>
+          <input
+            type="url"
+            inputMode="url"
+            placeholder="https://…"
+            value={recipeUrl}
+            onChange={e => setRecipeUrl(e.target.value)}
+            style={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: 16,
+              color: 'var(--fg)',
+              fontFamily: 'inherit',
+              padding: 0,
+            }}
+          />
+        </div>
 
         {/* garn */}
         <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Garn</div>
@@ -448,8 +468,8 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
         )}
 
         {/* yarn picker toggle */}
-        <button onClick={() => setShowYarnPicker(v => !v)} style={{ width: '100%', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-          <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        <button onClick={() => setShowYarnPicker(v => !v)} style={{ width: '100%', padding: '16px', border: '1.5px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--primary)', fontSize: 14, fontWeight: 500, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 0.15s, background 0.15s' }}>
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Velg fra lager eller legg til nytt
         </button>
 
@@ -502,8 +522,8 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
           )}
 
           {/* needle picker toggle */}
-          <button onClick={() => setShowNeedlePicker(v => !v)} style={{ width: '100%', padding: '14px 16px', border: '1px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-fg)', fontSize: 13.5, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <button onClick={() => setShowNeedlePicker(v => !v)} style={{ width: '100%', padding: '16px', border: '1.5px dashed var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--primary)', fontSize: 14, fontWeight: 500, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', transition: 'border-color 0.15s, background 0.15s' }}>
+            <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
             Velg fra lager eller legg til ny pinne
           </button>
 
@@ -563,7 +583,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
                 <span style={{ fontSize: 14, color: 'var(--fg)' }}>Lagre til garnskapet</span>
                 <button onClick={() => setSaveYarnToInventory(v => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', background: saveYarnToInventory ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <span style={{ position: 'absolute', top: 3, left: saveYarnToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'white', transition: 'left 0.15s', display: 'block' }} />
+                  <span style={{ position: 'absolute', top: 3, left: saveYarnToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'var(--card)', boxShadow: '0 1px 2px rgba(0,0,0,0.18)', transition: 'left 0.15s', display: 'block' }} />
                 </button>
               </div>
             </div>
@@ -596,7 +616,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
                 <span style={{ fontSize: 14, color: 'var(--fg)' }}>Lagre til pinneskapet</span>
                 <button onClick={() => setSaveNeedleToInventory(v => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', background: saveNeedleToInventory ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <span style={{ position: 'absolute', top: 3, left: saveNeedleToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'white', transition: 'left 0.15s', display: 'block' }} />
+                  <span style={{ position: 'absolute', top: 3, left: saveNeedleToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'var(--card)', boxShadow: '0 1px 2px rgba(0,0,0,0.18)', transition: 'left 0.15s', display: 'block' }} />
                 </button>
               </div>
             </div>

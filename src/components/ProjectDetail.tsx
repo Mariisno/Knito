@@ -56,6 +56,17 @@ const dashedBtn: React.CSSProperties = {
   fontSize: 13, fontWeight: 500,
 };
 
+const needleFieldLabel: React.CSSProperties = {
+  display: 'block', fontSize: 12, fontWeight: 500,
+  color: 'var(--muted-fg)', marginBottom: 6,
+};
+
+const needleFieldInput: React.CSSProperties = {
+  width: '100%', height: 44, padding: '0 14px', borderRadius: 12,
+  border: '1px solid var(--border)', background: 'var(--card)',
+  color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none',
+};
+
 export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
   const [editedProject, setEditedProject] = useState(project);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -1074,43 +1085,78 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
           <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: showNewNeedleForm ? 4 : 14 }}>
               {showNewNeedleForm ? 'Ny pinne' : 'Velg pinne'}
             </div>
+            {showNewNeedleForm && (
+              <div style={{ fontSize: 12.5, color: 'var(--muted-fg)', marginBottom: 14 }}>
+                Lag en pinne som bare brukes i dette prosjektet.
+              </div>
+            )}
             {showNewNeedleForm ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={needleFieldLabel}>
+                    Størrelse <span style={{ color: 'var(--destructive)' }}>*</span>
+                  </label>
+                  <input
+                    autoFocus
+                    placeholder="f.eks. 4mm"
+                    value={newNeedleData.size || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, size: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddNewNeedle(); }}
+                    style={needleFieldInput}
+                  />
+                </div>
+                <div>
+                  <label style={needleFieldLabel}>Type</label>
                   <select
                     value={newNeedleData.type || 'Rundpinne'}
                     onChange={e => setNewNeedleData(d => ({ ...d, type: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                    style={needleFieldInput}
                   >
                     {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <input
-                    autoFocus
-                    placeholder="Størrelse *"
-                    value={newNeedleData.size || ''}
-                    onChange={e => setNewNeedleData(d => ({ ...d, size: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <input
-                    placeholder="Lengde"
-                    value={newNeedleData.length || ''}
-                    onChange={e => setNewNeedleData(d => ({ ...d, length: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
-                  <input
-                    placeholder="Materiale"
-                    value={newNeedleData.material || ''}
-                    onChange={e => setNewNeedleData(d => ({ ...d, material: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
+                  <div>
+                    <label style={needleFieldLabel}>Lengde</label>
+                    <input
+                      placeholder="f.eks. 80cm"
+                      value={newNeedleData.length || ''}
+                      onChange={e => setNewNeedleData(d => ({ ...d, length: e.target.value }))}
+                      style={needleFieldInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={needleFieldLabel}>Materiale</label>
+                    <input
+                      placeholder="f.eks. bambus"
+                      value={newNeedleData.material || ''}
+                      onChange={e => setNewNeedleData(d => ({ ...d, material: e.target.value }))}
+                      style={needleFieldInput}
+                    />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={handleAddNewNeedle} disabled={!newNeedleData.size?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newNeedleData.size?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newNeedleData.size?.trim() ? 1 : 0.35 }}>Legg til</button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  {(() => {
+                    const canSubmit = !!newNeedleData.size?.trim();
+                    return (
+                      <button
+                        onClick={handleAddNewNeedle}
+                        disabled={!canSubmit}
+                        style={{
+                          flex: 1, height: 44, borderRadius: 12, border: 'none',
+                          background: canSubmit ? 'var(--fg)' : 'var(--muted)',
+                          color: canSubmit ? 'var(--bg)' : 'var(--muted-fg)',
+                          cursor: canSubmit ? 'pointer' : 'not-allowed',
+                          fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                        }}
+                      >
+                        Legg til
+                      </button>
+                    );
+                  })()}
                   <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
                 </div>
               </div>

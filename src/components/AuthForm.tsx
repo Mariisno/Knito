@@ -141,7 +141,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
         fontFamily: 'var(--font-ui)', color: 'var(--fg)',
       }}>
         {/* Top section */}
-        <div style={{ padding: '50px 30px 24px' }}>
+        <div style={{ padding: 'clamp(32px, 12vw, 50px) clamp(20px, 6vw, 30px) 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
             <KnitoMark s={32} />
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 500, letterSpacing: -0.3 }}>
@@ -157,7 +157,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '0 30px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <form onSubmit={handleSubmit} style={{ padding: '0 clamp(20px, 6vw, 30px)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {isSignUp && (
             <Field label="Navn" value={name} onChange={setName} placeholder="Ola Nordmann" autoComplete="name" disabled={loading} />
           )}
@@ -226,7 +226,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
         <div style={{ flex: 1 }} />
 
         {/* Bottom links */}
-        <div style={{ padding: '20px 30px 40px', textAlign: 'center', fontSize: 13, color: 'var(--muted-fg)' }}>
+        <div style={{ padding: '20px clamp(20px, 6vw, 30px) 40px', textAlign: 'center', fontSize: 13, color: 'var(--muted-fg)' }}>
           {isSignUp ? 'Har du allerede en konto? ' : 'Ingen konto? '}
           <button
             type="button"

@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { KnitTexture, paletteForId } from './KnitTexture';
+import { YarnFormFields } from './YarnFormFields';
 import { format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -75,7 +76,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const [dateEnd, setDateEnd] = useState('');
   const [showYarnPicker, setShowYarnPicker] = useState(false);
   const [showNewYarnForm, setShowNewYarnForm] = useState(false);
-  const [newYarnData, setNewYarnData] = useState<{ name?: string; brand?: string; color?: string; amount?: string; weight?: Yarn['weight'] }>({});
+  const [newYarnData, setNewYarnData] = useState<Partial<Yarn>>({});
   const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
   const [pendingYarnAmount, setPendingYarnAmount] = useState('');
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
@@ -330,7 +331,13 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       color: newYarnData.color?.trim() || undefined,
       amount: newYarnData.amount?.trim() || undefined,
       weight: newYarnData.weight || undefined,
-      quantity: 1,
+      quantity: newYarnData.quantity ?? 1,
+      fiberContent: newYarnData.fiberContent?.trim() || undefined,
+      yardage: newYarnData.yardage?.trim() || undefined,
+      dyeLot: newYarnData.dyeLot?.trim() || undefined,
+      price: newYarnData.price,
+      notes: newYarnData.notes?.trim() || undefined,
+      imageUrl: newYarnData.imageUrl,
     };
     const projectYarn: Yarn = {
       id: crypto.randomUUID(),
@@ -340,6 +347,11 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       color: inventoryYarn.color,
       amount: inventoryYarn.amount,
       weight: inventoryYarn.weight,
+      fiberContent: inventoryYarn.fiberContent,
+      yardage: inventoryYarn.yardage,
+      dyeLot: inventoryYarn.dyeLot,
+      notes: inventoryYarn.notes,
+      imageUrl: inventoryYarn.imageUrl,
     };
     onUpdateStandaloneYarns([...standaloneYarns, inventoryYarn]);
     handleUpdate({ yarns: [...editedProject.yarns, projectYarn] });
@@ -347,6 +359,20 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     setShowNewYarnForm(false);
     setNewYarnData({});
     toast.success(`${projectYarn.name} lagt til`);
+  };
+
+  const handleYarnImageUpload = async (file: File, setUrl: (url: string) => void) => {
+    if (!accessToken) { toast.error('Du må være logget inn'); return; }
+    setUploadingImg(true);
+    try {
+      const url = await api.uploadImage(file, accessToken);
+      setUrl(url);
+      toast.success('Bilde lastet opp');
+    } catch {
+      toast.error('Kunne ikke laste opp bilde');
+    } finally {
+      setUploadingImg(false);
+    }
   };
 
   const handleAddNeedle = (needle: NeedleInventoryItem) => {
@@ -404,7 +430,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     <div style={{ height: '100%', overflowY: 'auto', background: 'var(--bg)', WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' } as React.CSSProperties}>
 
       {/* HERO */}
-      <div style={{ position: 'relative', height: 300, background: 'var(--accent)', flexShrink: 0 }}>
+      <div style={{ position: 'relative', height: 'clamp(220px, 55vw, 320px)', background: 'var(--accent)', flexShrink: 0 }}>
         {editedProject.images.length > 0 ? (
           <div ref={emblaRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <div style={{ display: 'flex', height: '100%' }}>
@@ -421,10 +447,10 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
         <input ref={coverImgInputRef} type="file" accept="image/*" onChange={handleCoverImgUpload} style={{ display: 'none' }} />
         {/* top bar overlay */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 'calc(8px + env(safe-area-inset-top))', paddingBottom: '8px', paddingLeft: '14px', paddingRight: '14px' }}>
-          <button onClick={() => onBack()} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
+          <button onClick={() => onBack()} style={{ width: 40, height: 40, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
             <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           </button>
-          <button onClick={() => setShowMoreMenu(true)} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
+          <button onClick={() => setShowMoreMenu(true)} style={{ width: 40, height: 40, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}>
             <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
           </button>
         </div>
@@ -541,10 +567,10 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)}
-                style={{ flex: 1, height: 38, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+                style={{ flex: 1, minWidth: 0, height: 44, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
               <span style={{ color: 'var(--muted-fg)', fontSize: 13 }}>→</span>
               <input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)}
-                style={{ flex: 1, height: 38, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+                style={{ flex: 1, minWidth: 0, height: 44, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={handleSaveDates} style={{ flex: 1, height: 36, borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>Ferdig</button>
@@ -860,13 +886,12 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                       {e.text && (
                         <button
                           onClick={() => setEditingLogEntry({ id: e.id, text: e.text! })}
-                          style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}
-                          onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
-                          onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                          className="log-entry-action"
+                          style={{ width: 32, height: 32, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           aria-label="Rediger notat"
                           title="Rediger notat"
                         >
-                          <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                           </svg>
@@ -874,9 +899,8 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                       )}
                       <button
                         onClick={() => setDeleteLogEntryId(e.id)}
-                        style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1, opacity: 0.5 }}
-                        onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
-                        onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.5')}
+                        className="log-entry-action"
+                        style={{ width: 32, height: 32, borderRadius: 999, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1 }}
                         aria-label="Slett notat"
                         title="Slett notat"
                       >
@@ -956,7 +980,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {showMoreMenu && (
         <>
           <div onClick={() => setShowMoreMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <button onClick={() => { setShowMoreMenu(false); coverImgInputRef.current?.click(); }} style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
               {heroImage ? 'Endre bilde' : 'Legg til bilde'}
@@ -977,42 +1001,19 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {showYarnPicker && (
         <>
           <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnAmount(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : pendingYarn ? 'Legg til mengde' : 'Velg garn'}</div>
             {showNewYarnForm ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input
-                  autoFocus
-                  placeholder="Garnnavn *"
-                  value={newYarnData.name || ''}
-                  onChange={e => setNewYarnData(d => ({ ...d, name: e.target.value }))}
-                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+                <YarnFormFields
+                  value={newYarnData}
+                  onChange={setNewYarnData}
+                  uploadingImg={uploadingImg}
+                  onUploadImage={handleYarnImageUpload}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <input
-                    placeholder="Farge"
-                    value={newYarnData.color || ''}
-                    onChange={e => setNewYarnData(d => ({ ...d, color: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
-                  <input
-                    placeholder="Mengde"
-                    value={newYarnData.amount || ''}
-                    onChange={e => setNewYarnData(d => ({ ...d, amount: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
-                </div>
-                <select
-                  value={newYarnData.weight || ''}
-                  onChange={e => setNewYarnData(d => ({ ...d, weight: (e.target.value || undefined) as Yarn['weight'] }))}
-                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: newYarnData.weight ? 'var(--fg)' : 'var(--muted-fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                >
-                  <option value="">Tykkelse (valgfritt)</option>
-                  {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={handleAddNewYarn} disabled={!newYarnData.name?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnData.name?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newYarnData.name?.trim() ? 1 : 0.35 }}>Legg til</button>
+                  <button onClick={handleAddNewYarn} disabled={!newYarnData.name?.trim() || uploadingImg} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newYarnData.name?.trim() && !uploadingImg ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newYarnData.name?.trim() && !uploadingImg ? 1 : 0.35 }}>Legg til</button>
                   <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
                 </div>
               </div>
@@ -1071,7 +1072,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {showNeedlePicker && (
         <>
           <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
               {showNewNeedleForm ? 'Ny pinne' : 'Velg pinne'}

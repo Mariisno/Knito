@@ -2,6 +2,8 @@
 
 :root {
   --font-size: 16px;
+  /* Shell width — phones fill viewport (capped at 480), tablets/desktop get a bit more room. */
+  --shell-max-w: 480px;
   /* Design token aliases (match Knito/ prototype) */
   --bg: #faf8f5;
   --fg: #2d2520;
@@ -215,4 +217,18 @@ body {
 #root {
   height: 100vh;
   height: 100dvh;
+}
+
+/* Log entry actions: visible on touch, dim until hover on desktop */
+.log-entry-action { opacity: 0.55; transition: opacity 0.15s; }
+.log-entry-action:hover,
+.log-entry-action:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .log-entry-action { opacity: 1; }
+}
+
+/* Tablet and up: give the shell a touch more room. Phone-first design is preserved;
+   inner layouts are single-column and just hit their upper clamps at this width. */
+@media (min-width: 768px) {
+  :root { --shell-max-w: 600px; }
 }

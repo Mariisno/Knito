@@ -140,7 +140,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                             ? `×${availability.availableCount}/${availability.totalQuantity}`
                             : `×${n.quantity}`}
                         </div>
-                        <button onClick={() => handleDelete(n.id)} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={() => handleDelete(n.id)} style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <TrashIcon />
                         </button>
                       </div>
@@ -173,7 +173,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
             <DialogDescription>Registrer en ny pinne i din samling.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Type *</Label>
                 <Select value={newNeedle.type} onValueChange={v => setNewNeedle({ ...newNeedle, type: v })}>
@@ -190,7 +190,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                 <Input value={newNeedle.size || ''} onChange={e => setNewNeedle({ ...newNeedle, size: e.target.value })} placeholder="4mm" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
                 <Label>Lengde</Label>
                 <Input value={newNeedle.length || ''} onChange={e => setNewNeedle({ ...newNeedle, length: e.target.value })} placeholder="80cm" />

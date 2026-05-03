@@ -714,7 +714,7 @@ export function YarnInventory({
                 <>
                   Garnet brukes i {pendingDelete.usedIn.length} {pendingDelete.usedIn.length === 1 ? 'prosjekt' : 'prosjekter'}
                   {': '}{pendingDelete.usedIn.join(', ')}.
-                  {' '}Prosjektene beholder sine kopier av garnet, men koblingen til lageret forsvinner.
+                  {' '}Garnet fjernes også fra {pendingDelete.usedIn.length === 1 ? 'dette prosjektet' : 'disse prosjektene'}.
                 </>
               )}
             </AlertDialogDescription>

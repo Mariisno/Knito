@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import {
@@ -6,12 +6,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { YarnFormFields } from './YarnFormFields';
 
 interface YarnInventoryProps {
   projects: KnittingProject[];
@@ -63,8 +61,6 @@ export function YarnInventory({
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; usedIn: string[] } | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
-  const addImgInputRef = useRef<HTMLInputElement>(null);
-  const editImgInputRef = useRef<HTMLInputElement>(null);
 
   // Combine project yarns + standalone yarns into unified list
   interface YarnEntry {
@@ -437,127 +433,12 @@ export function YarnInventory({
             <DialogTitle>Legg til garn</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Garnnavn *</Label>
-              <Input value={newYarn.name || ''} onChange={e => setNewYarn({ ...newYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
-            </div>
-            <div className="space-y-2">
-              <Label>Merke</Label>
-              <Input value={newYarn.brand || ''} onChange={e => setNewYarn({ ...newYarn, brand: e.target.value })} placeholder="F.eks. Sandnes Garn" />
-            </div>
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-              <div className="space-y-2">
-                <Label>Farge</Label>
-                <Input value={newYarn.color || ''} onChange={e => setNewYarn({ ...newYarn, color: e.target.value })} placeholder="F.eks. Natur" />
-              </div>
-              <div className="space-y-2">
-                <Label>Antall (nøster)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={newYarn.quantity ?? 1}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setNewYarn({ ...newYarn, quantity: v === '' ? undefined : Math.max(0, parseInt(v, 10) || 0) });
-                  }}
-                />
-              </div>
-            </div>
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-              <div className="space-y-2">
-                <Label>Tykkelse</Label>
-                <select value={newYarn.weight || ''} onChange={e => setNewYarn({ ...newYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="">Velg...</option>
-                  {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Fiberinnhold</Label>
-                <Input value={newYarn.fiberContent || ''} onChange={e => setNewYarn({ ...newYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
-              </div>
-            </div>
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-              <div className="space-y-2">
-                <Label>Løpelengde</Label>
-                <Input value={newYarn.yardage || ''} onChange={e => setNewYarn({ ...newYarn, yardage: e.target.value })} placeholder="200m / 50g" />
-              </div>
-              <div className="space-y-2">
-                <Label>Fargebad</Label>
-                <Input value={newYarn.dyeLot || ''} onChange={e => setNewYarn({ ...newYarn, dyeLot: e.target.value })} placeholder="Lot 2345" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Mengde</Label>
-                <Input value={newYarn.amount || ''} onChange={e => setNewYarn({ ...newYarn, amount: e.target.value })} placeholder="F.eks. 200g" />
-              </div>
-              <div className="space-y-2">
-                <Label>Pris (kr)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={newYarn.price ?? ''}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setNewYarn({ ...newYarn, price: v === '' ? undefined : Math.max(0, parseFloat(v) || 0) });
-                  }}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Bilde</Label>
-              <div className="flex items-center gap-3">
-                <div style={{
-                  width: 72, height: 72, borderRadius: 12, flexShrink: 0,
-                  background: 'var(--bg)',
-                  border: '1px solid var(--border)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden',
-                }}>
-                  {newYarn.imageUrl ? (
-                    <img src={newYarn.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.6}>
-                      <rect x="3" y="5" width="18" height="14" rx="2"/>
-                      <circle cx="9" cy="11" r="1.6"/>
-                      <path d="M21 17l-6-5-9 7"/>
-                    </svg>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <input
-                    ref={addImgInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      await handleUploadImage(file, (url) => setNewYarn(curr => ({ ...curr, imageUrl: url })));
-                      e.target.value = '';
-                    }}
-                  />
-                  <Button type="button" variant="outline" size="sm"
-                    onClick={() => addImgInputRef.current?.click()}
-                    disabled={uploadingImg}>
-                    {uploadingImg ? 'Laster opp…' : (newYarn.imageUrl ? 'Bytt bilde' : 'Last opp bilde')}
-                  </Button>
-                  {newYarn.imageUrl && (
-                    <Button type="button" variant="ghost" size="sm"
-                      onClick={() => setNewYarn(curr => ({ ...curr, imageUrl: undefined }))}>
-                      Fjern bilde
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Kommentar</Label>
-              <Textarea value={newYarn.notes || ''} onChange={e => setNewYarn({ ...newYarn, notes: e.target.value })} placeholder="F.eks. Kjøpt på salg..." className="min-h-[60px] resize-none" />
-            </div>
+            <YarnFormFields
+              value={newYarn}
+              onChange={setNewYarn}
+              uploadingImg={uploadingImg}
+              onUploadImage={handleUploadImage}
+            />
             <div className="flex gap-2 pt-2">
               <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>Legg til</Button>
               <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">Avbryt</Button>
@@ -574,127 +455,12 @@ export function YarnInventory({
           </DialogHeader>
           {editingYarn && (
             <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Garnnavn *</Label>
-                <Input value={editingYarn.name || ''} onChange={e => setEditingYarn({ ...editingYarn, name: e.target.value })} placeholder="F.eks. Sandnes Alpakka" />
-              </div>
-              <div className="space-y-2">
-                <Label>Merke</Label>
-                <Input value={editingYarn.brand || ''} onChange={e => setEditingYarn({ ...editingYarn, brand: e.target.value })} placeholder="F.eks. Sandnes Garn" />
-              </div>
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-                <div className="space-y-2">
-                  <Label>Farge</Label>
-                  <Input value={editingYarn.color || ''} onChange={e => setEditingYarn({ ...editingYarn, color: e.target.value })} placeholder="F.eks. Natur" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Antall (nøster)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={editingYarn.quantity ?? 1}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setEditingYarn({ ...editingYarn, quantity: v === '' ? undefined : Math.max(0, parseInt(v, 10) || 0) });
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-                <div className="space-y-2">
-                  <Label>Tykkelse</Label>
-                  <select value={editingYarn.weight || ''} onChange={e => setEditingYarn({ ...editingYarn, weight: (e.target.value || undefined) as YarnWeight | undefined })}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option value="">Velg...</option>
-                    {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => <option key={w} value={w}>{w}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Fiberinnhold</Label>
-                  <Input value={editingYarn.fiberContent || ''} onChange={e => setEditingYarn({ ...editingYarn, fiberContent: e.target.value })} placeholder="100% Ull" />
-                </div>
-              </div>
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-                <div className="space-y-2">
-                  <Label>Løpelengde</Label>
-                  <Input value={editingYarn.yardage || ''} onChange={e => setEditingYarn({ ...editingYarn, yardage: e.target.value })} placeholder="200m / 50g" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Fargebad</Label>
-                  <Input value={editingYarn.dyeLot || ''} onChange={e => setEditingYarn({ ...editingYarn, dyeLot: e.target.value })} placeholder="Lot 2345" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Mengde</Label>
-                  <Input value={editingYarn.amount || ''} onChange={e => setEditingYarn({ ...editingYarn, amount: e.target.value })} placeholder="F.eks. 200g" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Pris (kr)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={editingYarn.price ?? ''}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setEditingYarn({ ...editingYarn, price: v === '' ? undefined : Math.max(0, parseFloat(v) || 0) });
-                    }}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Bilde</Label>
-                <div className="flex items-center gap-3">
-                  <div style={{
-                    width: 72, height: 72, borderRadius: 12, flexShrink: 0,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden',
-                  }}>
-                    {editingYarn.imageUrl ? (
-                      <img src={editingYarn.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="var(--muted-fg)" strokeWidth="1.4" strokeLinecap="round" opacity={0.6}>
-                        <rect x="3" y="5" width="18" height="14" rx="2"/>
-                        <circle cx="9" cy="11" r="1.6"/>
-                        <path d="M21 17l-6-5-9 7"/>
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <input
-                      ref={editImgInputRef}
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        await handleUploadImage(file, (url) => setEditingYarn(curr => curr ? { ...curr, imageUrl: url } : curr));
-                        e.target.value = '';
-                      }}
-                    />
-                    <Button type="button" variant="outline" size="sm"
-                      onClick={() => editImgInputRef.current?.click()}
-                      disabled={uploadingImg}>
-                      {uploadingImg ? 'Laster opp…' : (editingYarn.imageUrl ? 'Bytt bilde' : 'Last opp bilde')}
-                    </Button>
-                    {editingYarn.imageUrl && (
-                      <Button type="button" variant="ghost" size="sm"
-                        onClick={() => setEditingYarn(curr => curr ? { ...curr, imageUrl: undefined } : curr)}>
-                        Fjern bilde
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Kommentar</Label>
-                <Textarea value={editingYarn.notes || ''} onChange={e => setEditingYarn({ ...editingYarn, notes: e.target.value })} placeholder="F.eks. Kjøpt på salg..." className="min-h-[60px] resize-none" />
-              </div>
+              <YarnFormFields
+                value={editingYarn}
+                onChange={(next) => setEditingYarn(next as Yarn)}
+                uploadingImg={uploadingImg}
+                onUploadImage={handleUploadImage}
+              />
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleSaveEdit} className="flex-1" disabled={uploadingImg}>Lagre</Button>
                 <Button variant="outline" onClick={() => setEditingYarn(null)} className="flex-1">Avbryt</Button>

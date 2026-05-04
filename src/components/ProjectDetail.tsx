@@ -78,7 +78,11 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const [showNewYarnForm, setShowNewYarnForm] = useState(false);
   const [newYarnData, setNewYarnData] = useState<Partial<Yarn>>({});
   const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
-  const [pendingYarnAmount, setPendingYarnAmount] = useState('');
+  const [pendingYarnQuantity, setPendingYarnQuantity] = useState(1);
+  const [yarnMenuOpenId, setYarnMenuOpenId] = useState<string | null>(null);
+  const [yarnQtyEditId, setYarnQtyEditId] = useState<string | null>(null);
+  const [yarnQtyEditValue, setYarnQtyEditValue] = useState<string>('');
+  const [yarnRemoveConfirmId, setYarnRemoveConfirmId] = useState<string | null>(null);
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
   const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
   const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
@@ -307,23 +311,25 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     });
   };
 
-  const handleAddYarn = (yarn: Yarn, amount?: string) => {
-    const { id: _id, quantity: _q, price: _p, standaloneYarnId: _s, ...shared } = yarn;
+  const handleAddYarn = (yarn: Yarn, quantity: number) => {
+    const { id: _id, quantity: _q, quantityUsed: _qu, price: _p, standaloneYarnId: _s, ...shared } = yarn;
     const newYarn: Yarn = {
       ...shared,
       id: crypto.randomUUID(),
       standaloneYarnId: yarn.id,
-      amount: amount?.trim() || yarn.amount,
+      quantity: quantity > 0 ? quantity : undefined,
+      quantityUsed: 0,
     };
     handleUpdate({ yarns: [...editedProject.yarns, newYarn] });
     setShowYarnPicker(false);
     setPendingYarn(null);
-    setPendingYarnAmount('');
+    setPendingYarnQuantity(1);
     toast.success(`${yarn.name} lagt til`);
   };
 
   const handleAddNewYarn = () => {
     if (!newYarnData.name?.trim()) return;
+    const allocated = newYarnData.quantity ?? 1;
     const inventoryYarn: Yarn = {
       id: crypto.randomUUID(),
       name: newYarnData.name.trim(),
@@ -331,7 +337,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       color: newYarnData.color?.trim() || undefined,
       amount: newYarnData.amount?.trim() || undefined,
       weight: newYarnData.weight || undefined,
-      quantity: newYarnData.quantity ?? 1,
+      quantity: allocated,
       fiberContent: newYarnData.fiberContent?.trim() || undefined,
       yardage: newYarnData.yardage?.trim() || undefined,
       dyeLot: newYarnData.dyeLot?.trim() || undefined,
@@ -345,13 +351,14 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       name: inventoryYarn.name,
       brand: inventoryYarn.brand,
       color: inventoryYarn.color,
-      amount: inventoryYarn.amount,
       weight: inventoryYarn.weight,
       fiberContent: inventoryYarn.fiberContent,
       yardage: inventoryYarn.yardage,
       dyeLot: inventoryYarn.dyeLot,
       notes: inventoryYarn.notes,
       imageUrl: inventoryYarn.imageUrl,
+      quantity: allocated > 0 ? allocated : undefined,
+      quantityUsed: 0,
     };
     onUpdateStandaloneYarns([...standaloneYarns, inventoryYarn]);
     handleUpdate({ yarns: [...editedProject.yarns, projectYarn] });
@@ -359,6 +366,93 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     setShowNewYarnForm(false);
     setNewYarnData({});
     toast.success(`${projectYarn.name} lagt til`);
+  };
+
+  const handleConsumeYarn = (yarnId: string, n: number) => {
+    const yarn = editedProject.yarns.find(y => y.id === yarnId);
+    if (!yarn) return;
+    const used = yarn.quantityUsed ?? 0;
+    const cap = yarn.quantity ?? Infinity;
+    const actual = Math.max(0, Math.min(n, cap - used));
+    if (actual <= 0) return;
+
+    const previousProject = editedProject;
+    const previousStandalone = standaloneYarns;
+
+    handleUpdate({
+      yarns: editedProject.yarns.map(y =>
+        y.id === yarnId ? { ...y, quantityUsed: used + actual } : y
+      ),
+      logEntries: [
+        {
+          id: crypto.randomUUID(),
+          text: `Brukte ${actual} nøste${actual === 1 ? '' : 'r'} ${yarn.name}`,
+          timestamp: new Date(),
+        },
+        ...(editedProject.logEntries || []),
+      ],
+    });
+
+    let inventoryEmpty = false;
+    if (yarn.standaloneYarnId) {
+      const inv = standaloneYarns.find(s => s.id === yarn.standaloneYarnId);
+      if (inv) {
+        const newInvQty = Math.max(0, (inv.quantity ?? 0) - actual);
+        if ((inv.quantity ?? 0) <= 0) inventoryEmpty = true;
+        onUpdateStandaloneYarns(
+          standaloneYarns.map(s => s.id === inv.id ? { ...s, quantity: newInvQty } : s)
+        );
+      }
+    }
+
+    const message = inventoryEmpty
+      ? `Brukte ${actual} nøste${actual === 1 ? '' : 'r'} — lager allerede tomt`
+      : `Brukte ${actual} nøste${actual === 1 ? '' : 'r'} ${yarn.name}`;
+    toast.success(message, {
+      action: {
+        label: 'Angre',
+        onClick: () => {
+          setEditedProject(previousProject);
+          onUpdate(previousProject);
+          onUpdateStandaloneYarns(previousStandalone);
+        },
+      },
+    });
+  };
+
+  const handleConsumeAllYarn = (yarnId: string) => {
+    const yarn = editedProject.yarns.find(y => y.id === yarnId);
+    if (!yarn || yarn.quantity == null) return;
+    const remaining = yarn.quantity - (yarn.quantityUsed ?? 0);
+    if (remaining > 0) handleConsumeYarn(yarnId, remaining);
+  };
+
+  const handleResetYarnUsed = (yarnId: string) => {
+    handleUpdate({
+      yarns: editedProject.yarns.map(y =>
+        y.id === yarnId ? { ...y, quantityUsed: 0 } : y
+      ),
+    });
+  };
+
+  const handleSetYarnQuantity = (yarnId: string, quantity: number) => {
+    const safe = Math.max(0, Math.floor(quantity));
+    handleUpdate({
+      yarns: editedProject.yarns.map(y =>
+        y.id === yarnId
+          ? {
+              ...y,
+              quantity: safe > 0 ? safe : undefined,
+              quantityUsed: Math.min(y.quantityUsed ?? 0, safe),
+            }
+          : y
+      ),
+    });
+  };
+
+  const handleRemoveYarnEntry = (yarnId: string) => {
+    handleUpdate({ yarns: editedProject.yarns.filter(y => y.id !== yarnId) });
+    toast.success('Garn fjernet fra prosjekt');
   };
 
   const handleYarnImageUpload = async (file: File, setUrl: (url: string) => void) => {
@@ -759,30 +853,145 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       </Section>}
 
       {/* YARN */}
-      <Section title="Garn" count={editedProject.yarns.length}>
-        {editedProject.yarns.map(y => (
-          <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
-            {y.imageUrl ? (
-              <img src={y.imageUrl} alt={y.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-            ) : y.color ? (
-              <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />
-            ) : null}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[y.brand, y.color, y.weight].filter(Boolean).join(' · ')}</div>
-            </div>
-            {y.amount && <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{y.amount}</div>}
-            <button
-              onClick={() => handleUpdate({ yarns: editedProject.yarns.filter(y2 => y2.id !== y.id) })}
-              aria-label="Fjern garn"
-              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
-            >
-              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
-            </button>
-          </div>
-        ))}
-        <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ Legg til garn</button>
-      </Section>
+      {(() => {
+        const totalAllocated = editedProject.yarns.reduce((s, y) => s + (y.quantity ?? 0), 0);
+        const totalUsed = editedProject.yarns.reduce((s, y) => s + (y.quantityUsed ?? 0), 0);
+        const yarnCount = totalAllocated > 0 ? totalAllocated : editedProject.yarns.length;
+        return (
+          <Section title="Garn" count={yarnCount}>
+            {totalUsed > 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', padding: '0 2px 2px', marginTop: -4 }}>
+                {totalUsed} nøste{totalUsed === 1 ? '' : 'r'} brukt
+              </div>
+            )}
+            {editedProject.yarns.map(y => {
+              const used = y.quantityUsed ?? 0;
+              const alloc = y.quantity;
+              const remaining = alloc != null ? Math.max(0, alloc - used) : null;
+              const finished = alloc != null && used >= alloc && alloc > 0;
+              const isEditing = yarnQtyEditId === y.id;
+              const isMenuOpen = yarnMenuOpenId === y.id;
+              return (
+                <div key={y.id} style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {y.imageUrl ? (
+                      <img src={y.imageUrl} alt={y.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                    ) : y.color ? (
+                      <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />
+                    ) : null}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                        {finished && (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'color-mix(in oklab, var(--primary) 18%, transparent)', color: 'var(--primary)', fontWeight: 600, letterSpacing: 0.3, flexShrink: 0 }}>Ferdig</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {alloc != null
+                          ? `${used} av ${alloc} nøste${alloc === 1 ? '' : 'r'}${[y.brand, y.weight].filter(Boolean).length ? ' · ' : ''}${[y.brand, y.weight].filter(Boolean).join(' · ')}`
+                          : (y.amount
+                              ? `${y.amount}${[y.brand, y.weight].filter(Boolean).length ? ' · ' : ''}${[y.brand, y.weight].filter(Boolean).join(' · ')}`
+                              : [y.brand, y.color, y.weight].filter(Boolean).join(' · '))}
+                      </div>
+                    </div>
+                    {alloc != null && (
+                      <button
+                        onClick={() => handleConsumeYarn(y.id, 1)}
+                        disabled={remaining === 0}
+                        style={{ height: 30, padding: '0 10px', borderRadius: 999, border: '1px solid var(--border)', background: remaining === 0 ? 'transparent' : 'var(--accent)', color: remaining === 0 ? 'var(--muted-fg)' : 'var(--fg)', cursor: remaining === 0 ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, flexShrink: 0, opacity: remaining === 0 ? 0.5 : 1 }}
+                        aria-label="Marker en nøste som brukt"
+                      >
+                        Brukt 1
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setYarnMenuOpenId(isMenuOpen ? null : y.id)}
+                      aria-label="Flere valg"
+                      style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
+                    >
+                      <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                    </button>
+                  </div>
+
+                  {isMenuOpen && !isEditing && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                      {alloc != null && remaining! > 0 && (
+                        <button
+                          onClick={() => { handleConsumeAllYarn(y.id); setYarnMenuOpenId(null); }}
+                          style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                        >
+                          Bruk alle gjenværende
+                        </button>
+                      )}
+                      {used > 0 && (
+                        <button
+                          onClick={() => { handleResetYarnUsed(y.id); setYarnMenuOpenId(null); }}
+                          style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                        >
+                          Tilbakestill brukt
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setYarnQtyEditId(y.id);
+                          setYarnQtyEditValue(String(alloc ?? 1));
+                          setYarnMenuOpenId(null);
+                        }}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                      >
+                        Rediger antall…
+                      </button>
+                      <button
+                        onClick={() => { setYarnRemoveConfirmId(y.id); setYarnMenuOpenId(null); }}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                      >
+                        Fjern fra prosjekt
+                      </button>
+                    </div>
+                  )}
+
+                  {isEditing && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted-fg)', flex: 1 }}>Antall nøster</div>
+                      <input
+                        type="number"
+                        min={0}
+                        autoFocus
+                        value={yarnQtyEditValue}
+                        onChange={e => setYarnQtyEditValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            handleSetYarnQuantity(y.id, parseInt(yarnQtyEditValue, 10) || 0);
+                            setYarnQtyEditId(null);
+                          }
+                          if (e.key === 'Escape') setYarnQtyEditId(null);
+                        }}
+                        style={{ width: 80, height: 36, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+                      />
+                      <button
+                        onClick={() => {
+                          handleSetYarnQuantity(y.id, parseInt(yarnQtyEditValue, 10) || 0);
+                          setYarnQtyEditId(null);
+                        }}
+                        style={{ height: 36, padding: '0 14px', borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}
+                      >
+                        Lagre
+                      </button>
+                      <button
+                        onClick={() => setYarnQtyEditId(null)}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ Legg til garn</button>
+          </Section>
+        );
+      })()}
 
       {/* NEEDLES */}
       <Section title="Pinner" count={(editedProject.needles || []).length}>
@@ -1000,10 +1209,10 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnAmount(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnQuantity(1); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : pendingYarn ? 'Legg til mengde' : 'Velg garn'}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? 'Nytt garn' : 'Legg til garn'}</div>
             {showNewYarnForm ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
                 <YarnFormFields
@@ -1017,47 +1226,77 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                   <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
                 </div>
               </div>
-            ) : pendingYarn ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12 }}>
-                  {pendingYarn.imageUrl ? (
-                    <img src={pendingYarn.imageUrl} alt={pendingYarn.name} style={{ width: 24, height: 24, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
-                  ) : pendingYarn.color ? (
-                    <div style={{ width: 24, height: 24, borderRadius: 999, background: pendingYarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-                  ) : null}
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{pendingYarn.name}</div>
-                    {pendingYarn.brand && <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{pendingYarn.brand}</div>}
-                  </div>
-                </div>
-                <input
-                  autoFocus
-                  placeholder="Mengde (f.eks. 400m, 3 nøster)"
-                  value={pendingYarnAmount}
-                  onChange={e => setPendingYarnAmount(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddYarn(pendingYarn, pendingYarnAmount); }}
-                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                />
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={() => handleAddYarn(pendingYarn, pendingYarnAmount)} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>Legg til</button>
-                  <button onClick={() => { setPendingYarn(null); setPendingYarnAmount(''); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
-                </div>
-              </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {availableYarns.map(yarn => (
-                  <button key={yarn.id} onClick={() => setPendingYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                    {yarn.imageUrl ? (
-                      <img src={yarn.imageUrl} alt={yarn.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-                    ) : yarn.color ? (
-                      <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-                    ) : null}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                {availableYarns.map(yarn => {
+                  const isExpanded = pendingYarn?.id === yarn.id;
+                  const stock = yarn.quantity ?? 0;
+                  const cap = stock > 0 ? stock : 99;
+                  return (
+                    <div key={yarn.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                      <button
+                        onClick={() => {
+                          if (isExpanded) {
+                            setPendingYarn(null);
+                          } else {
+                            setPendingYarn(yarn);
+                            setPendingYarnQuantity(stock > 0 ? 1 : 1);
+                          }
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
+                      >
+                        {yarn.imageUrl ? (
+                          <img src={yarn.imageUrl} alt={yarn.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                        ) : yarn.color ? (
+                          <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                        ) : null}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                          På lager: {stock}
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 12 }}>
+                            <div style={{ fontSize: 12, color: 'var(--muted-fg)', flex: 1 }}>Antall nøster</div>
+                            <button
+                              onClick={() => setPendingYarnQuantity(Math.max(1, pendingYarnQuantity - 1))}
+                              aria-label="Mindre"
+                              style={{ width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              −
+                            </button>
+                            <div style={{ minWidth: 32, textAlign: 'center', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{pendingYarnQuantity}</div>
+                            <button
+                              onClick={() => setPendingYarnQuantity(Math.min(cap, pendingYarnQuantity + 1))}
+                              aria-label="Mer"
+                              style={{ width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => handleAddYarn(yarn, pendingYarnQuantity)}
+                              style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}
+                            >
+                              Legg til
+                            </button>
+                            <button
+                              onClick={() => { setPendingYarn(null); setPendingYarnQuantity(1); }}
+                              style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}
+                            >
+                              Avbryt
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
                 {availableYarns.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>Ingen garn tilgjengelig i lager</div>
                 )}
@@ -1144,6 +1383,29 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       )}
 
       {/* DELETE LOG ENTRY DIALOG */}
+      <AlertDialog open={!!yarnRemoveConfirmId} onOpenChange={open => { if (!open) setYarnRemoveConfirmId(null); }}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fjern garn fra prosjekt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Garnet fjernes fra dette prosjektet, men forblir i Garnlager. Lagerantallet endres ikke.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 mt-4">
+            <AlertDialogCancel className="flex-1">Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (yarnRemoveConfirmId) handleRemoveYarnEntry(yarnRemoveConfirmId);
+                setYarnRemoveConfirmId(null);
+              }}
+              className="flex-1 bg-destructive hover:bg-destructive/90"
+            >
+              Fjern
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleteLogEntryId} onOpenChange={open => { if (!open) setDeleteLogEntryId(null); }}>
         <AlertDialogContent className="bg-card">
           <AlertDialogHeader>

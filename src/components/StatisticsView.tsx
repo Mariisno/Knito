@@ -24,6 +24,7 @@ export function StatisticsView({ projects }: StatisticsViewProps) {
             { label: 'Aktive', value: stats.active, hint: 'prosjekter' },
             { label: 'Fullført', value: stats.completed, hint: 'så langt' },
             { label: 'Garn', value: stats.totalYarns, hint: 'oppføringer' },
+            { label: 'Brukt', value: stats.totalSkeinsUsed, hint: 'nøster totalt' },
             { label: 'Fremgang', value: `${stats.avgProgress}%`, hint: 'gjennomsnitt' },
           ].map(s => (
             <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>

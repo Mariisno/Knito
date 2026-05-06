@@ -3,7 +3,7 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning, Palette } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
 import { LATEST_VERSION } from '../data/changelog';
@@ -257,11 +257,14 @@ interface ProjectListProps {
   onExport: () => void;
   onPrivacy: () => void;
   onFeedback: () => void;
+  designVersion?: 'v1' | 'v2';
+  onToggleDesignVersion?: () => void;
 }
 
 export function ProjectList({
   projects, onSelectProject, onProgressChange,
   onNewProject, onSignOut, onToggleTheme, theme, onExport, onPrivacy, onFeedback,
+  designVersion = 'v1', onToggleDesignVersion,
 }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
@@ -399,6 +402,22 @@ export function ProjectList({
               {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
               {theme === 'light' ? 'Mørkt tema' : 'Lyst tema'}
             </DropdownMenuItem>
+            {onToggleDesignVersion && (
+              <DropdownMenuItem onClick={onToggleDesignVersion}>
+                <Palette className="mr-2 h-4 w-4" />
+                {designVersion === 'v1' ? 'Prøv design v2' : 'Bruk design v1'}
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: 10,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  color: 'var(--muted-fg)',
+                  fontWeight: 600,
+                }}>
+                  {designVersion}
+                </span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={onExport}>
               <Download className="mr-2 h-4 w-4" />
               Last ned sikkerhetskopi

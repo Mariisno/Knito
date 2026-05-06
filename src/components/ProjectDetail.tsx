@@ -96,7 +96,9 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const [yarnRemoveConfirmId, setYarnRemoveConfirmId] = useState<string | null>(null);
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
   const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
-  const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
+  const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string; quantity?: number }>({ type: 'Rundpinne', quantity: 1 });
+  const [pickerQtyFor, setPickerQtyFor] = useState<NeedleInventoryItem | null>(null);
+  const [pickerQty, setPickerQty] = useState<number>(1);
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
   const [counterInputValues, setCounterInputValues] = useState<Record<string, string>>({});
@@ -480,27 +482,76 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     }
   };
 
-  const handleAddNeedle = (needle: NeedleInventoryItem) => {
-    const newNeedle = { id: crypto.randomUUID(), size: needle.size, type: needle.type, length: needle.length, material: needle.material, inventoryNeedleId: needle.id };
-    handleUpdate({ needles: [...(editedProject.needles || []), newNeedle] });
+  const handleAddNeedle = (needle: NeedleInventoryItem, qty: number = 1) => {
+    const safeQty = Math.max(1, Math.floor(qty || 1));
+    const existing = (editedProject.needles || []).find(en => en.inventoryNeedleId === needle.id);
+    let updatedNeedles: typeof editedProject.needles;
+    if (existing) {
+      const newQty = (existing.quantity ?? 1) + safeQty;
+      updatedNeedles = (editedProject.needles || []).map(en =>
+        en.id === existing.id ? { ...en, quantity: newQty > 1 ? newQty : undefined } : en,
+      );
+    } else {
+      const newNeedle = {
+        id: crypto.randomUUID(),
+        size: needle.size,
+        type: needle.type,
+        length: needle.length,
+        material: needle.material,
+        quantity: safeQty > 1 ? safeQty : undefined,
+        inventoryNeedleId: needle.id,
+      };
+      updatedNeedles = [...(editedProject.needles || []), newNeedle];
+    }
+    handleUpdate({ needles: updatedNeedles });
+    setPickerQtyFor(null);
     setShowNeedlePicker(false);
-    toast.success(`Pinne ${needle.size} lagt til`);
+    toast.success(safeQty > 1 ? `${safeQty} stk pinne ${needle.size} lagt til` : `Pinne ${needle.size} lagt til`);
   };
 
   const handleAddNewNeedle = () => {
     if (!newNeedleData.size?.trim()) return;
+    const qty = Math.max(1, Math.floor(newNeedleData.quantity || 1));
     const needle = {
       id: crypto.randomUUID(),
       size: newNeedleData.size.trim(),
       type: newNeedleData.type || 'Rundpinne',
       length: newNeedleData.length?.trim() || undefined,
       material: newNeedleData.material?.trim() || undefined,
+      quantity: qty > 1 ? qty : undefined,
     };
     handleUpdate({ needles: [...(editedProject.needles || []), needle] });
     setShowNeedlePicker(false);
     setShowNewNeedleForm(false);
-    setNewNeedleData({ type: 'Rundpinne' });
-    toast.success(`Pinne ${needle.size} lagt til`);
+    setNewNeedleData({ type: 'Rundpinne', quantity: 1 });
+    toast.success(qty > 1 ? `${qty} stk pinne ${needle.size} lagt til` : `Pinne ${needle.size} lagt til`);
+  };
+
+  const handleNeedleQtyChange = (needleId: string, delta: number) => {
+    const list = editedProject.needles || [];
+    const target = list.find(n => n.id === needleId);
+    if (!target) return;
+    const current = target.quantity ?? 1;
+    const next = current + delta;
+    if (next <= 0) {
+      handleUpdate({ needles: list.filter(n => n.id !== needleId) });
+      toast.success('Pinne fjernet');
+      return;
+    }
+    if (target.inventoryNeedleId) {
+      const inv = needleInventory.find(i => i.id === target.inventoryNeedleId);
+      const a = needleAvailability.get(target.inventoryNeedleId);
+      const ledig = a ? a.availableCount : (inv?.quantity ?? next);
+      if (next > current && ledig <= 0) {
+        toast.error('Ingen flere ledige på lager');
+        return;
+      }
+    }
+    handleUpdate({
+      needles: list.map(n =>
+        n.id === needleId ? { ...n, quantity: next > 1 ? next : undefined } : n,
+      ),
+    });
   };
 
   const openDateEdit = () => {
@@ -524,8 +575,6 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     [needleInventory, projects],
   );
   const remainingForOffer = (n: NeedleInventoryItem) => {
-    const alreadyInThisProject = (editedProject.needles || []).some(en => en.inventoryNeedleId === n.id);
-    if (alreadyInThisProject) return 0;
     const a = needleAvailability.get(n.id);
     return a ? a.availableCount : n.quantity;
   };
@@ -1006,27 +1055,42 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
 
       {/* NEEDLES */}
       <Section title="Pinner" count={(editedProject.needles || []).length}>
-        {(editedProject.needles || []).map(n => (
-          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+        {(editedProject.needles || []).map(n => {
+          const qty = n.quantity ?? 1;
+          const stepBtn: React.CSSProperties = {
+            width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)',
+            background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'inherit', fontSize: 14, fontWeight: 500, padding: 0, flexShrink: 0,
+          };
+          return (
+            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>
+                  {n.size} · {n.type}{qty > 1 ? ` × ${qty}` : ''}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[n.material, n.length].filter(Boolean).join(' · ')}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => handleNeedleQtyChange(n.id, -1)} aria-label="Reduser antall" style={stepBtn}>−</button>
+                <button onClick={() => handleNeedleQtyChange(n.id, +1)} aria-label="Øk antall" style={stepBtn}>+</button>
+                <button
+                  onClick={() => {
+                    handleUpdate({ needles: (editedProject.needles || []).filter(n2 => n2.id !== n.id) });
+                    toast.success('Pinne fjernet');
+                  }}
+                  aria-label="Fjern pinne"
+                  style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                >
+                  <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.size} · {n.type}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[n.material, n.length].filter(Boolean).join(' · ')}</div>
-            </div>
-            <button
-              onClick={() => {
-                handleUpdate({ needles: (editedProject.needles || []).filter(n2 => n2.id !== n.id) });
-                toast.success('Pinne fjernet');
-              }}
-              aria-label="Fjern pinne"
-              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
-            >
-              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
-            </button>
-          </div>
-        ))}
+          );
+        })}
         <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ Legg til pinne</button>
       </Section>
 
@@ -1321,18 +1385,62 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {/* NEEDLE PICKER */}
       {showNeedlePicker && (
         <>
-          <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne', quantity: 1 }); setPickerQtyFor(null); setPickerQty(1); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: showNewNeedleForm ? 4 : 14 }}>
-              {showNewNeedleForm ? 'Ny pinne' : 'Velg pinne'}
+            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: (showNewNeedleForm || pickerQtyFor) ? 4 : 14 }}>
+              {showNewNeedleForm ? 'Ny pinne' : pickerQtyFor ? 'Hvor mange?' : 'Velg pinne'}
             </div>
             {showNewNeedleForm && (
               <div style={{ fontSize: 12.5, color: 'var(--muted-fg)', marginBottom: 14 }}>
                 Lag en pinne som bare brukes i dette prosjektet.
               </div>
             )}
-            {showNewNeedleForm ? (
+            {pickerQtyFor && (() => {
+              const inv = pickerQtyFor;
+              const remaining = remainingForOffer(inv);
+              const max = Math.max(1, remaining);
+              const dec = () => setPickerQty(q => Math.max(1, q - 1));
+              const inc = () => setPickerQty(q => Math.min(max, q + 1));
+              const stepBtn: React.CSSProperties = {
+                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--border)',
+                background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 20, fontWeight: 500,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted-fg)' }}>
+                    {inv.size} · {inv.type}{[inv.material, inv.length].filter(Boolean).length > 0 ? ` · ${[inv.material, inv.length].filter(Boolean).join(' · ')}` : ''}
+                    {' · '}{remaining} ledig på lager
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                    <button onClick={dec} disabled={pickerQty <= 1} style={{ ...stepBtn, opacity: pickerQty <= 1 ? 0.4 : 1 }} aria-label="Reduser antall">−</button>
+                    <div style={{ minWidth: 56, textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{pickerQty}</div>
+                    <button onClick={inc} disabled={pickerQty >= max} style={{ ...stepBtn, opacity: pickerQty >= max ? 0.4 : 1 }} aria-label="Øk antall">+</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      onClick={() => handleAddNeedle(inv, pickerQty)}
+                      style={{
+                        flex: 1, height: 44, borderRadius: 12, border: 'none',
+                        background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer',
+                        fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                      }}
+                    >
+                      Legg til
+                    </button>
+                    <button
+                      onClick={() => { setPickerQtyFor(null); setPickerQty(1); }}
+                      style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}
+                    >
+                      Tilbake
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+            {!pickerQtyFor && (showNewNeedleForm ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <label style={needleFieldLabel}>
@@ -1377,6 +1485,20 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                     />
                   </div>
                 </div>
+                <div>
+                  <label style={needleFieldLabel}>Antall</label>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={newNeedleData.quantity ?? 1}
+                    onChange={e => {
+                      const v = parseInt(e.target.value, 10);
+                      setNewNeedleData(d => ({ ...d, quantity: Number.isFinite(v) && v > 0 ? v : 1 }));
+                    }}
+                    style={needleFieldInput}
+                  />
+                </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   {(() => {
                     const canSubmit = !!newNeedleData.size?.trim();
@@ -1396,7 +1518,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                       </button>
                     );
                   })()}
-                  <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
+                  <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne', quantity: 1 }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>Avbryt</button>
                 </div>
               </div>
             ) : (
@@ -1404,7 +1526,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                 {availableNeedles.map(needle => {
                   const remaining = remainingForOffer(needle);
                   return (
-                    <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    <button key={needle.id} onClick={() => { setPickerQtyFor(needle); setPickerQty(1); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
                       </div>
@@ -1423,7 +1545,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                 )}
                 <button onClick={() => setShowNewNeedleForm(true)} style={dashedBtn}>+ Ny pinne</button>
               </div>
-            )}
+            ))}
           </div>
         </>
       )}

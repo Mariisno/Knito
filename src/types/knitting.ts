@@ -26,6 +26,7 @@ export interface Needle {
   type: string;
   length?: string;
   material?: string;
+  quantity?: number;          // antall identiske pinner (settes bare når > 1)
   inventoryNeedleId?: string; // links to NeedleInventoryItem.id if chosen from inventory
 }
 

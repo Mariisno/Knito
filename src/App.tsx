@@ -10,6 +10,7 @@ import { NeedleInventory } from './components/NeedleInventory';
 import { StatisticsView } from './components/StatisticsView';
 import { PWAMeta } from './components/PWAMeta';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
+import { DesignVersionProvider, useDesignVersion } from './contexts/DesignVersionContext';
 import { DiagnosticTest } from './components/DiagnosticTest';
 import { PasswordResetAdmin } from './components/PasswordResetAdmin';
 import { PasswordResetFlow } from './components/PasswordResetFlow';
@@ -74,6 +75,7 @@ function ProjectDetailRoute({
 
 function AppContent() {
   const { theme, toggleTheme } = useTheme();
+  const { version: designVersion, toggleVersion: toggleDesignVersion } = useDesignVersion();
   const { user, accessToken, loading: authLoading, signOut, supabase } = useAuth();
   const navigate = useNavigate();
 
@@ -153,6 +155,8 @@ function AppContent() {
               }}
               onPrivacy={() => setIsPrivacyOpen(true)}
               onFeedback={() => setIsFeedbackOpen(true)}
+              designVersion={designVersion}
+              onToggleDesignVersion={toggleDesignVersion}
             />
           </ErrorBoundary>
         )}
@@ -273,8 +277,10 @@ export default function App() {
   if (isResetFlow) {
     return (
       <ThemeProvider>
-        <Toaster />
-        <PasswordResetFlow supabase={supabase} />
+        <DesignVersionProvider>
+          <Toaster />
+          <PasswordResetFlow supabase={supabase} />
+        </DesignVersionProvider>
       </ThemeProvider>
     );
   }
@@ -282,8 +288,10 @@ export default function App() {
   if (window.location.hash === '#admin-reset') {
     return (
       <ThemeProvider>
-        <Toaster />
-        <PasswordResetAdmin />
+        <DesignVersionProvider>
+          <Toaster />
+          <PasswordResetAdmin />
+        </DesignVersionProvider>
       </ThemeProvider>
     );
   }
@@ -291,14 +299,18 @@ export default function App() {
   if (SHOW_DIAGNOSTIC) {
     return (
       <ThemeProvider>
-        <DiagnosticTest />
+        <DesignVersionProvider>
+          <DiagnosticTest />
+        </DesignVersionProvider>
       </ThemeProvider>
     );
   }
 
   return (
     <ThemeProvider>
-      <AppContent />
+      <DesignVersionProvider>
+        <AppContent />
+      </DesignVersionProvider>
     </ThemeProvider>
   );
 }

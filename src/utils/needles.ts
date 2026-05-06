@@ -37,7 +37,7 @@ export function getAllNeedleAvailability(
       if (!needle.inventoryNeedleId) continue;
       const entry = map.get(needle.inventoryNeedleId);
       if (!entry) continue;
-      entry.takenCount += 1;
+      entry.takenCount += needle.quantity ?? 1;
       entry.takenBy.push({ projectId: project.id, projectName: project.name });
     }
   }

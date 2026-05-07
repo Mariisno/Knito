@@ -55,6 +55,15 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
       </div>
 
       <div className="space-y-2">
+        <Label>Farge</Label>
+        <Input
+          value={value.color || ''}
+          onChange={e => onChange({ ...value, color: e.target.value })}
+          placeholder="F.eks. Natur, blå"
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label>Bilde</Label>
         <div className="flex items-center gap-3">
           <div style={{
@@ -137,28 +146,18 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
               placeholder="F.eks. Sandnes Garn"
             />
           </div>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-            <div className="space-y-2">
-              <Label>Farge</Label>
-              <Input
-                value={value.color || ''}
-                onChange={e => onChange({ ...value, color: e.target.value })}
-                placeholder="F.eks. Natur"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tykkelse</Label>
-              <select
-                value={value.weight || ''}
-                onChange={e => onChange({ ...value, weight: (e.target.value || undefined) as YarnWeight | undefined })}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Velg...</option>
-                {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => (
-                  <option key={w} value={w}>{w}</option>
-                ))}
-              </select>
-            </div>
+          <div className="space-y-2">
+            <Label>Tykkelse</Label>
+            <select
+              value={value.weight || ''}
+              onChange={e => onChange({ ...value, weight: (e.target.value || undefined) as YarnWeight | undefined })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Velg...</option>
+              {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => (
+                <option key={w} value={w}>{w}</option>
+              ))}
+            </select>
           </div>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
             <div className="space-y-2">

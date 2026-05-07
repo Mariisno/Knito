@@ -94,6 +94,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const [yarnQtyEditId, setYarnQtyEditId] = useState<string | null>(null);
   const [yarnQtyEditValue, setYarnQtyEditValue] = useState<string>('');
   const [yarnRemoveConfirmId, setYarnRemoveConfirmId] = useState<string | null>(null);
+  const [editingProjectYarn, setEditingProjectYarn] = useState<Yarn | null>(null);
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
   const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
   const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string; quantity?: number }>({ type: 'Rundpinne', quantity: 1 });
@@ -466,6 +467,46 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const handleRemoveYarnEntry = (yarnId: string) => {
     handleUpdate({ yarns: editedProject.yarns.filter(y => y.id !== yarnId) });
     toast.success('Garn fjernet fra prosjekt');
+  };
+
+  const handleSaveProjectYarnEdit = () => {
+    if (!editingProjectYarn) return;
+    const trimmed: Yarn = {
+      ...editingProjectYarn,
+      name: editingProjectYarn.name?.trim() || editingProjectYarn.name,
+      color: editingProjectYarn.color?.trim() || undefined,
+      brand: editingProjectYarn.brand?.trim() || undefined,
+      fiberContent: editingProjectYarn.fiberContent?.trim() || undefined,
+      yardage: editingProjectYarn.yardage?.trim() || undefined,
+      dyeLot: editingProjectYarn.dyeLot?.trim() || undefined,
+      amount: editingProjectYarn.amount?.trim() || undefined,
+      notes: editingProjectYarn.notes?.trim() || undefined,
+    };
+    handleUpdate({
+      yarns: editedProject.yarns.map(y => y.id === trimmed.id ? trimmed : y),
+    });
+    if (trimmed.standaloneYarnId) {
+      const inv = standaloneYarns.find(s => s.id === trimmed.standaloneYarnId);
+      if (inv) {
+        const updatedInv: Yarn = {
+          ...inv,
+          name: trimmed.name,
+          color: trimmed.color,
+          brand: trimmed.brand,
+          weight: trimmed.weight,
+          fiberContent: trimmed.fiberContent,
+          yardage: trimmed.yardage,
+          dyeLot: trimmed.dyeLot,
+          notes: trimmed.notes,
+          imageUrl: trimmed.imageUrl,
+        };
+        onUpdateStandaloneYarns(
+          standaloneYarns.map(s => s.id === inv.id ? updatedInv : s),
+        );
+      }
+    }
+    setEditingProjectYarn(null);
+    toast.success('Garn oppdatert');
   };
 
   const handleYarnImageUpload = async (file: File, setUrl: (url: string) => void) => {
@@ -942,6 +983,9 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                        {y.color && (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'var(--accent)', color: 'var(--fg)', fontWeight: 500, letterSpacing: 0.2, flexShrink: 0 }}>{y.color}</span>
+                        )}
                         {finished && (
                           <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'color-mix(in oklab, var(--primary) 18%, transparent)', color: 'var(--primary)', fontWeight: 600, letterSpacing: 0.3, flexShrink: 0 }}>Ferdig</span>
                         )}
@@ -1000,6 +1044,12 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                         style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
                       >
                         Rediger antall…
+                      </button>
+                      <button
+                        onClick={() => { setEditingProjectYarn({ ...y }); setYarnMenuOpenId(null); }}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                      >
+                        Rediger garn…
                       </button>
                       <button
                         onClick={() => { setYarnRemoveConfirmId(y.id); setYarnMenuOpenId(null); }}
@@ -1277,6 +1327,40 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
             <button onClick={() => { setShowMoreMenu(false); setShowDeleteDialog(true); }} style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>
               Slett prosjekt…
             </button>
+          </div>
+        </>
+      )}
+
+      {/* EDIT PROJECT YARN */}
+      {editingProjectYarn && (
+        <>
+          <div onClick={() => setEditingProjectYarn(null)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Rediger garn</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+              <YarnFormFields
+                value={editingProjectYarn}
+                onChange={(next) => setEditingProjectYarn(next as Yarn)}
+                uploadingImg={uploadingImg}
+                onUploadImage={handleYarnImageUpload}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button
+                  onClick={handleSaveProjectYarnEdit}
+                  disabled={!editingProjectYarn.name?.trim() || uploadingImg}
+                  style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: editingProjectYarn.name?.trim() && !uploadingImg ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: editingProjectYarn.name?.trim() && !uploadingImg ? 1 : 0.35 }}
+                >
+                  Lagre
+                </button>
+                <button
+                  onClick={() => setEditingProjectYarn(null)}
+                  style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}
+                >
+                  Avbryt
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}

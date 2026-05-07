@@ -5,8 +5,10 @@ import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
 import { LATEST_VERSION } from '../data/changelog';
+import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 
 // ---------- Icons ----------
 const SearchIcon = () => (
@@ -81,6 +83,8 @@ interface ProjectRowProps {
 function ProjectRow({ project, onOpen, onProgressChange }: ProjectRowProps) {
   const palette = paletteForId(project.id);
   const imageUrl = project.images?.[0];
+  const { t } = useTranslation();
+  void onProgressChange;
 
   return (
     <button
@@ -119,7 +123,7 @@ function ProjectRow({ project, onOpen, onProgressChange }: ProjectRowProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <StatusDot status={project.status} />
             <span style={{ fontSize: 10.5, color: 'var(--muted-fg)', textTransform: 'uppercase', letterSpacing: 1.2 }}>
-              {project.status}
+              {t(`status.${project.status}`)}
             </span>
           </div>
           <div style={{
@@ -146,6 +150,7 @@ function ProjectRow({ project, onOpen, onProgressChange }: ProjectRowProps) {
 function ProjectGridCard({ project, onOpen }: { project: KnittingProject; onOpen: () => void }) {
   const palette = paletteForId(project.id);
   const imageUrl = project.images?.[0];
+  const { t } = useTranslation();
 
   return (
     <button
@@ -182,7 +187,7 @@ function ProjectGridCard({ project, onOpen }: { project: KnittingProject; onOpen
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <StatusDot status={project.status} />
           <span style={{ fontSize: 10, color: 'var(--muted-fg)', textTransform: 'uppercase', letterSpacing: 1 }}>
-            {project.status}
+            {t(`status.${project.status}`)}
           </span>
         </div>
         <div style={{
@@ -214,6 +219,7 @@ function ProgressRingSmall({ value }: { value: number }) {
 
 // ---------- Empty state ----------
 function EmptyState({ onNew }: { onNew: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{ padding: 'clamp(40px, 12vw, 60px) clamp(20px, 6vw, 30px)', textAlign: 'center', color: 'var(--muted-fg)' }}>
       <div style={{
@@ -226,10 +232,10 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         </svg>
       </div>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>
-        Ingen prosjekter ennå
+        {t('projects.emptyTitle')}
       </div>
       <div style={{ fontSize: 13.5, lineHeight: 1.5, maxWidth: 240, margin: '0 auto 18px' }}>
-        Begynn på ditt første strikkeprosjekt
+        {t('projects.emptyDescription')}
       </div>
       <button
         onClick={onNew}
@@ -239,7 +245,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
           fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600,
         }}
       >
-        Nytt prosjekt
+        {t('projects.newProject')}
       </button>
     </div>
   );
@@ -273,14 +279,15 @@ export function ProjectList({
   const [updateState, setUpdateState] = useState<UpdateState>('idle');
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const { user } = useAuth();
+  const { t, language, setLanguage } = useTranslation();
   const firstName = user?.name ? user.name.split(' ')[0] : user?.email?.split('@')[0] ?? '';
 
-  const FILTERS: Array<{ id: ProjectStatus | 'Alle'; label: string }> = [
-    { id: 'Alle',     label: 'Alle' },
-    { id: 'Aktiv',    label: 'Aktive' },
-    { id: 'På vent',  label: 'På vent' },
-    { id: 'Planlagt', label: 'Planlagt' },
-    { id: 'Fullført', label: 'Fullført' },
+  const FILTERS: Array<{ id: ProjectStatus | 'Alle'; tKey: string }> = [
+    { id: 'Alle',     tKey: 'statusFilter.Alle' },
+    { id: 'Aktiv',    tKey: 'statusFilter.Aktiv' },
+    { id: 'På vent',  tKey: 'statusFilter.På vent' },
+    { id: 'Planlagt', tKey: 'statusFilter.Planlagt' },
+    { id: 'Fullført', tKey: 'statusFilter.Fullført' },
   ];
 
   const filtered = useMemo(() => {
@@ -329,12 +336,12 @@ export function ProjectList({
             </div>
             {firstName && (
               <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 500, letterSpacing: 0.3 }}>
-                Hei, {firstName}!
+                {t('projects.greeting', { name: firstName })}
               </div>
             )}
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>
-            Prosjekter
+            {t('projects.title')}
           </div>
         </div>
 
@@ -365,7 +372,7 @@ export function ProjectList({
               markVersionAsSeen();
             }}>
               <Sparkles className="mr-2 h-4 w-4" />
-              Hva er nytt?
+              {t('settings.whatsNew')}
               {unseenRelease && (
                 <span style={{
                   marginLeft: 'auto',
@@ -380,41 +387,55 @@ export function ProjectList({
               disabled={updateState === 'checking'}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              {updateState === 'idle' && 'Se etter oppdateringer'}
-              {updateState === 'checking' && 'Sjekker…'}
-              {updateState === 'up-to-date' && `Oppdatert (v${LATEST_VERSION})`}
-              {updateState === 'update-available' && 'Oppdatering tilgjengelig!'}
-              {updateState === 'error' && 'Kunne ikke sjekke'}
+              {updateState === 'idle' && t('settings.checkForUpdates')}
+              {updateState === 'checking' && t('settings.checking')}
+              {updateState === 'up-to-date' && t('settings.upToDate', { version: LATEST_VERSION })}
+              {updateState === 'update-available' && t('settings.updateAvailable')}
+              {updateState === 'error' && t('settings.updateError')}
             </DropdownMenuItem>
             {updateState === 'update-available' && (
               <DropdownMenuItem onClick={() => window.location.reload()}>
                 <RefreshCw className="mr-2 h-4 w-4" style={{ color: 'var(--primary)' }} />
                 <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                  Last inn ny versjon (v{serverVersion})
+                  {t('settings.loadNewVersion', { version: serverVersion ?? '' })}
                 </span>
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onToggleTheme}>
               {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
-              {theme === 'light' ? 'Mørkt tema' : 'Lyst tema'}
+              {theme === 'light' ? t('settings.darkTheme') : t('settings.lightTheme')}
             </DropdownMenuItem>
+            <div style={{ padding: '6px 8px 4px 12px', fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.4, textTransform: 'uppercase', fontWeight: 500 }}>
+              {t('settings.language')}
+            </div>
+            {SUPPORTED_LANGUAGES.map(({ code, label }) => (
+              <DropdownMenuItem
+                key={code}
+                onClick={() => setLanguage(code as Language)}
+                className={language === code ? 'bg-accent' : undefined}
+              >
+                <span style={{ marginLeft: 24, fontWeight: language === code ? 600 : 400 }}>{label}</span>
+                {language === code && <span style={{ marginLeft: 'auto', color: 'var(--primary)' }}>✓</span>}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExport}>
               <Download className="mr-2 h-4 w-4" />
-              Last ned sikkerhetskopi
+              {t('settings.downloadBackup')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onPrivacy}>
               <Shield className="mr-2 h-4 w-4" />
-              Personvern og vilkår
+              {t('settings.privacyAndTerms')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onFeedback}>
               <MessageSquareWarning className="mr-2 h-4 w-4" />
-              Rapporter feil / foreslå
+              {t('settings.feedback')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              Logg ut
+              {t('settings.signOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -437,7 +458,7 @@ export function ProjectList({
           <input
             value={searchQuery}
             onChange={e => { const v = e.target.value; startTransition(() => setSearchQuery(v)); }}
-            placeholder="Søk i prosjekter…"
+            placeholder={t('projects.searchPlaceholder')}
             style={{
               flex: 1, border: 'none', outline: 'none', background: 'transparent',
               fontSize: 14, color: 'var(--fg)', fontFamily: 'var(--font-ui)',
@@ -471,7 +492,7 @@ export function ProjectList({
               fontFamily: 'var(--font-ui)',
             }}
           >
-            {f.label}
+            {t(f.tKey)}
           </button>
         ))}
         <div style={{ flex: 1 }} />
@@ -500,7 +521,7 @@ export function ProjectList({
           <div style={{ padding: '0 20px' }}>
             {active.length > 0 && (
               <>
-                <SectionHeader label="Aktive" />
+                <SectionHeader label={t('projects.sectionActive')} />
                 {active.map(p => (
                   <ProjectRow key={p.id} project={p} onOpen={() => onSelectProject(p.id)} onProgressChange={onProgressChange} />
                 ))}
@@ -508,7 +529,7 @@ export function ProjectList({
             )}
             {other.length > 0 && (
               <>
-                <SectionHeader label="Andre" />
+                <SectionHeader label={t('projects.sectionOther')} />
                 {other.map(p => (
                   <ProjectRow key={p.id} project={p} onOpen={() => onSelectProject(p.id)} onProgressChange={onProgressChange} />
                 ))}
@@ -530,7 +551,7 @@ export function ProjectList({
           boxShadow: '0 8px 24px -6px color-mix(in oklab, var(--primary) 45%, transparent), 0 2px 6px rgba(0,0,0,.08)',
         }}
       >
-        <PlusIcon /> Nytt prosjekt
+        <PlusIcon /> {t('projects.newProject')}
       </button>
     </div>
   );

@@ -6,6 +6,8 @@ import { Package2, Calendar, Plus, Minus } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { getStatusColors } from '../utils/progressColors';
+import { useTranslation } from '../contexts/LanguageContext';
+import { formatDateShort } from '../utils/formatDate';
 
 interface ProjectCardProps {
   project: KnittingProject;
@@ -14,6 +16,7 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({ project, onClick, onProgressChange }: ProjectCardProps) {
+  const { t, language } = useTranslation();
   const handleProgressChange = (e: React.MouseEvent, delta: number) => {
     e.stopPropagation();
     const newProgress = Math.max(0, Math.min(100, project.progress + delta));
@@ -43,24 +46,24 @@ export function ProjectCard({ project, onClick, onProgressChange }: ProjectCardP
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-card-foreground line-clamp-1 flex-1">{project.name}</h3>
           <Badge className={`ml-2 ${getStatusColors(project.status)}`}>
-            {project.status}
+            {t(`status.${project.status}`)}
           </Badge>
         </div>
         {project.startDate && (
           <div className="flex items-center gap-1.5 text-muted-foreground mb-3">
             <Calendar className="w-3.5 h-3.5" />
-            <span>{new Date(project.startDate).toLocaleDateString('nb-NO')}</span>
+            <span>{formatDateShort(project.startDate, language)}</span>
             {project.endDate && (
               <>
                 <span>→</span>
-                <span>{new Date(project.endDate).toLocaleDateString('nb-NO')}</span>
+                <span>{formatDateShort(project.endDate, language)}</span>
               </>
             )}
           </div>
         )}
         <div className="space-y-3">
           <div className="flex justify-between items-center text-muted-foreground">
-            <span>Progresjon</span>
+            <span>{t('projectDetail.progress')}</span>
             <div className="flex items-center gap-2">
               {onProgressChange && project.status !== 'Fullført' && (
                 <>
@@ -96,19 +99,19 @@ export function ProjectCard({ project, onClick, onProgressChange }: ProjectCardP
           {project.yarns.length > 0 && (
             <span className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-400 to-rose-400" />
-              {project.yarns.length} garn
+              {project.yarns.length} {t('tabs.yarn').toLowerCase()}
             </span>
           )}
           {project.notes && (
             <span className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-orange-400" />
-              Notater
+              {t('common.notes')}
             </span>
           )}
           {project.recipe && (
             <span className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-gradient-to-r from-rose-400 to-pink-400" />
-              Oppskrift
+              {t('projectDetail.pattern')}
             </span>
           )}
         </div>

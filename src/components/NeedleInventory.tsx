@@ -7,6 +7,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
 import { formatNeedleStatus, getAllNeedleAvailability } from '../utils/needles';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface NeedleInventoryProps {
   projects: KnittingProject[];
@@ -26,6 +27,7 @@ const TrashIcon = () => (
 );
 
 export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInventory }: NeedleInventoryProps) {
+  const { t } = useTranslation();
   const [showAdd, setShowAdd] = useState(false);
   const [newNeedle, setNewNeedle] = useState<Partial<NeedleInventoryItem>>({ type: 'Rundpinne', quantity: 1 });
 
@@ -41,7 +43,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
   });
 
   const handleAdd = () => {
-    if (!newNeedle.size?.trim()) { toast.error('Størrelse er påkrevd'); return; }
+    if (!newNeedle.size?.trim()) { toast.error(t('common.size') + ' ' + t('common.required')); return; }
     const needle: NeedleInventoryItem = {
       id: crypto.randomUUID(),
       size: newNeedle.size.trim(),
@@ -53,12 +55,12 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
     onUpdateNeedleInventory([...needleInventory, needle]);
     setNewNeedle({ type: 'Rundpinne', quantity: 1 });
     setShowAdd(false);
-    toast.success('Pinne lagt til');
+    toast.success(t('toasts.needleAdded'));
   };
 
   const handleDelete = (id: string) => {
     onUpdateNeedleInventory(needleInventory.filter(n => n.id !== id));
-    toast.success('Pinne fjernet');
+    toast.success(t('toasts.needleDeleted'));
   };
 
   const isEmpty = needleInventory.length === 0;
@@ -67,8 +69,8 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
       {/* Header */}
       <div style={{ padding: '12px 20px 8px' }}>
-        <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>Verktøy</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>Pinner</div>
+        <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>{t('needles.inventory')}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>{t('needles.title')}</div>
       </div>
 
       {/* List */}
@@ -80,13 +82,13 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                 <path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/>
               </svg>
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>Ingen pinner registrert</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>Legg til dine pinner for å holde oversikt</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>{t('needles.emptyTitle')}</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{t('needles.emptyDescription')}</div>
           </div>
         ) : (
           Object.entries(byType).map(([type, items]) => (
             <div key={type} style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500, padding: '6px 2px 10px' }}>{type}</div>
+              <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500, padding: '6px 2px 10px' }}>{t(`needleType.${type}`)}</div>
               <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
                 {items.map((n, i) => {
                   const availability = availabilityMap.get(n.id) ?? {
@@ -114,7 +116,7 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.material || type}</div>
+                        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.material || t(`needleType.${type}`)}</div>
                         <div style={{
                           fontSize: 11, marginTop: 2, fontWeight: isFullyTaken ? 600 : 500,
                           color: isFullyTaken ? 'var(--primary)' : 'var(--muted-fg)',
@@ -162,51 +164,51 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
         fontFamily: 'var(--font-ui)', fontSize: 14.5, fontWeight: 600,
         boxShadow: '0 8px 24px -6px color-mix(in oklab, var(--primary) 45%, transparent)',
       }}>
-        <PlusIcon /> Ny pinne
+        <PlusIcon /> {t('projects.newNeedle')}
       </button>
 
       {/* Add dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Legg til pinne</DialogTitle>
-            <DialogDescription>Registrer en ny pinne i din samling.</DialogDescription>
+            <DialogTitle>{t('needles.addNeedle')}</DialogTitle>
+            <DialogDescription>{t('needles.emptyDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
-                <Label>Type *</Label>
+                <Label>{t('common.type')} *</Label>
                 <Select value={newNeedle.type} onValueChange={v => setNewNeedle({ ...newNeedle, type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(t => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(typeName => (
+                      <SelectItem key={typeName} value={typeName}>{t(`needleType.${typeName}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Størrelse *</Label>
+                <Label>{t('common.size')} *</Label>
                 <Input value={newNeedle.size || ''} onChange={e => setNewNeedle({ ...newNeedle, size: e.target.value })} placeholder="4mm" />
               </div>
             </div>
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <div className="space-y-2">
-                <Label>Lengde</Label>
-                <Input value={newNeedle.length || ''} onChange={e => setNewNeedle({ ...newNeedle, length: e.target.value })} placeholder="80cm" />
+                <Label>{t('common.length')}</Label>
+                <Input value={newNeedle.length || ''} onChange={e => setNewNeedle({ ...newNeedle, length: e.target.value })} placeholder={t('needles.lengthPlaceholder')} />
               </div>
               <div className="space-y-2">
-                <Label>Materiale</Label>
-                <Input value={newNeedle.material || ''} onChange={e => setNewNeedle({ ...newNeedle, material: e.target.value })} placeholder="Bambus" />
+                <Label>{t('common.material')}</Label>
+                <Input value={newNeedle.material || ''} onChange={e => setNewNeedle({ ...newNeedle, material: e.target.value })} placeholder={t('needles.materialPlaceholder')} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Antall</Label>
+              <Label>{t('common.quantity')}</Label>
               <Input type="number" min="1" value={newNeedle.quantity || 1} onChange={e => setNewNeedle({ ...newNeedle, quantity: parseInt(e.target.value) || 1 })} />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleAdd} className="flex-1">Legg til</Button>
-              <Button variant="outline" onClick={() => setShowAdd(false)} className="flex-1">Avbryt</Button>
+              <Button onClick={handleAdd} className="flex-1">{t('common.add')}</Button>
+              <Button variant="outline" onClick={() => setShowAdd(false)} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
         </DialogContent>

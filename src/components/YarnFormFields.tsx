@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { useTranslation } from '../contexts/LanguageContext';
 
 export type YarnFormValue = Partial<Yarn>;
 
@@ -17,6 +18,7 @@ interface YarnFormFieldsProps {
 }
 
 export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }: YarnFormFieldsProps) {
+  const { t } = useTranslation();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [imageSourceOpen, setImageSourceOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -33,16 +35,16 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Garnnavn *</Label>
+        <Label>{t('yarn.yarnName')} *</Label>
         <Input
           value={value.name || ''}
           onChange={e => onChange({ ...value, name: e.target.value })}
-          placeholder="F.eks. Sandnes Alpakka"
+          placeholder={t('yarn.yarnNamePlaceholder')}
         />
       </div>
 
       <div className="space-y-2">
-        <Label>Antall (nøster)</Label>
+        <Label>{t('common.quantity')}</Label>
         <Input
           type="number"
           min={0}
@@ -55,7 +57,7 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
       </div>
 
       <div className="space-y-2">
-        <Label>Bilde</Label>
+        <Label>{t('common.image')}</Label>
         <div className="flex items-center gap-3">
           <div style={{
             width: 72, height: 72, borderRadius: 12, flexShrink: 0,
@@ -84,7 +86,7 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
               onClick={() => setImageSourceOpen(true)}
               disabled={uploadingImg}
             >
-              {uploadingImg ? 'Laster opp…' : (value.imageUrl ? 'Bytt bilde' : 'Last opp bilde')}
+              {uploadingImg ? t('common.sending') : (value.imageUrl ? t('projectDetail.deleteImage') : t('yarn.addPhoto'))}
             </Button>
             {value.imageUrl && (
               <Button
@@ -93,7 +95,7 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
                 size="sm"
                 onClick={() => onChange({ ...value, imageUrl: undefined })}
               >
-                Fjern bilde
+                {t('projectDetail.deleteImage')}
               </Button>
             )}
           </div>
@@ -101,11 +103,11 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
       </div>
 
       <div className="space-y-2">
-        <Label>Kommentar</Label>
+        <Label>{t('common.notes')}</Label>
         <Textarea
           value={value.notes || ''}
           onChange={e => onChange({ ...value, notes: e.target.value })}
-          placeholder="F.eks. Kjøpt på salg..."
+          placeholder={t('yarn.yarnNotesPlaceholder')}
           className="min-h-[60px] resize-none"
         />
       </div>
@@ -121,7 +123,7 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
               color: 'var(--muted-fg)',
             }}
           >
-            <span>{detailsOpen ? 'Skjul detaljer' : 'Vis flere detaljer'}</span>
+            <span>{detailsOpen ? t('common.close') : t('common.edit')}</span>
             <ChevronDown
               size={16}
               style={{ transform: detailsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}
@@ -130,30 +132,30 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-3 pt-2">
           <div className="space-y-2">
-            <Label>Merke</Label>
+            <Label>{t('common.brand')}</Label>
             <Input
               value={value.brand || ''}
               onChange={e => onChange({ ...value, brand: e.target.value })}
-              placeholder="F.eks. Sandnes Garn"
+              placeholder={t('yarn.yarnBrandPlaceholder')}
             />
           </div>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
             <div className="space-y-2">
-              <Label>Farge</Label>
+              <Label>{t('common.color')}</Label>
               <Input
                 value={value.color || ''}
                 onChange={e => onChange({ ...value, color: e.target.value })}
-                placeholder="F.eks. Natur"
+                placeholder={t('yarn.yarnColorPlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label>Tykkelse</Label>
+              <Label>{t('yarn.weightLabel')}</Label>
               <select
                 value={value.weight || ''}
                 onChange={e => onChange({ ...value, weight: (e.target.value || undefined) as YarnWeight | undefined })}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">Velg...</option>
+                <option value="">{t('common.search')}...</option>
                 {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => (
                   <option key={w} value={w}>{w}</option>
                 ))}
@@ -162,42 +164,42 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
           </div>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
             <div className="space-y-2">
-              <Label>Fiberinnhold</Label>
+              <Label>{t('yarn.fiberContent')}</Label>
               <Input
                 value={value.fiberContent || ''}
                 onChange={e => onChange({ ...value, fiberContent: e.target.value })}
-                placeholder="100% Ull"
+                placeholder={t('yarn.yarnFiberPlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label>Løpelengde</Label>
+              <Label>{t('yarn.yardage')}</Label>
               <Input
                 value={value.yardage || ''}
                 onChange={e => onChange({ ...value, yardage: e.target.value })}
-                placeholder="200m / 50g"
+                placeholder={t('yarn.yarnYardagePlaceholder')}
               />
             </div>
           </div>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
             <div className="space-y-2">
-              <Label>Fargebad</Label>
+              <Label>{t('yarn.dyeLot')}</Label>
               <Input
                 value={value.dyeLot || ''}
                 onChange={e => onChange({ ...value, dyeLot: e.target.value })}
-                placeholder="Lot 2345"
+                placeholder={t('yarn.yarnDyeLotPlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label>Mengde</Label>
+              <Label>{t('common.amount')}</Label>
               <Input
                 value={value.amount || ''}
                 onChange={e => onChange({ ...value, amount: e.target.value })}
-                placeholder="F.eks. 200g"
+                placeholder={t('yarn.yarnAmountPlaceholder')}
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Pris (kr)</Label>
+            <Label>{t('common.price')}</Label>
             <Input
               type="number"
               min={0}
@@ -229,7 +231,7 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
               style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 4px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 500, color: 'var(--fg)', width: '100%', borderBottom: '1px solid var(--border)' }}
             >
               <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              Ta bilde
+              {t('projects.takePhoto')}
             </button>
             <button
               type="button"
@@ -237,7 +239,7 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
               style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 4px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 16, fontWeight: 500, color: 'var(--fg)', width: '100%' }}
             >
               <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              Velg fra bibliotek
+              {t('projects.chooseFromGallery')}
             </button>
           </div>
         </div>

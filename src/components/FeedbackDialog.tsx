@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowUp, Bug, Lightbulb, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useReports } from '../hooks/useReports';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { PublicReport, ReportStatus, ReportType } from '../types/feedback';
 
 interface Props {

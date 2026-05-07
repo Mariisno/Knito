@@ -21,6 +21,7 @@ import { Loader2 } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useTranslation } from './contexts/LanguageContext';
 import { useProjects } from './hooks/useProjects';
 import type { KnittingProject, NeedleInventoryItem, Yarn } from './types/knitting';
 import { exportAllDataAsJSON } from './utils/export';
@@ -75,6 +76,7 @@ function ProjectDetailRoute({
 function AppContent() {
   const { theme, toggleTheme } = useTheme();
   const { user, accessToken, loading: authLoading, signOut, supabase } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const {
@@ -103,7 +105,7 @@ function AppContent() {
 
   const handleSignOut = async () => {
     await signOut();
-    toast.success('Du er nå logget ut');
+    toast.success(t('toasts.signedOut'));
   };
 
   const handleAddProject = async (project: Omit<KnittingProject, 'id' | 'createdAt'>) => {
@@ -115,7 +117,7 @@ function AppContent() {
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <Loader2 className="animate-spin" style={{ width: 48, height: 48, color: 'var(--primary)', margin: '0 auto 16px' }} />
-          <p style={{ color: 'var(--muted-fg)', fontFamily: 'var(--font-ui)' }}>Laster...</p>
+          <p style={{ color: 'var(--muted-fg)', fontFamily: 'var(--font-ui)' }}>{t('app.loading')}</p>
         </div>
       </div>
     );
@@ -149,7 +151,7 @@ function AppContent() {
               theme={theme}
               onExport={() => {
                 exportAllDataAsJSON(projects, standaloneYarns, needleInventory);
-                toast.success('Sikkerhetskopi lastet ned');
+                toast.success(t('toasts.backupDownloaded'));
               }}
               onPrivacy={() => setIsPrivacyOpen(true)}
               onFeedback={() => setIsFeedbackOpen(true)}

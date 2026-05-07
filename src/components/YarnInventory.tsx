@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { YarnFormFields } from './YarnFormFields';
 
 interface YarnInventoryProps {
@@ -54,6 +55,7 @@ export function YarnInventory({
   onDeleteStandaloneYarn,
 }: YarnInventoryProps) {
   const { accessToken } = useAuth();
+  const { t } = useTranslation();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
   const [showAdd, setShowAdd] = useState(false);
@@ -148,7 +150,7 @@ export function YarnInventory({
   const colors = new Set(entries.map(y => y.color || y.name)).size;
 
   const handleAdd = () => {
-    if (!newYarn.name?.trim()) { toast.error('Garnnavn er påkrevd'); return; }
+    if (!newYarn.name?.trim()) { toast.error(t('yarn.yarnName') + ' ' + t('common.required')); return; }
     const yarn: Yarn = {
       id: crypto.randomUUID(),
       name: newYarn.name.trim(),
@@ -167,12 +169,12 @@ export function YarnInventory({
     onUpdateStandaloneYarns([...standaloneYarns, yarn]);
     setNewYarn({});
     setShowAdd(false);
-    toast.success('Garn lagt til');
+    toast.success(t('toasts.yarnAdded'));
   };
 
   const handleSaveEdit = () => {
     if (!editingYarn) return;
-    if (!editingYarn.name?.trim()) { toast.error('Garnnavn er påkrevd'); return; }
+    if (!editingYarn.name?.trim()) { toast.error(t('yarn.yarnName') + ' ' + t('common.required')); return; }
     const updated: Yarn = {
       ...editingYarn,
       name: editingYarn.name.trim(),
@@ -186,21 +188,21 @@ export function YarnInventory({
     };
     onUpdateStandaloneYarn(updated);
     setEditingYarn(null);
-    toast.success('Garn oppdatert');
+    toast.success(t('toasts.yarnUpdated'));
   };
 
   const handleUploadImage = async (
     file: File,
     setImage: (url: string) => void,
   ) => {
-    if (!accessToken) { toast.error('Du må være logget inn'); return; }
+    if (!accessToken) { toast.error(t('toasts.couldNotSignIn')); return; }
     setUploadingImg(true);
     try {
       const url = await api.uploadImage(file, accessToken);
       setImage(url);
-      toast.success('Bilde lastet opp');
+      toast.success(t('toasts.imageAdded'));
     } catch {
-      toast.error('Kunne ikke laste opp bilde');
+      toast.error(t('toasts.imageUploadFailed'));
     } finally {
       setUploadingImg(false);
     }
@@ -214,7 +216,7 @@ export function YarnInventory({
       .map(p => p.name);
     if (usedIn.length === 0) {
       onDeleteStandaloneYarn(standaloneId);
-      toast.success('Garn fjernet');
+      toast.success(t('toasts.yarnDeleted'));
       return;
     }
     setPendingDelete({ id: standaloneId, name: yarn.name, usedIn });
@@ -224,7 +226,7 @@ export function YarnInventory({
     if (!pendingDelete) return;
     onDeleteStandaloneYarn(pendingDelete.id);
     setPendingDelete(null);
-    toast.success('Garn fjernet fra lager');
+    toast.success(t('toasts.yarnDeleted'));
   };
 
   const handleQuantityChange = (standaloneId: string, delta: number) => {
@@ -241,16 +243,16 @@ export function YarnInventory({
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
       {/* Header */}
       <div style={{ padding: '12px 20px 8px' }}>
-        <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>Lager</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>Garn</div>
+        <div style={{ fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>{t('yarn.inventory')}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1 }}>{t('yarn.title')}</div>
       </div>
 
       {/* Summary stats */}
       <div style={{ padding: '12px 20px 4px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         {[
-          { label: 'Totalt', value: totalEntries },
-          { label: 'Farger', value: colors },
-          { label: 'I bruk', value: inUseCount },
+          { label: t('common.all'), value: totalEntries },
+          { label: t('common.color'), value: colors },
+          { label: t('yarn.inUse'), value: inUseCount },
         ].map(s => (
           <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ fontSize: 10, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase' }}>{s.label}</div>
@@ -263,7 +265,7 @@ export function YarnInventory({
       <div style={{ padding: '12px 20px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 40, padding: '0 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted-fg)' }}>
           <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Søk i garn…"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('common.search') + '…'}
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--fg)', fontFamily: 'var(--font-ui)' }}/>
         </div>
       </div>
@@ -271,9 +273,9 @@ export function YarnInventory({
       {/* Filter chips */}
       <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8 }}>
         {[
-          { id: 'all' as const, label: 'Alle' },
-          { id: 'inuse' as const, label: 'I prosjekt' },
-          { id: 'spare' as const, label: 'Ubrukt' },
+          { id: 'all' as const, label: t('common.all') },
+          { id: 'inuse' as const, label: t('yarn.inUse') },
+          { id: 'spare' as const, label: t('yarn.available') },
         ].map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)} style={{
             display: 'inline-flex', alignItems: 'center',
@@ -291,11 +293,11 @@ export function YarnInventory({
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 20px 120px' }}>
         {filtered.length === 0 ? (
           <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted-fg)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>Ingen garn funnet</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}>{t('yarn.emptyTitle')}</div>
           </div>
         ) : filtered.map(y => {
           const qty = y.quantity ?? (y.isStandalone ? 1 : undefined);
-          const qtyLabel = qty !== undefined ? `${qty} ${qty === 1 ? 'nøste' : 'nøster'}` : null;
+          const qtyLabel = qty !== undefined ? `${qty}` : null;
           return (
           <div key={y.id}
             onClick={y.isStandalone && y.standaloneId ? () => {
@@ -331,13 +333,13 @@ export function YarnInventory({
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginTop: 2 }}>
-                    {[y.color && `Farge: ${y.color}`, y.weight, y.fiberContent].filter(Boolean).join(' · ') || ' '}
+                    {[y.color && `${t('common.color')}: ${y.color}`, y.weight, y.fiberContent].filter(Boolean).join(' · ') || ' '}
                   </div>
                 </div>
                 {y.isStandalone && (
                   <button
                     onClick={(e) => { e.stopPropagation(); requestDelete(y.standaloneId!); }}
-                    aria-label="Slett garn"
+                    aria-label={t('yarn.deleteYarn')}
                     style={{
                       width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
                       background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer',
@@ -361,7 +363,7 @@ export function YarnInventory({
                     <button
                       onClick={(e) => { e.stopPropagation(); handleQuantityChange(y.standaloneId!, -1); }}
                       disabled={(y.quantity ?? 1) <= 0}
-                      aria-label="Reduser antall"
+                      aria-label={t('projectDetail.decrement')}
                       style={{
                         width: 36, height: '100%', border: 'none', background: 'transparent',
                         color: 'var(--fg)', cursor: 'pointer',
@@ -377,7 +379,7 @@ export function YarnInventory({
                     }}>{y.quantity ?? 1}</div>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleQuantityChange(y.standaloneId!, 1); }}
-                      aria-label="Øk antall"
+                      aria-label={t('projectDetail.increment')}
                       style={{
                         width: 36, height: '100%', border: 'none', background: 'transparent',
                         color: 'var(--fg)', cursor: 'pointer',
@@ -423,14 +425,14 @@ export function YarnInventory({
         fontFamily: 'var(--font-ui)', fontSize: 14.5, fontWeight: 600,
         boxShadow: '0 8px 24px -6px color-mix(in oklab, var(--primary) 45%, transparent)',
       }}>
-        <PlusIcon /> Nytt garn
+        <PlusIcon /> {t('projects.newYarn')}
       </button>
 
       {/* Add dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Legg til garn</DialogTitle>
+            <DialogTitle>{t('yarn.addYarn')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <YarnFormFields
@@ -440,8 +442,8 @@ export function YarnInventory({
               onUploadImage={handleUploadImage}
             />
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>Legg til</Button>
-              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">Avbryt</Button>
+              <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>{t('common.add')}</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
         </DialogContent>
@@ -451,7 +453,7 @@ export function YarnInventory({
       <Dialog open={!!editingYarn} onOpenChange={(open) => { if (!open) setEditingYarn(null); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Rediger garn</DialogTitle>
+            <DialogTitle>{t('yarn.editYarn')}</DialogTitle>
           </DialogHeader>
           {editingYarn && (
             <div className="space-y-4 py-2">
@@ -462,8 +464,8 @@ export function YarnInventory({
                 onUploadImage={handleUploadImage}
               />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleSaveEdit} className="flex-1" disabled={uploadingImg}>Lagre</Button>
-                <Button variant="outline" onClick={() => setEditingYarn(null)} className="flex-1">Avbryt</Button>
+                <Button onClick={handleSaveEdit} className="flex-1" disabled={uploadingImg}>{t('common.save')}</Button>
+                <Button variant="outline" onClick={() => setEditingYarn(null)} className="flex-1">{t('common.cancel')}</Button>
               </div>
             </div>
           )}
@@ -474,21 +476,21 @@ export function YarnInventory({
       <AlertDialog open={!!pendingDelete} onOpenChange={open => { if (!open) setPendingDelete(null); }}>
         <AlertDialogContent className="bg-card">
           <AlertDialogHeader>
-            <AlertDialogTitle>Slette {pendingDelete?.name} fra lager?</AlertDialogTitle>
+            <AlertDialogTitle>{t('yarn.deleteYarnConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDelete && (
                 <>
-                  Garnet brukes i {pendingDelete.usedIn.length} {pendingDelete.usedIn.length === 1 ? 'prosjekt' : 'prosjekter'}
-                  {': '}{pendingDelete.usedIn.join(', ')}.
-                  {' '}Garnet fjernes også fra {pendingDelete.usedIn.length === 1 ? 'dette prosjektet' : 'disse prosjektene'}.
+                  {pendingDelete.name}
+                  {' — '}
+                  {pendingDelete.usedIn.join(', ')}
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row gap-2 mt-4">
-            <AlertDialogCancel className="flex-1">Avbryt</AlertDialogCancel>
+            <AlertDialogCancel className="flex-1">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="flex-1 bg-destructive hover:bg-destructive/90">
-              Slett
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

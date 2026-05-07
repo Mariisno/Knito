@@ -47,7 +47,10 @@ export interface Counter {
   id: string;
   label: string;
   count: number;
-  previousCount?: number; // for undo support
+  previousCount?: number;     // for undo support
+  target?: number;            // rad-mål per gjentakelse: ruller over til 0 og øker repeats
+  repeats?: number;           // antall fullførte gjentakelser
+  linkedToPattern?: boolean;  // speil +/- på pattern.currentRow (én teller om gangen)
 }
 
 export interface LogEntry {

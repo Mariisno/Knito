@@ -4,6 +4,15 @@ import type { PublicReport, ReportType } from '../types/feedback';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-b06c9f7a`;
 
+async function readError(response: Response): Promise<string> {
+  const text = await response.text();
+  try {
+    const json = JSON.parse(text);
+    if (json && typeof json.error === 'string') return json.error;
+  } catch { /* not JSON */ }
+  return text || `${response.status} ${response.statusText}`;
+}
+
 function getHeaders(accessToken?: string) {
   return {
     'Content-Type': 'application/json',
@@ -200,9 +209,9 @@ export async function getReports(accessToken: string): Promise<PublicReport[]> {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error('Error fetching reports:', error);
-    throw new Error('Failed to fetch reports');
+    const message = await readError(response);
+    console.error('Error fetching reports:', response.status, message);
+    throw new Error(message);
   }
 
   const data = await response.json();
@@ -220,9 +229,9 @@ export async function createReport(
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error('Error creating report:', error);
-    throw new Error('Failed to create report');
+    const message = await readError(response);
+    console.error('Error creating report:', response.status, message);
+    throw new Error(message);
   }
 
   const data = await response.json();
@@ -236,9 +245,9 @@ export async function toggleReportVote(id: string, accessToken: string): Promise
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error('Error voting on report:', error);
-    throw new Error('Failed to vote on report');
+    const message = await readError(response);
+    console.error('Error voting on report:', response.status, message);
+    throw new Error(message);
   }
 
   const data = await response.json();

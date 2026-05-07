@@ -57,6 +57,17 @@ const dashedBtn: React.CSSProperties = {
   fontSize: 13, fontWeight: 500,
 };
 
+const needleFieldLabel: React.CSSProperties = {
+  display: 'block', fontSize: 12, fontWeight: 500,
+  color: 'var(--muted-fg)', marginBottom: 6,
+};
+
+const needleFieldInput: React.CSSProperties = {
+  width: '100%', height: 44, padding: '0 14px', borderRadius: 12,
+  border: '1px solid var(--border)', background: 'var(--card)',
+  color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none',
+};
+
 export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
   const { t, language } = useTranslation();
   const dateLocale = getDateFnsLocale(language);
@@ -81,13 +92,24 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const [showNewYarnForm, setShowNewYarnForm] = useState(false);
   const [newYarnData, setNewYarnData] = useState<Partial<Yarn>>({});
   const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
-  const [pendingYarnAmount, setPendingYarnAmount] = useState('');
+  const [pendingYarnQuantity, setPendingYarnQuantity] = useState(1);
+  const [yarnMenuOpenId, setYarnMenuOpenId] = useState<string | null>(null);
+  const [yarnQtyEditId, setYarnQtyEditId] = useState<string | null>(null);
+  const [yarnQtyEditValue, setYarnQtyEditValue] = useState<string>('');
+  const [yarnRemoveConfirmId, setYarnRemoveConfirmId] = useState<string | null>(null);
   const [showNeedlePicker, setShowNeedlePicker] = useState(false);
   const [showNewNeedleForm, setShowNewNeedleForm] = useState(false);
-  const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
+  const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string; quantity?: number }>({ type: 'Rundpinne', quantity: 1 });
+  const [pickerQtyFor, setPickerQtyFor] = useState<NeedleInventoryItem | null>(null);
+  const [pickerQty, setPickerQty] = useState<number>(1);
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
+  const [newCounterTarget, setNewCounterTarget] = useState('');
   const [counterInputValues, setCounterInputValues] = useState<Record<string, string>>({});
+  const [targetEditId, setTargetEditId] = useState<string | null>(null);
+  const [targetEditValue, setTargetEditValue] = useState('');
+  const [patternRowDraft, setPatternRowDraft] = useState<{ field: 'currentRow' | 'totalRows'; value: string } | null>(null);
+  const [showPatternPos, setShowPatternPos] = useState(false);
   const [showHeroLightbox, setShowHeroLightbox] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -282,18 +304,50 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
 
   const handleAddCounter = () => {
     if (!newCounterLabel.trim()) return;
-    const counter: Counter = { id: crypto.randomUUID(), label: newCounterLabel.trim(), count: 0 };
+    const parsedTarget = parseInt(newCounterTarget, 10);
+    const target = Number.isFinite(parsedTarget) && parsedTarget > 0 ? parsedTarget : undefined;
+    const counter: Counter = {
+      id: crypto.randomUUID(),
+      label: newCounterLabel.trim(),
+      count: 0,
+      ...(target ? { target, repeats: 0 } : {}),
+    };
     handleUpdate({ counters: [...(editedProject.counters || []), counter] });
     setNewCounterLabel('');
+    setNewCounterTarget('');
     setShowCounterAdd(false);
   };
 
   const handleCounterChange = (id: string, delta: number) => {
-    handleUpdate({
-      counters: (editedProject.counters || []).map(c =>
-        c.id === id ? { ...c, count: Math.max(0, c.count + delta) } : c
-      ),
-    });
+    const counters = editedProject.counters || [];
+    const c = counters.find(x => x.id === id);
+    if (!c) return;
+
+    let newCount = c.count + delta;
+    let newRepeats = c.repeats ?? 0;
+    const t = c.target;
+    if (t && t > 0) {
+      while (newCount >= t) { newCount -= t; newRepeats += 1; }
+      while (newCount < 0 && newRepeats > 0) { newCount += t; newRepeats -= 1; }
+    }
+    newCount = Math.max(0, newCount);
+
+    const updates: Partial<KnittingProject> = {
+      counters: counters.map(x => x.id === id
+        ? { ...x, count: newCount, ...(t && t > 0 ? { repeats: newRepeats } : {}) }
+        : x),
+    };
+
+    if (c.linkedToPattern) {
+      const totalRows = editedProject.pattern?.totalRows;
+      const curr = editedProject.pattern?.currentRow ?? 0;
+      let next = curr + delta;
+      if (totalRows && totalRows > 0) next = Math.min(next, totalRows);
+      next = Math.max(0, next);
+      updates.pattern = { ...editedProject.pattern, currentRow: next };
+    }
+
+    handleUpdate(updates);
   };
 
   const handleCounterDelete = (id: string) => {
@@ -304,29 +358,72 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
 
   const handleCounterSetValue = (id: string, value: number) => {
     handleUpdate({
-      counters: (editedProject.counters || []).map(c =>
-        c.id === id ? { ...c, count: Math.max(0, value) } : c
-      ),
+      counters: (editedProject.counters || []).map(c => {
+        if (c.id !== id) return c;
+        const max = c.target && c.target > 0 ? c.target - 1 : Number.MAX_SAFE_INTEGER;
+        return { ...c, count: Math.min(Math.max(0, value), max) };
+      }),
     });
   };
 
-  const handleAddYarn = (yarn: Yarn, amount?: string) => {
-    const { id: _id, quantity: _q, price: _p, standaloneYarnId: _s, ...shared } = yarn;
+  const handleCounterSetTarget = (id: string, target: number | undefined) => {
+    handleUpdate({
+      counters: (editedProject.counters || []).map(c => {
+        if (c.id !== id) return c;
+        if (!target || target <= 0) {
+          const { target: _t, repeats: _r, ...rest } = c;
+          return rest as Counter;
+        }
+        return {
+          ...c,
+          target,
+          repeats: c.repeats ?? 0,
+          count: c.count >= target ? target - 1 : c.count,
+        };
+      }),
+    });
+  };
+
+  const handleCounterToggleLink = (id: string) => {
+    const counters = editedProject.counters || [];
+    const target = counters.find(c => c.id === id);
+    if (!target) return;
+    const willLink = !target.linkedToPattern;
+    handleUpdate({
+      counters: counters.map(c => ({
+        ...c,
+        linkedToPattern: c.id === id ? willLink : false,
+      })),
+    });
+  };
+
+  const handlePatternRowChange = (patch: { currentRow?: number; totalRows?: number }) => {
+    const next = { ...(editedProject.pattern ?? {}), ...patch };
+    if (next.currentRow != null) next.currentRow = Math.max(0, next.currentRow);
+    if (next.totalRows != null) next.totalRows = Math.max(0, next.totalRows);
+    if (next.totalRows && next.currentRow != null) next.currentRow = Math.min(next.currentRow, next.totalRows);
+    handleUpdate({ pattern: next });
+  };
+
+  const handleAddYarn = (yarn: Yarn, quantity: number) => {
+    const { id: _id, quantity: _q, quantityUsed: _qu, price: _p, standaloneYarnId: _s, ...shared } = yarn;
     const newYarn: Yarn = {
       ...shared,
       id: crypto.randomUUID(),
       standaloneYarnId: yarn.id,
-      amount: amount?.trim() || yarn.amount,
+      quantity: quantity > 0 ? quantity : undefined,
+      quantityUsed: 0,
     };
     handleUpdate({ yarns: [...editedProject.yarns, newYarn] });
     setShowYarnPicker(false);
     setPendingYarn(null);
-    setPendingYarnAmount('');
+    setPendingYarnQuantity(1);
     toast.success(t('toasts.yarnAdded'));
   };
 
   const handleAddNewYarn = () => {
     if (!newYarnData.name?.trim()) return;
+    const allocated = newYarnData.quantity ?? 1;
     const inventoryYarn: Yarn = {
       id: crypto.randomUUID(),
       name: newYarnData.name.trim(),
@@ -334,7 +431,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       color: newYarnData.color?.trim() || undefined,
       amount: newYarnData.amount?.trim() || undefined,
       weight: newYarnData.weight || undefined,
-      quantity: newYarnData.quantity ?? 1,
+      quantity: allocated,
       fiberContent: newYarnData.fiberContent?.trim() || undefined,
       yardage: newYarnData.yardage?.trim() || undefined,
       dyeLot: newYarnData.dyeLot?.trim() || undefined,
@@ -348,13 +445,14 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       name: inventoryYarn.name,
       brand: inventoryYarn.brand,
       color: inventoryYarn.color,
-      amount: inventoryYarn.amount,
       weight: inventoryYarn.weight,
       fiberContent: inventoryYarn.fiberContent,
       yardage: inventoryYarn.yardage,
       dyeLot: inventoryYarn.dyeLot,
       notes: inventoryYarn.notes,
       imageUrl: inventoryYarn.imageUrl,
+      quantity: allocated > 0 ? allocated : undefined,
+      quantityUsed: 0,
     };
     onUpdateStandaloneYarns([...standaloneYarns, inventoryYarn]);
     handleUpdate({ yarns: [...editedProject.yarns, projectYarn] });
@@ -362,6 +460,93 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     setShowNewYarnForm(false);
     setNewYarnData({});
     toast.success(t('toasts.yarnAdded'));
+  };
+
+  const handleConsumeYarn = (yarnId: string, n: number) => {
+    const yarn = editedProject.yarns.find(y => y.id === yarnId);
+    if (!yarn) return;
+    const used = yarn.quantityUsed ?? 0;
+    const cap = yarn.quantity ?? Infinity;
+    const actual = Math.max(0, Math.min(n, cap - used));
+    if (actual <= 0) return;
+
+    const previousProject = editedProject;
+    const previousStandalone = standaloneYarns;
+
+    handleUpdate({
+      yarns: editedProject.yarns.map(y =>
+        y.id === yarnId ? { ...y, quantityUsed: used + actual } : y
+      ),
+      logEntries: [
+        {
+          id: crypto.randomUUID(),
+          text: `Brukte ${actual} nøste${actual === 1 ? '' : 'r'} ${yarn.name}`,
+          timestamp: new Date(),
+        },
+        ...(editedProject.logEntries || []),
+      ],
+    });
+
+    let inventoryEmpty = false;
+    if (yarn.standaloneYarnId) {
+      const inv = standaloneYarns.find(s => s.id === yarn.standaloneYarnId);
+      if (inv) {
+        const newInvQty = Math.max(0, (inv.quantity ?? 0) - actual);
+        if ((inv.quantity ?? 0) <= 0) inventoryEmpty = true;
+        onUpdateStandaloneYarns(
+          standaloneYarns.map(s => s.id === inv.id ? { ...s, quantity: newInvQty } : s)
+        );
+      }
+    }
+
+    const message = inventoryEmpty
+      ? `Brukte ${actual} nøste${actual === 1 ? '' : 'r'} — lager allerede tomt`
+      : `Brukte ${actual} nøste${actual === 1 ? '' : 'r'} ${yarn.name}`;
+    toast.success(message, {
+      action: {
+        label: 'Angre',
+        onClick: () => {
+          setEditedProject(previousProject);
+          onUpdate(previousProject);
+          onUpdateStandaloneYarns(previousStandalone);
+        },
+      },
+    });
+  };
+
+  const handleConsumeAllYarn = (yarnId: string) => {
+    const yarn = editedProject.yarns.find(y => y.id === yarnId);
+    if (!yarn || yarn.quantity == null) return;
+    const remaining = yarn.quantity - (yarn.quantityUsed ?? 0);
+    if (remaining > 0) handleConsumeYarn(yarnId, remaining);
+  };
+
+  const handleResetYarnUsed = (yarnId: string) => {
+    handleUpdate({
+      yarns: editedProject.yarns.map(y =>
+        y.id === yarnId ? { ...y, quantityUsed: 0 } : y
+      ),
+    });
+  };
+
+  const handleSetYarnQuantity = (yarnId: string, quantity: number) => {
+    const safe = Math.max(0, Math.floor(quantity));
+    handleUpdate({
+      yarns: editedProject.yarns.map(y =>
+        y.id === yarnId
+          ? {
+              ...y,
+              quantity: safe > 0 ? safe : undefined,
+              quantityUsed: Math.min(y.quantityUsed ?? 0, safe),
+            }
+          : y
+      ),
+    });
+  };
+
+  const handleRemoveYarnEntry = (yarnId: string) => {
+    handleUpdate({ yarns: editedProject.yarns.filter(y => y.id !== yarnId) });
+    toast.success('Garn fjernet fra prosjekt');
   };
 
   const handleYarnImageUpload = async (file: File, setUrl: (url: string) => void) => {
@@ -378,27 +563,76 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     }
   };
 
-  const handleAddNeedle = (needle: NeedleInventoryItem) => {
-    const newNeedle = { id: crypto.randomUUID(), size: needle.size, type: needle.type, length: needle.length, material: needle.material, inventoryNeedleId: needle.id };
-    handleUpdate({ needles: [...(editedProject.needles || []), newNeedle] });
+  const handleAddNeedle = (needle: NeedleInventoryItem, qty: number = 1) => {
+    const safeQty = Math.max(1, Math.floor(qty || 1));
+    const existing = (editedProject.needles || []).find(en => en.inventoryNeedleId === needle.id);
+    let updatedNeedles: typeof editedProject.needles;
+    if (existing) {
+      const newQty = (existing.quantity ?? 1) + safeQty;
+      updatedNeedles = (editedProject.needles || []).map(en =>
+        en.id === existing.id ? { ...en, quantity: newQty > 1 ? newQty : undefined } : en,
+      );
+    } else {
+      const newNeedle = {
+        id: crypto.randomUUID(),
+        size: needle.size,
+        type: needle.type,
+        length: needle.length,
+        material: needle.material,
+        quantity: safeQty > 1 ? safeQty : undefined,
+        inventoryNeedleId: needle.id,
+      };
+      updatedNeedles = [...(editedProject.needles || []), newNeedle];
+    }
+    handleUpdate({ needles: updatedNeedles });
+    setPickerQtyFor(null);
     setShowNeedlePicker(false);
     toast.success(t('toasts.needleAdded'));
   };
 
   const handleAddNewNeedle = () => {
     if (!newNeedleData.size?.trim()) return;
+    const qty = Math.max(1, Math.floor(newNeedleData.quantity || 1));
     const needle = {
       id: crypto.randomUUID(),
       size: newNeedleData.size.trim(),
       type: newNeedleData.type || 'Rundpinne',
       length: newNeedleData.length?.trim() || undefined,
       material: newNeedleData.material?.trim() || undefined,
+      quantity: qty > 1 ? qty : undefined,
     };
     handleUpdate({ needles: [...(editedProject.needles || []), needle] });
     setShowNeedlePicker(false);
     setShowNewNeedleForm(false);
-    setNewNeedleData({ type: 'Rundpinne' });
+    setNewNeedleData({ type: 'Rundpinne', quantity: 1 });
     toast.success(t('toasts.needleAdded'));
+  };
+
+  const handleNeedleQtyChange = (needleId: string, delta: number) => {
+    const list = editedProject.needles || [];
+    const target = list.find(n => n.id === needleId);
+    if (!target) return;
+    const current = target.quantity ?? 1;
+    const next = current + delta;
+    if (next <= 0) {
+      handleUpdate({ needles: list.filter(n => n.id !== needleId) });
+      toast.success(t('toasts.needleDeleted'));
+      return;
+    }
+    if (target.inventoryNeedleId) {
+      const inv = needleInventory.find(i => i.id === target.inventoryNeedleId);
+      const a = needleAvailability.get(target.inventoryNeedleId);
+      const ledig = a ? a.availableCount : (inv?.quantity ?? next);
+      if (next > current && ledig <= 0) {
+        toast.error(t('toasts.noMoreInStash'));
+        return;
+      }
+    }
+    handleUpdate({
+      needles: list.map(n =>
+        n.id === needleId ? { ...n, quantity: next > 1 ? next : undefined } : n,
+      ),
+    });
   };
 
   const openDateEdit = () => {
@@ -422,8 +656,6 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
     [needleInventory, projects],
   );
   const remainingForOffer = (n: NeedleInventoryItem) => {
-    const alreadyInThisProject = (editedProject.needles || []).some(en => en.inventoryNeedleId === n.id);
-    if (alreadyInThisProject) return 0;
     const a = needleAvailability.get(n.id);
     return a ? a.availableCount : n.quantity;
   };
@@ -703,113 +935,426 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
         </div>
       </div>
 
-      {/* COUNTERS — skjult inntil videre */}
-      {false && <Section title={t('projectDetail.counters')} count={(editedProject.counters || []).length}>
-        {(editedProject.counters || []).map(c => (
-          <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
+      {/* COUNTERS */}
+      {(() => {
+        const counters = editedProject.counters || [];
+        const linkedCounter = counters.find(c => c.linkedToPattern);
+        const patternCurrent = editedProject.pattern?.currentRow;
+        const patternTotal = editedProject.pattern?.totalRows;
+        const showPatternCard = patternCurrent != null || patternTotal != null || !!linkedCounter || showPatternPos;
+
+        const chipBtn = (active: boolean): React.CSSProperties => ({
+          height: 28, padding: '0 10px', borderRadius: 999,
+          border: '1px solid ' + (active ? 'var(--fg)' : 'var(--border)'),
+          background: active ? 'var(--fg)' : 'transparent',
+          color: active ? 'var(--bg)' : 'var(--muted-fg)',
+          cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 500,
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+        });
+
+        const renderPatternNumber = (field: 'currentRow' | 'totalRows', value: number | undefined, big: boolean) => {
+          const isEditing = patternRowDraft?.field === field;
+          const commit = () => {
+            const parsed = parseInt(patternRowDraft?.value ?? '', 10);
+            if (!isNaN(parsed)) handlePatternRowChange({ [field]: Math.max(0, parsed) });
+            else if ((patternRowDraft?.value ?? '').trim() === '') handlePatternRowChange({ [field]: undefined as unknown as number });
+            setPatternRowDraft(null);
+          };
+          if (isEditing) {
+            return (
               <input
+                autoFocus
                 type="number"
                 min="0"
-                value={counterInputValues[c.id] ?? String(c.count)}
-                onFocus={() => setCounterInputValues(v => ({ ...v, [c.id]: String(c.count) }))}
-                onChange={e => setCounterInputValues(v => ({ ...v, [c.id]: e.target.value }))}
-                onBlur={() => {
-                  const parsed = parseInt(counterInputValues[c.id] ?? '', 10);
-                  if (!isNaN(parsed)) handleCounterSetValue(c.id, parsed);
-                  setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
-                }}
+                value={patternRowDraft?.value ?? ''}
+                onChange={e => setPatternRowDraft({ field, value: e.target.value })}
+                onBlur={commit}
                 onKeyDown={e => {
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                  if (e.key === 'Escape') {
-                    setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
-                    (e.target as HTMLInputElement).blur();
-                  }
+                  if (e.key === 'Escape') { setPatternRowDraft(null); (e.target as HTMLInputElement).blur(); }
                 }}
-                style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent', color: 'var(--fg)', width: '5ch', outline: 'none', padding: 0, MozAppearance: 'textfield' } as React.CSSProperties}
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: big ? 34 : 16,
+                  fontWeight: 500,
+                  letterSpacing: big ? -1.2 : -0.2,
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                  border: 'none', background: 'transparent', color: 'var(--fg)',
+                  width: big ? '4ch' : '4ch', outline: 'none', padding: 0,
+                  MozAppearance: 'textfield',
+                } as React.CSSProperties}
               />
+            );
+          }
+          return (
+            <button
+              onClick={() => setPatternRowDraft({ field, value: value != null ? String(value) : '' })}
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: big ? 34 : 16,
+                fontWeight: 500,
+                letterSpacing: big ? -1.2 : -0.2,
+                lineHeight: 1,
+                fontVariantNumeric: 'tabular-nums',
+                background: 'none', border: 'none', color: big ? 'var(--fg)' : 'var(--muted-fg)',
+                cursor: 'pointer', padding: 0,
+              } as React.CSSProperties}
+            >
+              {value != null ? value : '–'}
+            </button>
+          );
+        };
+
+        return (
+      <Section title="Teller" count={counters.length}>
+        {showPatternCard && (
+          <div style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 10.5, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase', fontWeight: 500 }}>Mønsterposisjon</div>
+              {linkedCounter && <div style={{ fontSize: 11, color: 'var(--muted-fg)' }}>knyttet til «{linkedCounter.label}»</div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => handleCounterDelete(c.id)} title={t('projectDetail.counter')} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
-                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>
-              <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
-              </button>
-              <button onClick={() => handleCounterChange(c.id, 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              </button>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+              {renderPatternNumber('currentRow', patternCurrent, true)}
+              <span style={{ fontSize: 13, color: 'var(--muted-fg)' }}>av</span>
+              {renderPatternNumber('totalRows', patternTotal, false)}
+              <span style={{ fontSize: 12, color: 'var(--muted-fg)', marginLeft: 'auto' }}>rader</span>
             </div>
+            {patternTotal && patternTotal > 0 && (
+              <div style={{ marginTop: 10, height: 4, background: 'var(--accent)', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{
+                  width: Math.min(100, ((patternCurrent ?? 0) / patternTotal) * 100) + '%',
+                  height: '100%', background: 'var(--primary)', transition: 'width .3s',
+                }} />
+              </div>
+            )}
           </div>
-        ))}
+        )}
+
+        {counters.map(c => {
+          const hasTarget = !!(c.target && c.target > 0);
+          const isEditingTarget = targetEditId === c.id;
+          return (
+            <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid ' + (c.linkedToPattern ? 'var(--primary)' : 'var(--border)'), borderRadius: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
+                  {hasTarget && (
+                    <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: 2 }}>
+                      mål {c.target} · gjentakelse {c.repeats ?? 0}
+                    </div>
+                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    value={counterInputValues[c.id] ?? String(c.count)}
+                    onFocus={() => setCounterInputValues(v => ({ ...v, [c.id]: String(c.count) }))}
+                    onChange={e => setCounterInputValues(v => ({ ...v, [c.id]: e.target.value }))}
+                    onBlur={() => {
+                      const parsed = parseInt(counterInputValues[c.id] ?? '', 10);
+                      if (!isNaN(parsed)) handleCounterSetValue(c.id, parsed);
+                      setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') {
+                        setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent', color: 'var(--fg)', width: '5ch', outline: 'none', padding: 0, MozAppearance: 'textfield', marginTop: 2 } as React.CSSProperties}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => handleCounterDelete(c.id)} title="Slett teller" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+                  <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
+                  </button>
+                  <button onClick={() => handleCounterChange(c.id, 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                {isEditingTarget ? (
+                  <div style={{ display: 'flex', gap: 6, flex: 1 }}>
+                    <input
+                      autoFocus
+                      type="number"
+                      min="0"
+                      placeholder="rader per gjentakelse"
+                      value={targetEditValue}
+                      onChange={e => setTargetEditValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const parsed = parseInt(targetEditValue, 10);
+                          handleCounterSetTarget(c.id, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+                          setTargetEditId(null);
+                          setTargetEditValue('');
+                        }
+                        if (e.key === 'Escape') { setTargetEditId(null); setTargetEditValue(''); }
+                      }}
+                      style={{ flex: 1, minWidth: 0, height: 28, padding: '0 10px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 12, outline: 'none' }}
+                    />
+                    <button
+                      onClick={() => {
+                        const parsed = parseInt(targetEditValue, 10);
+                        handleCounterSetTarget(c.id, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+                        setTargetEditId(null);
+                        setTargetEditValue('');
+                      }}
+                      style={{ ...chipBtn(true) }}
+                    >Lagre</button>
+                    <button
+                      onClick={() => { setTargetEditId(null); setTargetEditValue(''); }}
+                      style={chipBtn(false)}
+                    >Avbryt</button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { setTargetEditId(c.id); setTargetEditValue(c.target ? String(c.target) : ''); }}
+                      style={chipBtn(hasTarget)}
+                      title="Mål per gjentakelse"
+                    >
+                      {hasTarget ? `Mål ${c.target}` : '＋ Sett mål'}
+                    </button>
+                    {hasTarget && (
+                      <button
+                        onClick={() => handleCounterSetTarget(c.id, undefined)}
+                        style={chipBtn(false)}
+                        title="Fjern mål"
+                      >Fjern mål</button>
+                    )}
+                    <button
+                      onClick={() => handleCounterToggleLink(c.id)}
+                      style={chipBtn(!!c.linkedToPattern)}
+                      title="Knytt til mønsterposisjon"
+                    >
+                      {c.linkedToPattern ? '🔗 Knyttet til mønster' : 'Knytt til mønster'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
         {showCounterAdd ? (
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <input
               autoFocus
               placeholder={t('projectDetail.counterLabel')}
               value={newCounterLabel}
               onChange={e => setNewCounterLabel(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); } }}
-              style={{ flex: 1, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); setNewCounterTarget(''); } }}
+              style={{ flex: '2 1 160px', minWidth: 0, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+            />
+            <input
+              type="number"
+              min="0"
+              placeholder="Mål (valgfritt)"
+              value={newCounterTarget}
+              onChange={e => setNewCounterTarget(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); setNewCounterTarget(''); } }}
+              style={{ flex: '1 1 110px', minWidth: 0, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
             />
             <button onClick={handleAddCounter} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>{t('common.add')}</button>
-            <button onClick={() => { setShowCounterAdd(false); setNewCounterLabel(''); }} style={{ height: 44, padding: '0 12px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>✕</button>
+            <button onClick={() => { setShowCounterAdd(false); setNewCounterLabel(''); setNewCounterTarget(''); }} style={{ height: 44, padding: '0 12px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>✕</button>
           </div>
         ) : (
           <button onClick={() => setShowCounterAdd(true)} style={dashedBtn}>+ Legg til teller</button>
         )}
-      </Section>}
+
+        {!showPatternCard && (
+          <button onClick={() => setShowPatternPos(true)} style={dashedBtn}>+ Legg til mønsterposisjon</button>
+        )}
+      </Section>
+        );
+      })()}
 
       {/* YARN */}
-      <Section title={t('projectDetail.yarns')} count={editedProject.yarns.length}>
-        {editedProject.yarns.map(y => (
-          <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
-            {y.imageUrl ? (
-              <img src={y.imageUrl} alt={y.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-            ) : y.color ? (
-              <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />
-            ) : null}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[y.brand, y.color, y.weight].filter(Boolean).join(' · ')}</div>
-            </div>
-            {y.amount && <div style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{y.amount}</div>}
-            <button
-              onClick={() => handleUpdate({ yarns: editedProject.yarns.filter(y2 => y2.id !== y.id) })}
-              aria-label="Fjern garn"
-              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
-            >
-              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
-            </button>
-          </div>
-        ))}
-        <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ {t('projectDetail.addYarn')}</button>
-      </Section>
+      {(() => {
+        const totalAllocated = editedProject.yarns.reduce((s, y) => s + (y.quantity ?? 0), 0);
+        const totalUsed = editedProject.yarns.reduce((s, y) => s + (y.quantityUsed ?? 0), 0);
+        const yarnCount = totalAllocated > 0 ? totalAllocated : editedProject.yarns.length;
+        return (
+          <Section title={t('projectDetail.yarns')} count={yarnCount}>
+            {totalUsed > 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', padding: '0 2px 2px', marginTop: -4 }}>
+                {totalUsed} nøste{totalUsed === 1 ? '' : 'r'} brukt
+              </div>
+            )}
+            {editedProject.yarns.map(y => {
+              const used = y.quantityUsed ?? 0;
+              const alloc = y.quantity;
+              const remaining = alloc != null ? Math.max(0, alloc - used) : null;
+              const finished = alloc != null && used >= alloc && alloc > 0;
+              const isEditing = yarnQtyEditId === y.id;
+              const isMenuOpen = yarnMenuOpenId === y.id;
+              return (
+                <div key={y.id} style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {y.imageUrl ? (
+                      <img src={y.imageUrl} alt={y.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                    ) : y.color ? (
+                      <div style={{ width: 28, height: 28, borderRadius: 999, background: y.color, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)', flexShrink: 0 }} />
+                    ) : null}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                        {finished && (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: 'color-mix(in oklab, var(--primary) 18%, transparent)', color: 'var(--primary)', fontWeight: 600, letterSpacing: 0.3, flexShrink: 0 }}>Ferdig</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {alloc != null
+                          ? `${used} av ${alloc} nøste${alloc === 1 ? '' : 'r'}${[y.brand, y.weight].filter(Boolean).length ? ' · ' : ''}${[y.brand, y.weight].filter(Boolean).join(' · ')}`
+                          : (y.amount
+                              ? `${y.amount}${[y.brand, y.weight].filter(Boolean).length ? ' · ' : ''}${[y.brand, y.weight].filter(Boolean).join(' · ')}`
+                              : [y.brand, y.color, y.weight].filter(Boolean).join(' · '))}
+                      </div>
+                    </div>
+                    {alloc != null && (
+                      <button
+                        onClick={() => handleConsumeYarn(y.id, 1)}
+                        disabled={remaining === 0}
+                        style={{ height: 30, padding: '0 10px', borderRadius: 999, border: '1px solid var(--border)', background: remaining === 0 ? 'transparent' : 'var(--accent)', color: remaining === 0 ? 'var(--muted-fg)' : 'var(--fg)', cursor: remaining === 0 ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, flexShrink: 0, opacity: remaining === 0 ? 0.5 : 1 }}
+                        aria-label="Marker en nøste som brukt"
+                      >
+                        Brukt 1
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setYarnMenuOpenId(isMenuOpen ? null : y.id)}
+                      aria-label="Flere valg"
+                      style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
+                    >
+                      <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+                    </button>
+                  </div>
+
+                  {isMenuOpen && !isEditing && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                      {alloc != null && remaining! > 0 && (
+                        <button
+                          onClick={() => { handleConsumeAllYarn(y.id); setYarnMenuOpenId(null); }}
+                          style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                        >
+                          Bruk alle gjenværende
+                        </button>
+                      )}
+                      {used > 0 && (
+                        <button
+                          onClick={() => { handleResetYarnUsed(y.id); setYarnMenuOpenId(null); }}
+                          style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                        >
+                          Tilbakestill brukt
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setYarnQtyEditId(y.id);
+                          setYarnQtyEditValue(String(alloc ?? 1));
+                          setYarnMenuOpenId(null);
+                        }}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                      >
+                        Rediger antall…
+                      </button>
+                      <button
+                        onClick={() => { setYarnRemoveConfirmId(y.id); setYarnMenuOpenId(null); }}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textAlign: 'left' }}
+                      >
+                        Fjern fra prosjekt
+                      </button>
+                    </div>
+                  )}
+
+                  {isEditing && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted-fg)', flex: 1 }}>Antall nøster</div>
+                      <input
+                        type="number"
+                        min={0}
+                        autoFocus
+                        value={yarnQtyEditValue}
+                        onChange={e => setYarnQtyEditValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            handleSetYarnQuantity(y.id, parseInt(yarnQtyEditValue, 10) || 0);
+                            setYarnQtyEditId(null);
+                          }
+                          if (e.key === 'Escape') setYarnQtyEditId(null);
+                        }}
+                        style={{ width: 80, height: 36, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+                      />
+                      <button
+                        onClick={() => {
+                          handleSetYarnQuantity(y.id, parseInt(yarnQtyEditValue, 10) || 0);
+                          setYarnQtyEditId(null);
+                        }}
+                        style={{ height: 36, padding: '0 14px', borderRadius: 10, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}
+                      >
+                        Lagre
+                      </button>
+                      <button
+                        onClick={() => setYarnQtyEditId(null)}
+                        style={{ height: 36, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ {t('projectDetail.addYarn')}</button>
+          </Section>
+        );
+      })()}
 
       {/* NEEDLES */}
       <Section title={t('projectDetail.needles')} count={(editedProject.needles || []).length}>
-        {(editedProject.needles || []).map(n => (
-          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+        {(editedProject.needles || []).map(n => {
+          const qty = n.quantity ?? 1;
+          const stepBtn: React.CSSProperties = {
+            width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)',
+            background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'inherit', fontSize: 14, fontWeight: 500, padding: 0, flexShrink: 0,
+          };
+          return (
+            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', color: 'var(--fg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>
+                  {n.size} · {n.type}{qty > 1 ? ` × ${qty}` : ''}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[n.material, n.length].filter(Boolean).join(' · ')}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => handleNeedleQtyChange(n.id, -1)} aria-label={t('projectDetail.decrement')} style={stepBtn}>−</button>
+                <button onClick={() => handleNeedleQtyChange(n.id, +1)} aria-label={t('projectDetail.increment')} style={stepBtn}>+</button>
+                <button
+                  onClick={() => {
+                    handleUpdate({ needles: (editedProject.needles || []).filter(n2 => n2.id !== n.id) });
+                    toast.success(t('toasts.needleDeleted'));
+                  }}
+                  aria-label={t('common.delete')}
+                  style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                >
+                  <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.size} · {n.type}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', marginTop: 1 }}>{[n.material, n.length].filter(Boolean).join(' · ')}</div>
-            </div>
-            <button
-              onClick={() => {
-                handleUpdate({ needles: (editedProject.needles || []).filter(n2 => n2.id !== n.id) });
-                toast.success(t('toasts.needleDeleted'));
-              }}
-              aria-label="Fjern pinne"
-              style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
-            >
-              <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
-            </button>
-          </div>
-        ))}
+          );
+        })}
         <button onClick={() => setShowNeedlePicker(true)} style={dashedBtn}>+ {t('projectDetail.addNeedle')}</button>
       </Section>
 
@@ -1003,10 +1548,10 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnAmount(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
-          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnQuantity(1); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? t('projects.newYarn') : pendingYarn ? t('common.amount') : t('projectDetail.addYarn')}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? t('projects.newYarn') : t('projectDetail.addYarn')}</div>
             {showNewYarnForm ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
                 <YarnFormFields
@@ -1020,47 +1565,77 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                   <button onClick={() => { setShowNewYarnForm(false); setNewYarnData({}); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>{t('common.cancel')}</button>
                 </div>
               </div>
-            ) : pendingYarn ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12 }}>
-                  {pendingYarn.imageUrl ? (
-                    <img src={pendingYarn.imageUrl} alt={pendingYarn.name} style={{ width: 24, height: 24, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
-                  ) : pendingYarn.color ? (
-                    <div style={{ width: 24, height: 24, borderRadius: 999, background: pendingYarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-                  ) : null}
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{pendingYarn.name}</div>
-                    {pendingYarn.brand && <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{pendingYarn.brand}</div>}
-                  </div>
-                </div>
-                <input
-                  autoFocus
-                  placeholder={t('common.amount')}
-                  value={pendingYarnAmount}
-                  onChange={e => setPendingYarnAmount(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddYarn(pendingYarn, pendingYarnAmount); }}
-                  style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                />
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={() => handleAddYarn(pendingYarn, pendingYarnAmount)} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}>{t('common.add')}</button>
-                  <button onClick={() => { setPendingYarn(null); setPendingYarnAmount(''); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>{t('common.cancel')}</button>
-                </div>
-              </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {availableYarns.map(yarn => (
-                  <button key={yarn.id} onClick={() => setPendingYarn(yarn)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-                    {yarn.imageUrl ? (
-                      <img src={yarn.imageUrl} alt={yarn.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-                    ) : yarn.color ? (
-                      <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
-                    ) : null}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                {availableYarns.map(yarn => {
+                  const isExpanded = pendingYarn?.id === yarn.id;
+                  const stock = yarn.quantity ?? 0;
+                  const cap = stock > 0 ? stock : 99;
+                  return (
+                    <div key={yarn.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                      <button
+                        onClick={() => {
+                          if (isExpanded) {
+                            setPendingYarn(null);
+                          } else {
+                            setPendingYarn(yarn);
+                            setPendingYarnQuantity(stock > 0 ? 1 : 1);
+                          }
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
+                      >
+                        {yarn.imageUrl ? (
+                          <img src={yarn.imageUrl} alt={yarn.name} style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                        ) : yarn.color ? (
+                          <div style={{ width: 28, height: 28, borderRadius: 999, background: yarn.color, flexShrink: 0, border: '1px solid color-mix(in oklab, var(--fg) 10%, transparent)' }} />
+                        ) : null}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--fg)' }}>{yarn.name}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                          På lager: {stock}
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 12 }}>
+                            <div style={{ fontSize: 12, color: 'var(--muted-fg)', flex: 1 }}>Antall nøster</div>
+                            <button
+                              onClick={() => setPendingYarnQuantity(Math.max(1, pendingYarnQuantity - 1))}
+                              aria-label="Mindre"
+                              style={{ width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              −
+                            </button>
+                            <div style={{ minWidth: 32, textAlign: 'center', fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{pendingYarnQuantity}</div>
+                            <button
+                              onClick={() => setPendingYarnQuantity(Math.min(cap, pendingYarnQuantity + 1))}
+                              aria-label="Mer"
+                              style={{ width: 36, height: 36, borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => handleAddYarn(yarn, pendingYarnQuantity)}
+                              style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600 }}
+                            >
+                              Legg til
+                            </button>
+                            <button
+                              onClick={() => { setPendingYarn(null); setPendingYarnQuantity(1); }}
+                              style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}
+                            >
+                              Avbryt
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
                 {availableYarns.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>{t('yarn.emptyTitle')}</div>
                 )}
@@ -1074,47 +1649,140 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
       {/* NEEDLE PICKER */}
       {showNeedlePicker && (
         <>
-          <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowNeedlePicker(false); setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne', quantity: 1 }); setPickerQtyFor(null); setPickerQty(1); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
-              {showNewNeedleForm ? t('projects.newNeedle') : t('projectDetail.addNeedle')}
+            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: (showNewNeedleForm || pickerQtyFor) ? 4 : 14 }}>
+              {showNewNeedleForm ? t('projects.newNeedle') : pickerQtyFor ? t('projectDetail.howMany') : t('projectDetail.addNeedle')}
             </div>
-            {showNewNeedleForm ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {showNewNeedleForm && (
+              <div style={{ fontSize: 12.5, color: 'var(--muted-fg)', marginBottom: 14 }}>
+                Lag en pinne som bare brukes i dette prosjektet.
+              </div>
+            )}
+            {pickerQtyFor && (() => {
+              const inv = pickerQtyFor;
+              const remaining = remainingForOffer(inv);
+              const max = Math.max(1, remaining);
+              const dec = () => setPickerQty(q => Math.max(1, q - 1));
+              const inc = () => setPickerQty(q => Math.min(max, q + 1));
+              const stepBtn: React.CSSProperties = {
+                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--border)',
+                background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 20, fontWeight: 500,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted-fg)' }}>
+                    {inv.size} · {inv.type}{[inv.material, inv.length].filter(Boolean).length > 0 ? ` · ${[inv.material, inv.length].filter(Boolean).join(' · ')}` : ''}
+                    {' · '}{remaining} ledig på lager
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                    <button onClick={dec} disabled={pickerQty <= 1} style={{ ...stepBtn, opacity: pickerQty <= 1 ? 0.4 : 1 }} aria-label="Reduser antall">−</button>
+                    <div style={{ minWidth: 56, textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{pickerQty}</div>
+                    <button onClick={inc} disabled={pickerQty >= max} style={{ ...stepBtn, opacity: pickerQty >= max ? 0.4 : 1 }} aria-label="Øk antall">+</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      onClick={() => handleAddNeedle(inv, pickerQty)}
+                      style={{
+                        flex: 1, height: 44, borderRadius: 12, border: 'none',
+                        background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer',
+                        fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                      }}
+                    >
+                      Legg til
+                    </button>
+                    <button
+                      onClick={() => { setPickerQtyFor(null); setPickerQty(1); }}
+                      style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}
+                    >
+                      Tilbake
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+            {!pickerQtyFor && (showNewNeedleForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={needleFieldLabel}>
+                    Størrelse <span style={{ color: 'var(--destructive)' }}>*</span>
+                  </label>
+                  <input
+                    autoFocus
+                    placeholder="f.eks. 4mm"
+                    value={newNeedleData.size || ''}
+                    onChange={e => setNewNeedleData(d => ({ ...d, size: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddNewNeedle(); }}
+                    style={needleFieldInput}
+                  />
+                </div>
+                <div>
+                  <label style={needleFieldLabel}>Type</label>
                   <select
                     value={newNeedleData.type || 'Rundpinne'}
                     onChange={e => setNewNeedleData(d => ({ ...d, type: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                    style={needleFieldInput}
                   >
                     {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(typeName => <option key={typeName} value={typeName}>{t(`needleType.${typeName}`)}</option>)}
                   </select>
-                  <input
-                    autoFocus
-                    placeholder={t('common.size') + ' *'}
-                    value={newNeedleData.size || ''}
-                    onChange={e => setNewNeedleData(d => ({ ...d, size: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={needleFieldLabel}>Lengde</label>
+                    <input
+                      placeholder="f.eks. 80cm"
+                      value={newNeedleData.length || ''}
+                      onChange={e => setNewNeedleData(d => ({ ...d, length: e.target.value }))}
+                      style={needleFieldInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={needleFieldLabel}>Materiale</label>
+                    <input
+                      placeholder="f.eks. bambus"
+                      value={newNeedleData.material || ''}
+                      onChange={e => setNewNeedleData(d => ({ ...d, material: e.target.value }))}
+                      style={needleFieldInput}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={needleFieldLabel}>Antall</label>
                   <input
-                    placeholder={t('common.length')}
-                    value={newNeedleData.length || ''}
-                    onChange={e => setNewNeedleData(d => ({ ...d, length: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
-                  />
-                  <input
-                    placeholder={t('common.material')}
-                    value={newNeedleData.material || ''}
-                    onChange={e => setNewNeedleData(d => ({ ...d, material: e.target.value }))}
-                    style={{ height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={newNeedleData.quantity ?? 1}
+                    onChange={e => {
+                      const v = parseInt(e.target.value, 10);
+                      setNewNeedleData(d => ({ ...d, quantity: Number.isFinite(v) && v > 0 ? v : 1 }));
+                    }}
+                    style={needleFieldInput}
                   />
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button onClick={handleAddNewNeedle} disabled={!newNeedleData.size?.trim()} style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: newNeedleData.size?.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, opacity: newNeedleData.size?.trim() ? 1 : 0.35 }}>{t('common.add')}</button>
-                  <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne' }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>{t('common.cancel')}</button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  {(() => {
+                    const canSubmit = !!newNeedleData.size?.trim();
+                    return (
+                      <button
+                        onClick={handleAddNewNeedle}
+                        disabled={!canSubmit}
+                        style={{
+                          flex: 1, height: 44, borderRadius: 12, border: 'none',
+                          background: canSubmit ? 'var(--fg)' : 'var(--muted)',
+                          color: canSubmit ? 'var(--bg)' : 'var(--muted-fg)',
+                          cursor: canSubmit ? 'pointer' : 'not-allowed',
+                          fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                        }}
+                      >
+                        {t('common.add')}
+                      </button>
+                    );
+                  })()}
+                  <button onClick={() => { setShowNewNeedleForm(false); setNewNeedleData({ type: 'Rundpinne', quantity: 1 }); }} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>{t('common.cancel')}</button>
                 </div>
               </div>
             ) : (
@@ -1122,7 +1790,7 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                 {availableNeedles.map(needle => {
                   const remaining = remainingForOffer(needle);
                   return (
-                    <button key={needle.id} onClick={() => handleAddNeedle(needle)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+                    <button key={needle.id} onClick={() => { setPickerQtyFor(needle); setPickerQty(1); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l6-6M8 16l8-8 5-5-1 5-8 8z"/><circle cx="6.5" cy="17.5" r="1"/></svg>
                       </div>
@@ -1141,12 +1809,35 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
                 )}
                 <button onClick={() => setShowNewNeedleForm(true)} style={dashedBtn}>+ Ny pinne</button>
               </div>
-            )}
+            ))}
           </div>
         </>
       )}
 
       {/* DELETE LOG ENTRY DIALOG */}
+      <AlertDialog open={!!yarnRemoveConfirmId} onOpenChange={open => { if (!open) setYarnRemoveConfirmId(null); }}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fjern garn fra prosjekt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Garnet fjernes fra dette prosjektet, men forblir i Garnlager. Lagerantallet endres ikke.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 mt-4">
+            <AlertDialogCancel className="flex-1">Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (yarnRemoveConfirmId) handleRemoveYarnEntry(yarnRemoveConfirmId);
+                setYarnRemoveConfirmId(null);
+              }}
+              className="flex-1 bg-destructive hover:bg-destructive/90"
+            >
+              Fjern
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleteLogEntryId} onOpenChange={open => { if (!open) setDeleteLogEntryId(null); }}>
         <AlertDialogContent className="bg-card">
           <AlertDialogHeader>

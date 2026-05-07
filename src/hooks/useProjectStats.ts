@@ -10,6 +10,7 @@ export interface ProjectStats {
   archived: number;
   avgProgress: number;
   totalYarns: number;
+  totalSkeinsUsed: number;
   completionRate: number;
   projectsThisYear: number;
   categories: [string, number][];
@@ -37,6 +38,11 @@ export function useProjectStats(
       : 0;
 
     const totalYarns = projects.reduce((sum, p) => sum + p.yarns.length, 0) + standaloneYarns.length;
+
+    const totalSkeinsUsed = projects.reduce(
+      (sum, p) => sum + p.yarns.reduce((s, y) => s + (y.quantityUsed ?? 0), 0),
+      0,
+    );
 
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -89,7 +95,7 @@ export function useProjectStats(
 
     return {
       total, active, completed, paused, planned, archived,
-      avgProgress, totalYarns,
+      avgProgress, totalYarns, totalSkeinsUsed,
       completionRate, projectsThisYear, categories,
       totalCost, avgCostPerProject, avgDurationDays, longestProject, mostUsedYarnWeight,
     };

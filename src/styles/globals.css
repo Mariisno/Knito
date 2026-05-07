@@ -227,6 +227,12 @@ body {
   .log-entry-action { opacity: 1; }
 }
 
+/* Keyboard focus ring for chip-style toggle buttons in dialogs. */
+.chip-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Tablet and up: give the shell a touch more room. Phone-first design is preserved;
    inner layouts are single-column and just hit their upper clamps at this width. */
 @media (min-width: 768px) {

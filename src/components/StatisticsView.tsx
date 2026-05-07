@@ -22,9 +22,10 @@ export function StatisticsView({ projects }: StatisticsViewProps) {
         {/* Stat grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           {[
-            { label: t('stats.activeProjects'), value: stats.active, hint: t('tabs.projects').toLowerCase() },
+            { label: t('stats.activeProjects'), value: stats.active, hint: '' },
             { label: t('stats.completedProjects'), value: stats.completed, hint: '' },
             { label: t('tabs.yarn'), value: stats.totalYarns, hint: '' },
+            { label: t('stats.usedSkeins'), value: stats.totalSkeinsUsed, hint: '' },
             { label: t('stats.averageProgress'), value: `${stats.avgProgress}%`, hint: '' },
           ].map(s => (
             <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>

@@ -205,6 +205,7 @@ export const de = {
     addPattern: 'Anleitung hinzufügen',
     replacePattern: 'Anleitung ersetzen',
     removePattern: 'Anleitung entfernen',
+    howMany: 'Wie viele?',
   },
   yarn: {
     title: 'Garn',
@@ -266,6 +267,7 @@ export const de = {
     averageProgress: 'Durchschnittlicher Fortschritt',
     yarnCount: 'Garn im Lager',
     needleCount: 'Nadeln im Lager',
+    usedSkeins: 'Knäuel verbraucht',
   },
   settings: {
     menu: 'Menü',
@@ -285,6 +287,8 @@ export const de = {
     updateAvailable: 'Update verfügbar!',
     updateError: 'Konnte nicht prüfen',
     loadNewVersion: 'Neue Version laden (v{{version}})',
+    tryDesignV2: 'Design v2 ausprobieren',
+    useDesignV1: 'Design v1 verwenden',
   },
   feedback: {
     title: 'Feedback senden',
@@ -350,6 +354,7 @@ export const de = {
     sessionStopped: 'Strickeinheit beendet',
     saveFailed: 'Konnte nicht speichern',
     languageChanged: 'Sprache geändert',
+    noMoreInStash: 'Keine weiteren im Lager verfügbar',
   },
   errorBoundary: {
     title: 'Etwas ist schiefgelaufen',

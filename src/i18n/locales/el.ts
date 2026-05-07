@@ -205,6 +205,7 @@ export const el = {
     addPattern: 'Προσθήκη οδηγίας',
     replacePattern: 'Αντικατάσταση οδηγίας',
     removePattern: 'Αφαίρεση οδηγίας',
+    howMany: 'Πόσα;',
   },
   yarn: {
     title: 'Νήματα',
@@ -266,6 +267,7 @@ export const el = {
     averageProgress: 'Μέση πρόοδος',
     yarnCount: 'Νήματα στην αποθήκη',
     needleCount: 'Βελόνες στην αποθήκη',
+    usedSkeins: 'Κουβάρια που χρησιμοποιήθηκαν',
   },
   settings: {
     menu: 'Μενού',
@@ -285,6 +287,8 @@ export const el = {
     updateAvailable: 'Διαθέσιμη ενημέρωση!',
     updateError: 'Δεν ήταν δυνατός ο έλεγχος',
     loadNewVersion: 'Φόρτωση νέας έκδοσης (v{{version}})',
+    tryDesignV2: 'Δοκιμή σχεδίασης v2',
+    useDesignV1: 'Χρήση σχεδίασης v1',
   },
   feedback: {
     title: 'Αποστολή σχολίων',
@@ -350,6 +354,7 @@ export const el = {
     sessionStopped: 'Η συνεδρία πλεξίματος έληξε',
     saveFailed: 'Δεν ήταν δυνατή η αποθήκευση',
     languageChanged: 'Η γλώσσα άλλαξε',
+    noMoreInStash: 'Δεν υπάρχουν άλλα διαθέσιμα στην αποθήκη',
   },
   errorBoundary: {
     title: 'Κάτι πήγε στραβά',

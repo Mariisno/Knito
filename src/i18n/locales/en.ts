@@ -205,6 +205,7 @@ export const en = {
     addPattern: 'Add pattern',
     replacePattern: 'Replace pattern',
     removePattern: 'Remove pattern',
+    howMany: 'How many?',
   },
   yarn: {
     title: 'Yarn',
@@ -266,6 +267,7 @@ export const en = {
     averageProgress: 'Average progress',
     yarnCount: 'Yarn in stash',
     needleCount: 'Needles in stash',
+    usedSkeins: 'Skeins used',
   },
   settings: {
     menu: 'Menu',
@@ -285,6 +287,8 @@ export const en = {
     updateAvailable: 'Update available!',
     updateError: 'Could not check',
     loadNewVersion: 'Load new version (v{{version}})',
+    tryDesignV2: 'Try design v2',
+    useDesignV1: 'Use design v1',
   },
   feedback: {
     title: 'Send feedback',
@@ -350,6 +354,7 @@ export const en = {
     sessionStopped: 'Knitting session ended',
     saveFailed: 'Could not save',
     languageChanged: 'Language changed',
+    noMoreInStash: 'No more available in stash',
   },
   errorBoundary: {
     title: 'Something went wrong',

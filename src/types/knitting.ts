@@ -8,7 +8,8 @@ export interface Yarn {
   brand?: string;
   color?: string;
   amount?: string;
-  quantity?: number;          // number of skeins/balls in inventory
+  quantity?: number;          // inventory: skeins/balls owned · project: skeins allocated
+  quantityUsed?: number;      // project-only: skeins consumed so far on this project
   weight?: YarnWeight;        // yarn weight category
   fiberContent?: string;      // e.g. "100% Merino", "80% Alpakka, 20% Silke"
   yardage?: string;           // e.g. "200m per 50g"
@@ -25,6 +26,7 @@ export interface Needle {
   type: string;
   length?: string;
   material?: string;
+  quantity?: number;          // antall identiske pinner (settes bare når > 1)
   inventoryNeedleId?: string; // links to NeedleInventoryItem.id if chosen from inventory
 }
 
@@ -45,7 +47,10 @@ export interface Counter {
   id: string;
   label: string;
   count: number;
-  previousCount?: number; // for undo support
+  previousCount?: number;     // for undo support
+  target?: number;            // rad-mål per gjentakelse: ruller over til 0 og øker repeats
+  repeats?: number;           // antall fullførte gjentakelser
+  linkedToPattern?: boolean;  // speil +/- på pattern.currentRow (én teller om gangen)
 }
 
 export interface LogEntry {

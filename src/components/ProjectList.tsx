@@ -3,7 +3,7 @@ import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning, Palette } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
@@ -263,11 +263,14 @@ interface ProjectListProps {
   onExport: () => void;
   onPrivacy: () => void;
   onFeedback: () => void;
+  designVersion?: 'v1' | 'v2';
+  onToggleDesignVersion?: () => void;
 }
 
 export function ProjectList({
   projects, onSelectProject, onProgressChange,
   onNewProject, onSignOut, onToggleTheme, theme, onExport, onPrivacy, onFeedback,
+  designVersion = 'v1', onToggleDesignVersion,
 }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
@@ -406,6 +409,22 @@ export function ProjectList({
               {theme === 'light' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
               {theme === 'light' ? t('settings.darkTheme') : t('settings.lightTheme')}
             </DropdownMenuItem>
+            {onToggleDesignVersion && (
+              <DropdownMenuItem onClick={onToggleDesignVersion}>
+                <Palette className="mr-2 h-4 w-4" />
+                {designVersion === 'v1' ? t('settings.tryDesignV2') : t('settings.useDesignV1')}
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: 10,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  color: 'var(--muted-fg)',
+                  fontWeight: 600,
+                }}>
+                  {designVersion}
+                </span>
+              </DropdownMenuItem>
+            )}
             <div style={{ padding: '6px 8px 4px 12px', fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.4, textTransform: 'uppercase', fontWeight: 500 }}>
               {t('settings.language')}
             </div>

@@ -205,6 +205,7 @@ export const nb = {
     addPattern: 'Legg til oppskrift',
     replacePattern: 'Bytt oppskrift',
     removePattern: 'Fjern oppskrift',
+    howMany: 'Hvor mange?',
   },
   yarn: {
     title: 'Garn',
@@ -266,6 +267,7 @@ export const nb = {
     averageProgress: 'Gjennomsnittlig fremgang',
     yarnCount: 'Garn i lager',
     needleCount: 'Pinner i lager',
+    usedSkeins: 'Nøster brukt',
   },
   settings: {
     menu: 'Meny',
@@ -285,6 +287,8 @@ export const nb = {
     updateAvailable: 'Oppdatering tilgjengelig!',
     updateError: 'Kunne ikke sjekke',
     loadNewVersion: 'Last inn ny versjon (v{{version}})',
+    tryDesignV2: 'Prøv design v2',
+    useDesignV1: 'Bruk design v1',
   },
   feedback: {
     title: 'Send tilbakemelding',
@@ -350,6 +354,7 @@ export const nb = {
     sessionStopped: 'Strikkeøkt avsluttet',
     saveFailed: 'Kunne ikke lagre',
     languageChanged: 'Språk endret',
+    noMoreInStash: 'Ingen flere ledige på lager',
   },
   errorBoundary: {
     title: 'Noe gikk galt',

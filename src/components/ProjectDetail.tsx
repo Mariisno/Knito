@@ -99,7 +99,12 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
   const [newNeedleData, setNewNeedleData] = useState<{ type?: string; size?: string; length?: string; material?: string }>({ type: 'Rundpinne' });
   const [showCounterAdd, setShowCounterAdd] = useState(false);
   const [newCounterLabel, setNewCounterLabel] = useState('');
+  const [newCounterTarget, setNewCounterTarget] = useState('');
   const [counterInputValues, setCounterInputValues] = useState<Record<string, string>>({});
+  const [targetEditId, setTargetEditId] = useState<string | null>(null);
+  const [targetEditValue, setTargetEditValue] = useState('');
+  const [patternRowDraft, setPatternRowDraft] = useState<{ field: 'currentRow' | 'totalRows'; value: string } | null>(null);
+  const [showPatternPos, setShowPatternPos] = useState(false);
   const [showHeroLightbox, setShowHeroLightbox] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -294,18 +299,50 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
 
   const handleAddCounter = () => {
     if (!newCounterLabel.trim()) return;
-    const counter: Counter = { id: crypto.randomUUID(), label: newCounterLabel.trim(), count: 0 };
+    const parsedTarget = parseInt(newCounterTarget, 10);
+    const target = Number.isFinite(parsedTarget) && parsedTarget > 0 ? parsedTarget : undefined;
+    const counter: Counter = {
+      id: crypto.randomUUID(),
+      label: newCounterLabel.trim(),
+      count: 0,
+      ...(target ? { target, repeats: 0 } : {}),
+    };
     handleUpdate({ counters: [...(editedProject.counters || []), counter] });
     setNewCounterLabel('');
+    setNewCounterTarget('');
     setShowCounterAdd(false);
   };
 
   const handleCounterChange = (id: string, delta: number) => {
-    handleUpdate({
-      counters: (editedProject.counters || []).map(c =>
-        c.id === id ? { ...c, count: Math.max(0, c.count + delta) } : c
-      ),
-    });
+    const counters = editedProject.counters || [];
+    const c = counters.find(x => x.id === id);
+    if (!c) return;
+
+    let newCount = c.count + delta;
+    let newRepeats = c.repeats ?? 0;
+    const t = c.target;
+    if (t && t > 0) {
+      while (newCount >= t) { newCount -= t; newRepeats += 1; }
+      while (newCount < 0 && newRepeats > 0) { newCount += t; newRepeats -= 1; }
+    }
+    newCount = Math.max(0, newCount);
+
+    const updates: Partial<KnittingProject> = {
+      counters: counters.map(x => x.id === id
+        ? { ...x, count: newCount, ...(t && t > 0 ? { repeats: newRepeats } : {}) }
+        : x),
+    };
+
+    if (c.linkedToPattern) {
+      const totalRows = editedProject.pattern?.totalRows;
+      const curr = editedProject.pattern?.currentRow ?? 0;
+      let next = curr + delta;
+      if (totalRows && totalRows > 0) next = Math.min(next, totalRows);
+      next = Math.max(0, next);
+      updates.pattern = { ...editedProject.pattern, currentRow: next };
+    }
+
+    handleUpdate(updates);
   };
 
   const handleCounterDelete = (id: string) => {
@@ -316,10 +353,51 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
 
   const handleCounterSetValue = (id: string, value: number) => {
     handleUpdate({
-      counters: (editedProject.counters || []).map(c =>
-        c.id === id ? { ...c, count: Math.max(0, value) } : c
-      ),
+      counters: (editedProject.counters || []).map(c => {
+        if (c.id !== id) return c;
+        const max = c.target && c.target > 0 ? c.target - 1 : Number.MAX_SAFE_INTEGER;
+        return { ...c, count: Math.min(Math.max(0, value), max) };
+      }),
     });
+  };
+
+  const handleCounterSetTarget = (id: string, target: number | undefined) => {
+    handleUpdate({
+      counters: (editedProject.counters || []).map(c => {
+        if (c.id !== id) return c;
+        if (!target || target <= 0) {
+          const { target: _t, repeats: _r, ...rest } = c;
+          return rest as Counter;
+        }
+        return {
+          ...c,
+          target,
+          repeats: c.repeats ?? 0,
+          count: c.count >= target ? target - 1 : c.count,
+        };
+      }),
+    });
+  };
+
+  const handleCounterToggleLink = (id: string) => {
+    const counters = editedProject.counters || [];
+    const target = counters.find(c => c.id === id);
+    if (!target) return;
+    const willLink = !target.linkedToPattern;
+    handleUpdate({
+      counters: counters.map(c => ({
+        ...c,
+        linkedToPattern: c.id === id ? willLink : false,
+      })),
+    });
+  };
+
+  const handlePatternRowChange = (patch: { currentRow?: number; totalRows?: number }) => {
+    const next = { ...(editedProject.pattern ?? {}), ...patch };
+    if (next.currentRow != null) next.currentRow = Math.max(0, next.currentRow);
+    if (next.totalRows != null) next.totalRows = Math.max(0, next.totalRows);
+    if (next.totalRows && next.currentRow != null) next.currentRow = Math.min(next.currentRow, next.totalRows);
+    handleUpdate({ pattern: next });
   };
 
   const handleAddYarn = (yarn: Yarn, quantity: number) => {
@@ -805,63 +883,246 @@ export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, a
         </div>
       </div>
 
-      {/* COUNTERS — skjult inntil videre */}
-      {false && <Section title="Teller" count={(editedProject.counters || []).length}>
-        {(editedProject.counters || []).map(c => (
-          <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
+      {/* COUNTERS */}
+      {(() => {
+        const counters = editedProject.counters || [];
+        const linkedCounter = counters.find(c => c.linkedToPattern);
+        const patternCurrent = editedProject.pattern?.currentRow;
+        const patternTotal = editedProject.pattern?.totalRows;
+        const showPatternCard = patternCurrent != null || patternTotal != null || !!linkedCounter || showPatternPos;
+
+        const chipBtn = (active: boolean): React.CSSProperties => ({
+          height: 28, padding: '0 10px', borderRadius: 999,
+          border: '1px solid ' + (active ? 'var(--fg)' : 'var(--border)'),
+          background: active ? 'var(--fg)' : 'transparent',
+          color: active ? 'var(--bg)' : 'var(--muted-fg)',
+          cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 500,
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+        });
+
+        const renderPatternNumber = (field: 'currentRow' | 'totalRows', value: number | undefined, big: boolean) => {
+          const isEditing = patternRowDraft?.field === field;
+          const commit = () => {
+            const parsed = parseInt(patternRowDraft?.value ?? '', 10);
+            if (!isNaN(parsed)) handlePatternRowChange({ [field]: Math.max(0, parsed) });
+            else if ((patternRowDraft?.value ?? '').trim() === '') handlePatternRowChange({ [field]: undefined as unknown as number });
+            setPatternRowDraft(null);
+          };
+          if (isEditing) {
+            return (
               <input
+                autoFocus
                 type="number"
                 min="0"
-                value={counterInputValues[c.id] ?? String(c.count)}
-                onFocus={() => setCounterInputValues(v => ({ ...v, [c.id]: String(c.count) }))}
-                onChange={e => setCounterInputValues(v => ({ ...v, [c.id]: e.target.value }))}
-                onBlur={() => {
-                  const parsed = parseInt(counterInputValues[c.id] ?? '', 10);
-                  if (!isNaN(parsed)) handleCounterSetValue(c.id, parsed);
-                  setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
-                }}
+                value={patternRowDraft?.value ?? ''}
+                onChange={e => setPatternRowDraft({ field, value: e.target.value })}
+                onBlur={commit}
                 onKeyDown={e => {
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                  if (e.key === 'Escape') {
-                    setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
-                    (e.target as HTMLInputElement).blur();
-                  }
+                  if (e.key === 'Escape') { setPatternRowDraft(null); (e.target as HTMLInputElement).blur(); }
                 }}
-                style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent', color: 'var(--fg)', width: '5ch', outline: 'none', padding: 0, MozAppearance: 'textfield' } as React.CSSProperties}
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: big ? 34 : 16,
+                  fontWeight: 500,
+                  letterSpacing: big ? -1.2 : -0.2,
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                  border: 'none', background: 'transparent', color: 'var(--fg)',
+                  width: big ? '4ch' : '4ch', outline: 'none', padding: 0,
+                  MozAppearance: 'textfield',
+                } as React.CSSProperties}
               />
+            );
+          }
+          return (
+            <button
+              onClick={() => setPatternRowDraft({ field, value: value != null ? String(value) : '' })}
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: big ? 34 : 16,
+                fontWeight: 500,
+                letterSpacing: big ? -1.2 : -0.2,
+                lineHeight: 1,
+                fontVariantNumeric: 'tabular-nums',
+                background: 'none', border: 'none', color: big ? 'var(--fg)' : 'var(--muted-fg)',
+                cursor: 'pointer', padding: 0,
+              } as React.CSSProperties}
+            >
+              {value != null ? value : '–'}
+            </button>
+          );
+        };
+
+        return (
+      <Section title="Teller" count={counters.length}>
+        {showPatternCard && (
+          <div style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 10.5, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase', fontWeight: 500 }}>Mønsterposisjon</div>
+              {linkedCounter && <div style={{ fontSize: 11, color: 'var(--muted-fg)' }}>knyttet til «{linkedCounter.label}»</div>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => handleCounterDelete(c.id)} title="Slett teller" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
-                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>
-              <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
-              </button>
-              <button onClick={() => handleCounterChange(c.id, 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              </button>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+              {renderPatternNumber('currentRow', patternCurrent, true)}
+              <span style={{ fontSize: 13, color: 'var(--muted-fg)' }}>av</span>
+              {renderPatternNumber('totalRows', patternTotal, false)}
+              <span style={{ fontSize: 12, color: 'var(--muted-fg)', marginLeft: 'auto' }}>rader</span>
             </div>
+            {patternTotal && patternTotal > 0 && (
+              <div style={{ marginTop: 10, height: 4, background: 'var(--accent)', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{
+                  width: Math.min(100, ((patternCurrent ?? 0) / patternTotal) * 100) + '%',
+                  height: '100%', background: 'var(--primary)', transition: 'width .3s',
+                }} />
+              </div>
+            )}
           </div>
-        ))}
+        )}
+
+        {counters.map(c => {
+          const hasTarget = !!(c.target && c.target > 0);
+          const isEditingTarget = targetEditId === c.id;
+          return (
+            <div key={c.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid ' + (c.linkedToPattern ? 'var(--primary)' : 'var(--border)'), borderRadius: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500 }}>{c.label}</div>
+                  {hasTarget && (
+                    <div style={{ fontSize: 11, color: 'var(--muted-fg)', marginTop: 2 }}>
+                      mål {c.target} · gjentakelse {c.repeats ?? 0}
+                    </div>
+                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    value={counterInputValues[c.id] ?? String(c.count)}
+                    onFocus={() => setCounterInputValues(v => ({ ...v, [c.id]: String(c.count) }))}
+                    onChange={e => setCounterInputValues(v => ({ ...v, [c.id]: e.target.value }))}
+                    onBlur={() => {
+                      const parsed = parseInt(counterInputValues[c.id] ?? '', 10);
+                      if (!isNaN(parsed)) handleCounterSetValue(c.id, parsed);
+                      setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') {
+                        setCounterInputValues(v => { const next = { ...v }; delete next[c.id]; return next; });
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500, letterSpacing: -1, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', border: 'none', background: 'transparent', color: 'var(--fg)', width: '5ch', outline: 'none', padding: 0, MozAppearance: 'textfield', marginTop: 2 } as React.CSSProperties}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => handleCounterDelete(c.id)} title="Slett teller" style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+                  <button onClick={() => handleCounterChange(c.id, -1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14"/></svg>
+                  </button>
+                  <button onClick={() => handleCounterChange(c.id, 1)} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                {isEditingTarget ? (
+                  <div style={{ display: 'flex', gap: 6, flex: 1 }}>
+                    <input
+                      autoFocus
+                      type="number"
+                      min="0"
+                      placeholder="rader per gjentakelse"
+                      value={targetEditValue}
+                      onChange={e => setTargetEditValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const parsed = parseInt(targetEditValue, 10);
+                          handleCounterSetTarget(c.id, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+                          setTargetEditId(null);
+                          setTargetEditValue('');
+                        }
+                        if (e.key === 'Escape') { setTargetEditId(null); setTargetEditValue(''); }
+                      }}
+                      style={{ flex: 1, minWidth: 0, height: 28, padding: '0 10px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 12, outline: 'none' }}
+                    />
+                    <button
+                      onClick={() => {
+                        const parsed = parseInt(targetEditValue, 10);
+                        handleCounterSetTarget(c.id, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+                        setTargetEditId(null);
+                        setTargetEditValue('');
+                      }}
+                      style={{ ...chipBtn(true) }}
+                    >Lagre</button>
+                    <button
+                      onClick={() => { setTargetEditId(null); setTargetEditValue(''); }}
+                      style={chipBtn(false)}
+                    >Avbryt</button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { setTargetEditId(c.id); setTargetEditValue(c.target ? String(c.target) : ''); }}
+                      style={chipBtn(hasTarget)}
+                      title="Mål per gjentakelse"
+                    >
+                      {hasTarget ? `Mål ${c.target}` : '＋ Sett mål'}
+                    </button>
+                    {hasTarget && (
+                      <button
+                        onClick={() => handleCounterSetTarget(c.id, undefined)}
+                        style={chipBtn(false)}
+                        title="Fjern mål"
+                      >Fjern mål</button>
+                    )}
+                    <button
+                      onClick={() => handleCounterToggleLink(c.id)}
+                      style={chipBtn(!!c.linkedToPattern)}
+                      title="Knytt til mønsterposisjon"
+                    >
+                      {c.linkedToPattern ? '🔗 Knyttet til mønster' : 'Knytt til mønster'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
         {showCounterAdd ? (
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <input
               autoFocus
               placeholder="Navn på teller"
               value={newCounterLabel}
               onChange={e => setNewCounterLabel(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); } }}
-              style={{ flex: 1, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); setNewCounterTarget(''); } }}
+              style={{ flex: '2 1 160px', minWidth: 0, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
+            />
+            <input
+              type="number"
+              min="0"
+              placeholder="Mål (valgfritt)"
+              value={newCounterTarget}
+              onChange={e => setNewCounterTarget(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddCounter(); if (e.key === 'Escape') { setShowCounterAdd(false); setNewCounterLabel(''); setNewCounterTarget(''); } }}
+              style={{ flex: '1 1 110px', minWidth: 0, height: 44, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none' }}
             />
             <button onClick={handleAddCounter} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: 'none', background: 'var(--fg)', color: 'var(--bg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600 }}>Legg til</button>
-            <button onClick={() => { setShowCounterAdd(false); setNewCounterLabel(''); }} style={{ height: 44, padding: '0 12px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>✕</button>
+            <button onClick={() => { setShowCounterAdd(false); setNewCounterLabel(''); setNewCounterTarget(''); }} style={{ height: 44, padding: '0 12px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>✕</button>
           </div>
         ) : (
           <button onClick={() => setShowCounterAdd(true)} style={dashedBtn}>+ Legg til teller</button>
         )}
-      </Section>}
+
+        {!showPatternCard && (
+          <button onClick={() => setShowPatternPos(true)} style={dashedBtn}>+ Legg til mønsterposisjon</button>
+        )}
+      </Section>
+        );
+      })()}
 
       {/* YARN */}
       {(() => {

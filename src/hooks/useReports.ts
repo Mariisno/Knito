@@ -3,6 +3,12 @@ import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import type { PublicReport, ReportType } from '../types/feedback';
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error) return error;
+  return 'Ukjent feil';
+}
+
 export function useReports(accessToken: string | null, enabled: boolean) {
   const [reports, setReports] = useState<PublicReport[]>([]);
   const [loading, setLoading] = useState(false);
@@ -15,7 +21,7 @@ export function useReports(accessToken: string | null, enabled: boolean) {
       setReports(data);
     } catch (error) {
       console.error('Failed to load reports:', error);
-      toast.error('Kunne ikke laste innmeldinger');
+      toast.error(`Kunne ikke laste innmeldinger: ${errorMessage(error)}`);
     } finally {
       setLoading(false);
     }
@@ -40,7 +46,7 @@ export function useReports(accessToken: string | null, enabled: boolean) {
       return true;
     } catch (error) {
       console.error('Failed to submit report:', error);
-      toast.error('Kunne ikke sende inn. Prøv igjen.');
+      toast.error(`Kunne ikke sende inn: ${errorMessage(error)}`);
       return false;
     }
   };
@@ -65,7 +71,7 @@ export function useReports(accessToken: string | null, enabled: boolean) {
     } catch (error) {
       console.error('Failed to toggle vote:', error);
       setReports(previous);
-      toast.error('Kunne ikke registrere stemme. Prøv igjen.');
+      toast.error(`Kunne ikke registrere stemme: ${errorMessage(error)}`);
     }
   };
 

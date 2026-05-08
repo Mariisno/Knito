@@ -57,6 +57,15 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
       </div>
 
       <div className="space-y-2">
+        <Label>{t('common.color')}</Label>
+        <Input
+          value={value.color || ''}
+          onChange={e => onChange({ ...value, color: e.target.value })}
+          placeholder={t('yarn.yarnColorPlaceholder')}
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label>{t('common.image')}</Label>
         <div className="flex items-center gap-3">
           <div style={{
@@ -139,28 +148,18 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
               placeholder={t('yarn.yarnBrandPlaceholder')}
             />
           </div>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-            <div className="space-y-2">
-              <Label>{t('common.color')}</Label>
-              <Input
-                value={value.color || ''}
-                onChange={e => onChange({ ...value, color: e.target.value })}
-                placeholder={t('yarn.yarnColorPlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('yarn.weightLabel')}</Label>
-              <select
-                value={value.weight || ''}
-                onChange={e => onChange({ ...value, weight: (e.target.value || undefined) as YarnWeight | undefined })}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">{t('common.search')}...</option>
-                {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => (
-                  <option key={w} value={w}>{w}</option>
-                ))}
-              </select>
-            </div>
+          <div className="space-y-2">
+            <Label>{t('yarn.weightLabel')}</Label>
+            <select
+              value={value.weight || ''}
+              onChange={e => onChange({ ...value, weight: (e.target.value || undefined) as YarnWeight | undefined })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">{t('common.search')}...</option>
+              {['Lace','Fingering','Sport','DK','Worsted','Aran','Bulky','Super Bulky'].map(w => (
+                <option key={w} value={w}>{w}</option>
+              ))}
+            </select>
           </div>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
             <div className="space-y-2">

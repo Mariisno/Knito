@@ -65,6 +65,11 @@ export const el = {
     Planlagt: 'Προγραμματισμένα',
     Fullført: 'Ολοκληρωμένα',
   },
+  yarnFilter: {
+    all: 'Όλα',
+    withYarn: 'Με νήμα',
+    withoutYarn: 'Χωρίς νήμα',
+  },
   craft: {
     Strikking: 'Πλέξιμο',
     Hekling: 'Κροσέ',

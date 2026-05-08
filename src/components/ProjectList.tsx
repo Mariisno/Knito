@@ -274,6 +274,7 @@ export function ProjectList({
 }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
+  const [yarnFilter, setYarnFilter] = useState<'all' | 'with' | 'without'>('all');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [, startTransition] = useTransition();
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
@@ -293,6 +294,12 @@ export function ProjectList({
     { id: 'Fullført', tKey: 'statusFilter.Fullført' },
   ];
 
+  const YARN_FILTERS: Array<{ id: 'all' | 'with' | 'without'; tKey: string }> = [
+    { id: 'all',     tKey: 'yarnFilter.all' },
+    { id: 'with',    tKey: 'yarnFilter.withYarn' },
+    { id: 'without', tKey: 'yarnFilter.withoutYarn' },
+  ];
+
   const filtered = useMemo(() => {
     let list = projects;
     if (searchQuery.trim()) {
@@ -308,8 +315,14 @@ export function ProjectList({
     } else {
       list = list.filter(p => p.status === statusFilter);
     }
+    if (statusFilter === 'Planlagt' && yarnFilter !== 'all') {
+      list = list.filter(p => {
+        const hasYarn = (p.yarns?.length ?? 0) > 0;
+        return yarnFilter === 'with' ? hasYarn : !hasYarn;
+      });
+    }
     return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [projects, searchQuery, statusFilter]);
+  }, [projects, searchQuery, statusFilter, yarnFilter]);
 
   async function checkForUpdate() {
     setUpdateState('checking');
@@ -504,7 +517,10 @@ export function ProjectList({
         {FILTERS.map(f => (
           <button
             key={f.id}
-            onClick={() => startTransition(() => setStatusFilter(f.id))}
+            onClick={() => startTransition(() => {
+              setStatusFilter(f.id);
+              if (f.id !== 'Planlagt') setYarnFilter('all');
+            })}
             style={{
               display: 'inline-flex', alignItems: 'center',
               height: 30, padding: '0 12px', borderRadius: 999,
@@ -530,6 +546,30 @@ export function ProjectList({
           {view === 'list' ? <GridIcon /> : <ListIcon />}
         </button>
       </div>
+
+      {/* Yarn filter — only for Planlagt */}
+      {statusFilter === 'Planlagt' && (
+        <div style={{ padding: '0 20px 10px', display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', alignItems: 'center' }}>
+          {YARN_FILTERS.map(f => (
+            <button
+              key={f.id}
+              onClick={() => startTransition(() => setYarnFilter(f.id))}
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                height: 30, padding: '0 12px', borderRadius: 999,
+                fontSize: 13, fontWeight: 500, letterSpacing: -0.1,
+                border: '1px solid ' + (yarnFilter === f.id ? 'var(--fg)' : 'var(--border)'),
+                background: yarnFilter === f.id ? 'var(--fg)' : 'transparent',
+                color: yarnFilter === f.id ? 'var(--bg)' : 'var(--fg)',
+                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                fontFamily: 'var(--font-ui)',
+              }}
+            >
+              {t(f.tKey)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* List */}
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 20, WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' } as React.CSSProperties}>

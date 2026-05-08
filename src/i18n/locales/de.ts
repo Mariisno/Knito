@@ -65,6 +65,11 @@ export const de = {
     Planlagt: 'Geplant',
     Fullført: 'Abgeschlossen',
   },
+  yarnFilter: {
+    all: 'Alle',
+    withYarn: 'Mit Garn',
+    withoutYarn: 'Ohne Garn',
+  },
   craft: {
     Strikking: 'Stricken',
     Hekling: 'Häkeln',

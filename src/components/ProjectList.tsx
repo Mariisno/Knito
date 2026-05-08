@@ -2,8 +2,8 @@ import { useState, useMemo, useTransition } from 'react';
 import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning, Palette } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
+import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning, Palette, Globe } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { ReleaseNotesDialog, hasUnseenRelease, markVersionAsSeen } from './ReleaseNotesDialog';
@@ -425,19 +425,24 @@ export function ProjectList({
                 </span>
               </DropdownMenuItem>
             )}
-            <div style={{ padding: '6px 8px 4px 12px', fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 1.4, textTransform: 'uppercase', fontWeight: 500 }}>
-              {t('settings.language')}
-            </div>
-            {SUPPORTED_LANGUAGES.map(({ code, label }) => (
-              <DropdownMenuItem
-                key={code}
-                onClick={() => setLanguage(code as Language)}
-                className={language === code ? 'bg-accent' : undefined}
-              >
-                <span style={{ marginLeft: 24, fontWeight: language === code ? 600 : 400 }}>{label}</span>
-                {language === code && <span style={{ marginLeft: 'auto', color: 'var(--primary)' }}>✓</span>}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Globe className="mr-2 h-4 w-4" />
+                {t('settings.language')}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {SUPPORTED_LANGUAGES.map(({ code, label }) => (
+                  <DropdownMenuItem
+                    key={code}
+                    onClick={() => setLanguage(code as Language)}
+                    className={language === code ? 'bg-accent' : undefined}
+                  >
+                    <span style={{ fontWeight: language === code ? 600 : 400 }}>{label}</span>
+                    {language === code && <span style={{ marginLeft: 'auto', color: 'var(--primary)' }}>✓</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExport}>
               <Download className="mr-2 h-4 w-4" />

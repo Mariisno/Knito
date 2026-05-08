@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
@@ -66,6 +67,7 @@ interface AuthFormProps {
 
 export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: supabaseProp }: AuthFormProps) {
   const auth = useAuth();
+  const { t } = useTranslation();
   const onSignIn = _onSignIn ?? auth.signIn;
   const onSignUp = _onSignUp ?? auth.signUp;
   const supabase = supabaseProp ?? auth.supabase;
@@ -86,21 +88,21 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
     setLoading(true);
     try {
       if (isSignUp) {
-        if (!name.trim()) { toast.error('Vennligst skriv inn navn'); return; }
-        if (!termsAccepted) { toast.error('Du må godta brukervilkårene for å opprette konto'); return; }
+        if (!name.trim()) { toast.error(t('toasts.enterName')); return; }
+        if (!termsAccepted) { toast.error(t('toasts.mustAcceptTerms')); return; }
         await onSignUp(email, password, name);
-        toast.success('Konto opprettet! Du er nå logget inn.');
+        toast.success(t('toasts.accountCreated'));
       } else {
         await onSignIn(email, password);
-        toast.success('Velkommen tilbake!');
+        toast.success(t('toasts.welcomeBack'));
       }
     } catch (error: any) {
       if (error.message?.includes('Invalid login credentials')) {
-        toast.error('Feil e-post eller passord');
+        toast.error(t('toasts.invalidCredentials'));
       } else if (error.message?.includes('User already registered')) {
-        toast.error('En bruker med denne e-posten eksisterer allerede');
+        toast.error(t('toasts.userExists'));
       } else {
-        toast.error(isSignUp ? 'Kunne ikke opprette konto' : 'Kunne ikke logge inn');
+        toast.error(isSignUp ? t('toasts.couldNotCreateAccount') : t('toasts.couldNotSignIn'));
       }
     } finally {
       setLoading(false);
@@ -110,23 +112,23 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedEmail = resetEmail.trim().toLowerCase();
-    if (!normalizedEmail) { toast.error('Vennligst skriv inn e-postadressen din'); return; }
+    if (!normalizedEmail) { toast.error(t('toasts.enterEmail')); return; }
     setResetLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/#reset-password`,
       });
       if (error) throw error;
-      toast.success('Sjekk e-posten din for å tilbakestille passordet!', { description: 'Lenken er gyldig i 1 time.', duration: 10000 });
+      toast.success(t('toasts.resetSent'), { description: t('toasts.resetSentDescription'), duration: 10000 });
       setShowForgotPassword(false);
       setResetEmail('');
     } catch (error: any) {
       if (error.message?.includes('Email not confirmed')) {
-        toast.error('E-postadressen er ikke bekreftet.');
+        toast.error(t('toasts.emailNotConfirmed'));
       } else if (error.message?.includes('not found')) {
-        toast.error('Ingen bruker med denne e-postadressen.');
+        toast.error(t('toasts.userNotFound'));
       } else {
-        toast.error('Kunne ikke sende tilbakestillingslenke.', { description: 'Sjekk at e-postserveren er konfigurert i Supabase.', duration: 8000 });
+        toast.error(t('toasts.couldNotSendReset'), { description: t('toasts.couldNotSendResetDesc'), duration: 8000 });
       }
     } finally {
       setResetLoading(false);
@@ -149,20 +151,20 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
             </div>
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 500, letterSpacing: -0.8, lineHeight: 1.1, marginBottom: 8 }}>
-            {isSignUp ? 'Opprett konto' : 'Velkommen tilbake'}
+            {isSignUp ? t('auth.createAccount') : t('auth.welcomeBack')}
           </div>
           <div style={{ fontSize: 14.5, color: 'var(--muted-fg)', lineHeight: 1.5 }}>
-            {isSignUp ? 'Lag en konto for å lagre prosjektene dine' : 'Logg inn for å åpne prosjektene dine'}
+            {isSignUp ? t('auth.signUpSubtitle') : t('auth.signInSubtitle')}
           </div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: '0 clamp(20px, 6vw, 30px)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {isSignUp && (
-            <Field label="Navn" value={name} onChange={setName} placeholder="Ola Nordmann" autoComplete="name" disabled={loading} />
+            <Field label={t('auth.name')} value={name} onChange={setName} placeholder={t('auth.namePlaceholder')} autoComplete="name" disabled={loading} />
           )}
-          <Field label="E-post" type="email" value={email} onChange={setEmail} placeholder="din@epost.no" autoComplete="username" disabled={loading} />
-          <Field label="Passord" type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={isSignUp ? 'new-password' : 'current-password'} disabled={loading} />
+          <Field label={t('auth.email')} type="email" value={email} onChange={setEmail} placeholder={t('auth.emailPlaceholder')} autoComplete="username" disabled={loading} />
+          <Field label={t('auth.password')} type="password" value={password} onChange={setPassword} placeholder="••••••••" autoComplete={isSignUp ? 'new-password' : 'current-password'} disabled={loading} />
 
           {!isSignUp && (
             <div style={{ textAlign: 'right', margin: '-4px 2px 4px' }}>
@@ -171,7 +173,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
                 onClick={() => setShowForgotPassword(true)}
                 style={{ fontSize: 12.5, color: 'var(--muted-fg)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
               >
-                Glemt passord?
+                {t('auth.forgotPassword')}
               </button>
             </div>
           )}
@@ -189,7 +191,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
                 style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, cursor: 'pointer', accentColor: 'var(--primary)' }}
               />
               <span style={{ fontSize: 13, color: 'var(--muted-fg)', lineHeight: 1.45 }}>
-                Jeg godtar{' '}
+                {t('auth.acceptTermsPrefix')}{' '}
                 <button
                   type="button"
                   onClick={e => { e.preventDefault(); setShowTerms(true); }}
@@ -199,9 +201,9 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
                     fontFamily: 'var(--font-ui)', textDecoration: 'underline',
                   }}
                 >
-                  brukervilkårene
+                  {t('auth.acceptTermsLink')}
                 </button>
-                {' '}og personvernerklæringen
+                {' '}{t('auth.acceptTermsSuffix')}
               </span>
             </label>
           )}
@@ -219,7 +221,7 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
             }}
           >
             {loading && <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} className="animate-spin" />}
-            {isSignUp ? 'Opprett konto' : 'Logg inn'}
+            {isSignUp ? t('auth.createAccount') : t('auth.signIn')}
           </button>
         </form>
 
@@ -227,13 +229,13 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
 
         {/* Bottom links */}
         <div style={{ padding: '20px clamp(20px, 6vw, 30px) 40px', textAlign: 'center', fontSize: 13, color: 'var(--muted-fg)' }}>
-          {isSignUp ? 'Har du allerede en konto? ' : 'Ingen konto? '}
+          {isSignUp ? t('auth.haveAccount') : t('auth.noAccount')}
           <button
             type="button"
             onClick={() => { setIsSignUp(v => !v); setTermsAccepted(false); }}
             style={{ color: 'var(--fg)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 13 }}
           >
-            {isSignUp ? 'Logg inn' : 'Opprett en'}
+            {isSignUp ? t('auth.signIn') : t('auth.createOne')}
           </button>
         </div>
       </div>
@@ -244,18 +246,18 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
         <DialogContent className="bg-card">
           <DialogHeader>
-            <DialogTitle>Tilbakestill passord</DialogTitle>
+            <DialogTitle>{t('auth.forgotPasswordTitle')}</DialogTitle>
             <DialogDescription>
-              Skriv inn e-postadressen din, så sender vi deg en lenke for å tilbakestille passordet.
+              {t('auth.forgotPasswordDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="reset-email">E-post</Label>
+              <Label htmlFor="reset-email">{t('auth.email')}</Label>
               <Input
                 id="reset-email"
                 type="email"
-                placeholder="din@epost.no"
+                placeholder={t('auth.emailPlaceholder')}
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 disabled={resetLoading}
@@ -264,10 +266,10 @@ export function AuthForm({ onSignIn: _onSignIn, onSignUp: _onSignUp, supabase: s
             </div>
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)} disabled={resetLoading}>
-                Avbryt
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={resetLoading}>
-                {resetLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sender...</> : 'Send tilbakestillingslenke'}
+                {resetLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('common.sending')}</> : t('auth.sendResetLink')}
               </Button>
             </div>
           </form>

@@ -1,3 +1,4 @@
+import { useTranslation } from '../contexts/LanguageContext';
 
 const ProjectIcon = ({ size = 22 }: { size?: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -29,10 +30,10 @@ const StatsIcon = ({ size = 22 }: { size?: number }) => (
 );
 
 const TABS = [
-  { id: 'prosjekter', label: 'Prosjekter', Icon: ProjectIcon },
-  { id: 'garnlager',  label: 'Garn',       Icon: YarnIcon },
-  { id: 'verktoy',   label: 'Pinner',      Icon: NeedleIcon },
-  { id: 'statistikk', label: 'Statistikk', Icon: StatsIcon },
+  { id: 'prosjekter', tKey: 'tabs.projects', Icon: ProjectIcon },
+  { id: 'garnlager',  tKey: 'tabs.yarn',     Icon: YarnIcon },
+  { id: 'verktoy',    tKey: 'tabs.needles',  Icon: NeedleIcon },
+  { id: 'statistikk', tKey: 'tabs.stats',    Icon: StatsIcon },
 ] as const;
 
 export type TabId = typeof TABS[number]['id'];
@@ -43,6 +44,7 @@ interface BottomTabBarProps {
 }
 
 export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
+  const { t } = useTranslation();
   return (
     <div
       style={{
@@ -54,8 +56,9 @@ export function BottomTabBar({ activeTab, onTabChange }: BottomTabBarProps) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '10px', paddingLeft: '12px', paddingRight: '12px', paddingBottom: 'calc(6px + env(safe-area-inset-bottom))' }}>
-        {TABS.map(({ id, label, Icon }) => {
+        {TABS.map(({ id, tKey, Icon }) => {
           const active = activeTab === id;
+          const label = t(tKey);
           return (
             <button
               key={id}

@@ -104,3 +104,26 @@ Change types:
 Keep descriptions short and user-facing (what the user gains, not implementation details). Language is Norwegian bokmål.
 
 PRs that only touch infrastructure, config, or CLAUDE.md do not need a changelog entry.
+
+## Translations / i18n
+
+The app supports four languages: Norwegian bokmål (default), English, German, Greek. Translation files live in `src/i18n/locales/{nb,en,de,el}.ts` and are accessed via the `useTranslation()` hook from `src/contexts/LanguageContext.tsx`.
+
+**Any new user-visible string must be added to all four language files.** If a translation is missing for a given language, the `t()` helper falls back to the Norwegian value, so non-Norwegian users would see Norwegian text leak through.
+
+Workflow for adding user-visible text:
+
+1. Pick a key in the appropriate namespace (e.g. `projectDetail.newCounterPlaceholder`).
+2. Add it to `nb.ts` with the Norwegian source string — this is the source of truth.
+3. Add the same key to `en.ts`, `de.ts`, `el.ts` with translations.
+4. In the component, use `const { t } = useTranslation();` and reference `t('namespace.key')` instead of hardcoding the string. For interpolation, use `{{var}}` placeholders and pass `t('key', { var: value })`.
+
+Conventions:
+
+- Norwegian-keyed enum values (status `Aktiv`/`Fullført`/`Planlagt`/`På vent`/`Arkivert`, craft `Strikking`/`Hekling`, categories, needle types) are stored in the database in Norwegian and translated only at display time. Code comparisons stay against the Norwegian values; never change stored values.
+- Yarn weight names (`Lace`, `Fingering`, `DK`, ...) are international knitting terms — do not translate them.
+- For dates, use the `formatDate` / `formatDateShort` helpers in `src/utils/formatDate.ts` and pass the current language. Don't hardcode `'nb-NO'` or import a single date-fns locale directly.
+- `TermsDialog`, `PrivacyDialog`, `ReleaseNotesDialog`, and the changelog fragments stay in Norwegian only — they're legal text and dev-authored release notes.
+- Toasts (Sonner) and validation errors are user-visible and must be translated. Use `import { toast } from 'sonner@2.0.3'` per the alias gotcha above.
+
+Class components (e.g. `ErrorBoundary`) can't use the hook; for those, import `translate`, `isLanguage`, and `DEFAULT_LANGUAGE` from `src/i18n/index.ts` and read `localStorage.getItem('language')` directly.

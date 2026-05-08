@@ -3,6 +3,7 @@ import type { ReactNode, ErrorInfo } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { AlertTriangle } from 'lucide-react';
+import { isLanguage, translate, DEFAULT_LANGUAGE } from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -33,16 +34,20 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
+      const stored = (typeof window !== 'undefined') ? window.localStorage.getItem('language') : null;
+      const lang = isLanguage(stored) ? stored : DEFAULT_LANGUAGE;
+      const t = (key: string) => translate(key, lang);
+
       return (
         <div className="min-h-[400px] flex items-center justify-center p-8">
           <Card className="max-w-md w-full bg-card border-border">
             <CardHeader className="text-center">
               <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-              <CardTitle>Noe gikk galt</CardTitle>
+              <CardTitle>{t('errorBoundary.title')}</CardTitle>
             </CardHeader>
             <CardContent className="text-center space-y-4">
               <p className="text-muted-foreground">
-                En uventet feil oppsto. Prøv å laste siden på nytt.
+                {t('errorBoundary.description')}
               </p>
               <Button
                 onClick={() => {
@@ -50,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   window.location.reload();
                 }}
               >
-                Prøv igjen
+                {t('errorBoundary.reload')}
               </Button>
             </CardContent>
           </Card>

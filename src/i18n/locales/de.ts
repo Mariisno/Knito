@@ -266,6 +266,7 @@ export const de = {
     notesField: 'Notizen',
     emptyTitle: 'Kein Garn im Lager',
     emptyDescription: 'Füge dein erstes Garn hinzu, um den Überblick zu behalten',
+    noSearchResults: 'Kein Garn gefunden',
     inUse: 'In Verwendung',
     available: 'Verfügbar',
     addPhoto: 'Foto hinzufügen',

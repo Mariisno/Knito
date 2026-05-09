@@ -266,6 +266,7 @@ export const en = {
     notesField: 'Notes',
     emptyTitle: 'No yarn in your stash',
     emptyDescription: 'Add your first yarn to keep track',
+    noSearchResults: 'No yarn found',
     inUse: 'In use',
     available: 'Available',
     addPhoto: 'Add photo',

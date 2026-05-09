@@ -269,6 +269,8 @@ export const en = {
     inUse: 'In use',
     available: 'Available',
     addPhoto: 'Add photo',
+    linkToProject: 'Link to project',
+    linkToProjectPlaceholder: 'Select project (optional)',
   },
   needles: {
     title: 'Needles',

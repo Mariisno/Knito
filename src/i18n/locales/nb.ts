@@ -269,6 +269,8 @@ export const nb = {
     inUse: 'I bruk',
     available: 'Tilgjengelig',
     addPhoto: 'Legg til bilde',
+    linkToProject: 'Knytt til prosjekt',
+    linkToProjectPlaceholder: 'Velg prosjekt (valgfritt)',
   },
   needles: {
     title: 'Pinner',

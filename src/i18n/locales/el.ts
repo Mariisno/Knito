@@ -269,6 +269,8 @@ export const el = {
     inUse: 'Σε χρήση',
     available: 'Διαθέσιμο',
     addPhoto: 'Προσθήκη φωτογραφίας',
+    linkToProject: 'Σύνδεση με έργο',
+    linkToProjectPlaceholder: 'Επιλογή έργου (προαιρετικό)',
   },
   needles: {
     title: 'Βελόνες',

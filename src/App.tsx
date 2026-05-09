@@ -177,6 +177,7 @@ function AppContent() {
               onUpdateStandaloneYarns={updateStandaloneYarns}
               onUpdateStandaloneYarn={updateStandaloneYarn}
               onDeleteStandaloneYarn={deleteStandaloneYarn}
+              onUpdateProject={updateProject}
             />
           </ErrorBoundary>
         )}

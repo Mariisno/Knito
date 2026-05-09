@@ -18,6 +18,7 @@ interface YarnInventoryProps {
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
   onUpdateStandaloneYarn: (yarn: Yarn) => void;
   onDeleteStandaloneYarn: (id: string) => void;
+  onUpdateProject: (project: KnittingProject) => void;
 }
 
 const PlusIcon = () => (
@@ -53,6 +54,7 @@ export function YarnInventory({
   onUpdateStandaloneYarns,
   onUpdateStandaloneYarn,
   onDeleteStandaloneYarn,
+  onUpdateProject,
 }: YarnInventoryProps) {
   const { accessToken } = useAuth();
   const { t } = useTranslation();
@@ -63,6 +65,7 @@ export function YarnInventory({
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; usedIn: string[] } | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [addProjectId, setAddProjectId] = useState<string | null>(null);
 
   // Combine project yarns + standalone yarns into unified list
   interface YarnEntry {
@@ -167,7 +170,28 @@ export function YarnInventory({
       imageUrl: newYarn.imageUrl,
     };
     onUpdateStandaloneYarns([...standaloneYarns, yarn]);
+    if (addProjectId) {
+      const proj = projects.find(p => p.id === addProjectId);
+      if (proj) {
+        const projYarn: Yarn = {
+          id: crypto.randomUUID(),
+          standaloneYarnId: yarn.id,
+          name: yarn.name,
+          brand: yarn.brand,
+          color: yarn.color,
+          weight: yarn.weight,
+          fiberContent: yarn.fiberContent,
+          yardage: yarn.yardage,
+          dyeLot: yarn.dyeLot,
+          imageUrl: yarn.imageUrl,
+          notes: yarn.notes,
+          quantity: 1,
+        };
+        onUpdateProject({ ...proj, yarns: [...proj.yarns, projYarn] });
+      }
+    }
     setNewYarn({});
+    setAddProjectId(null);
     setShowAdd(false);
     toast.success(t('toasts.yarnAdded'));
   };
@@ -429,7 +453,7 @@ export function YarnInventory({
       </button>
 
       {/* Add dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      <Dialog open={showAdd} onOpenChange={(open) => { if (!open) { setAddProjectId(null); setNewYarn({}); } setShowAdd(open); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('yarn.addYarn')}</DialogTitle>
@@ -440,10 +464,13 @@ export function YarnInventory({
               onChange={setNewYarn}
               uploadingImg={uploadingImg}
               onUploadImage={handleUploadImage}
+              projects={projects}
+              selectedProjectId={addProjectId}
+              onProjectChange={setAddProjectId}
             />
             <div className="flex gap-2 pt-2">
               <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>{t('common.add')}</Button>
-              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">{t('common.cancel')}</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); setAddProjectId(null); }} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
         </DialogContent>

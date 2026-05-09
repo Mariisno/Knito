@@ -269,6 +269,8 @@ export const de = {
     inUse: 'In Verwendung',
     available: 'Verfügbar',
     addPhoto: 'Foto hinzufügen',
+    linkToProject: 'Mit Projekt verknüpfen',
+    linkToProjectPlaceholder: 'Projekt auswählen (optional)',
   },
   needles: {
     title: 'Nadeln',

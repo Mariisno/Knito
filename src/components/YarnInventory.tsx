@@ -145,7 +145,7 @@ export function YarnInventory({
     return true;
   });
 
-  const totalEntries = entries.length;
+  const totalQuantity = entries.reduce((sum, y) => sum + (y.quantity ?? 0), 0);
   const inUseCount = entries.filter(y => y.usedInProjects.length > 0).length;
   const colors = new Set(entries.map(y => y.color || y.name)).size;
 
@@ -250,7 +250,7 @@ export function YarnInventory({
       {/* Summary stats */}
       <div style={{ padding: '12px 20px 4px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         {[
-          { label: t('common.all'), value: totalEntries },
+          { label: t('common.all'), value: totalQuantity },
           { label: t('common.color'), value: colors },
           { label: t('yarn.inUse'), value: inUseCount },
         ].map(s => (

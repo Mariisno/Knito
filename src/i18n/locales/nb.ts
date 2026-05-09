@@ -270,6 +270,7 @@ export const nb = {
     notesField: 'Notater',
     emptyTitle: 'Ingen garn i lageret',
     emptyDescription: 'Legg til ditt første garn for å holde oversikt',
+    noSearchResults: 'Ingen garn funnet',
     inUse: 'I bruk',
     available: 'Tilgjengelig',
     inProject: 'I prosjekt',

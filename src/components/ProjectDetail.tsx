@@ -107,6 +107,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   const [newYarnData, setNewYarnData] = useState<Partial<Yarn>>({});
   const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
   const [pendingYarnQuantity, setPendingYarnQuantity] = useState(1);
+  const [yarnSearch, setYarnSearch] = useState('');
   const [yarnMenuOpenId, setYarnMenuOpenId] = useState<string | null>(null);
   const [yarnQtyEditId, setYarnQtyEditId] = useState<string | null>(null);
   const [yarnQtyEditValue, setYarnQtyEditValue] = useState<string>('');
@@ -730,6 +731,14 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
 
   const heroImage = editedProject.images[0];
   const availableYarns = standaloneYarns.filter(y => !editedProject.yarns.some(ey => ey.standaloneYarnId === y.id));
+  const filteredYarns = yarnSearch.trim()
+    ? availableYarns.filter(y => {
+        const q = yarnSearch.toLowerCase();
+        return (y.name ?? '').toLowerCase().includes(q)
+          || (y.brand ?? '').toLowerCase().includes(q)
+          || (y.color ?? '').toLowerCase().includes(q);
+      })
+    : availableYarns;
   const needleAvailability = useMemo(
     () => getAllNeedleAvailability(needleInventory, projects),
     [needleInventory, projects],
@@ -1413,7 +1422,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                 </div>
               );
             })}
-            <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ {t('projectDetail.addYarn')}</button>
+            <button onClick={() => { setShowYarnPicker(true); setYarnSearch(''); }} style={dashedBtn}>+ {t('projectDetail.addYarn')}</button>
           </Section>
         );
       })()}
@@ -1689,7 +1698,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnQuantity(1); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnQuantity(1); setYarnSearch(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? t('projects.newYarn') : t('projectDetail.addYarn')}</div>
@@ -1708,7 +1717,18 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
               </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {availableYarns.map(yarn => {
+                {availableYarns.length > 3 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 40, padding: '0 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                    <input
+                      value={yarnSearch}
+                      onChange={e => setYarnSearch(e.target.value)}
+                      placeholder={t('common.search') + '…'}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--fg)', fontFamily: 'var(--font-ui)' }}
+                    />
+                  </div>
+                )}
+                {filteredYarns.map(yarn => {
                   const isExpanded = pendingYarn?.id === yarn.id;
                   const stock = yarn.quantity ?? 0;
                   const cap = stock > 0 ? stock : 99;
@@ -1779,6 +1799,9 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                 })}
                 {availableYarns.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>{t('yarn.emptyTitle')}</div>
+                )}
+                {filteredYarns.length === 0 && availableYarns.length > 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>{t('yarn.noSearchResults')}</div>
                 )}
                 <button onClick={() => setShowNewYarnForm(true)} style={dashedBtn}>+ {t('projects.newYarn')}</button>
               </div>

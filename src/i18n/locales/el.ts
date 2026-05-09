@@ -270,6 +270,7 @@ export const el = {
     notesField: 'Σημειώσεις',
     emptyTitle: 'Δεν υπάρχουν νήματα στην αποθήκη',
     emptyDescription: 'Πρόσθεσε το πρώτο σου νήμα για να έχεις τον έλεγχο',
+    noSearchResults: 'Δε βρέθηκε νήμα',
     inUse: 'Σε χρήση',
     available: 'Διαθέσιμο',
     inProject: 'Σε έργο',

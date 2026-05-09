@@ -239,6 +239,11 @@ export const nb = {
     emptyGauge: 'Ingen strikkefasthet registrert. Klikk på knappen til høyre for å legge til.',
     emptyLog: 'Ingen loggoppføringer enda. Klikk på knappen til høyre for å legge til.',
     saveNote: 'Lagre',
+    completeDialogTitle: 'Fullfør prosjekt',
+    completeDialogBody: 'Har du garn til overs fra dette prosjektet? Oppgi antall nøster du har igjen av hvert garn.',
+    completeDialogSkeins: 'nøster',
+    completeDialogNoLeftover: 'Fullfør uten restegarn',
+    completeDialogWithLeftover: 'Fullfør og legg til restegarn',
   },
   yarn: {
     title: 'Garn',
@@ -268,6 +273,8 @@ export const nb = {
     emptyDescription: 'Legg til ditt første garn for å holde oversikt',
     inUse: 'I bruk',
     available: 'Tilgjengelig',
+    inProject: 'I prosjekt',
+    leftover: 'Restegarn',
     addPhoto: 'Legg til bilde',
   },
   needles: {

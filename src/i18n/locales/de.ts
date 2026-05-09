@@ -239,6 +239,11 @@ export const de = {
     emptyGauge: 'Keine Maschenprobe erfasst. Tippe rechts auf den Button, um sie hinzuzufügen.',
     emptyLog: 'Noch keine Einträge. Tippe rechts auf den Button, um einen hinzuzufügen.',
     saveNote: 'Speichern',
+    completeDialogTitle: 'Projekt abschließen',
+    completeDialogBody: 'Hast du Garn von diesem Projekt übrig? Gib an, wie viele Knäuel du von jedem Garn noch hast.',
+    completeDialogSkeins: 'Knäuel',
+    completeDialogNoLeftover: 'Abschließen ohne Restgarn',
+    completeDialogWithLeftover: 'Abschließen und Restgarn hinzufügen',
   },
   yarn: {
     title: 'Garn',
@@ -268,6 +273,8 @@ export const de = {
     emptyDescription: 'Füge dein erstes Garn hinzu, um den Überblick zu behalten',
     inUse: 'In Verwendung',
     available: 'Verfügbar',
+    inProject: 'Im Projekt',
+    leftover: 'Restgarn',
     addPhoto: 'Foto hinzufügen',
   },
   needles: {

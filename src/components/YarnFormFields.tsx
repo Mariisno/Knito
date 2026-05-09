@@ -47,11 +47,20 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage, p
       </div>
 
       <div className="space-y-2">
+        <Label>{t('common.brand')}</Label>
+        <Input
+          value={value.brand || ''}
+          onChange={e => onChange({ ...value, brand: e.target.value })}
+          placeholder={t('yarn.yarnBrandPlaceholder')}
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label>{t('common.quantity')}</Label>
         <Input
           type="number"
           min={0}
-          value={value.quantity ?? 1}
+          value={value.quantity ?? ''}
           onChange={e => {
             const v = e.target.value;
             onChange({ ...value, quantity: v === '' ? undefined : Math.max(0, parseInt(v, 10) || 0) });
@@ -159,14 +168,6 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage, p
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-3 pt-2">
-          <div className="space-y-2">
-            <Label>{t('common.brand')}</Label>
-            <Input
-              value={value.brand || ''}
-              onChange={e => onChange({ ...value, brand: e.target.value })}
-              placeholder={t('yarn.yarnBrandPlaceholder')}
-            />
-          </div>
           <div className="space-y-2">
             <Label>{t('yarn.weightLabel')}</Label>
             <select

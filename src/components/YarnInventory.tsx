@@ -61,7 +61,7 @@ export function YarnInventory({
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'inproject' | 'leftover'>('all');
   const [showAdd, setShowAdd] = useState(false);
-  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
+  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({ quantity: 1 });
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; usedIn: string[] } | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
@@ -190,7 +190,7 @@ export function YarnInventory({
         onUpdateProject({ ...proj, yarns: [...proj.yarns, projYarn] });
       }
     }
-    setNewYarn({});
+    setNewYarn({ quantity: 1 });
     setAddProjectId(null);
     setShowAdd(false);
     toast.success(t('toasts.yarnAdded'));
@@ -453,7 +453,7 @@ export function YarnInventory({
       </button>
 
       {/* Add dialog */}
-      <Dialog open={showAdd} onOpenChange={(open) => { if (!open) { setAddProjectId(null); setNewYarn({}); } setShowAdd(open); }}>
+      <Dialog open={showAdd} onOpenChange={(open) => { if (!open) { setAddProjectId(null); setNewYarn({ quantity: 1 }); } setShowAdd(open); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('yarn.addYarn')}</DialogTitle>
@@ -470,7 +470,7 @@ export function YarnInventory({
             />
             <div className="flex gap-2 pt-2">
               <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>{t('common.add')}</Button>
-              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); setAddProjectId(null); }} className="flex-1">{t('common.cancel')}</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({ quantity: 1 }); setAddProjectId(null); }} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
         </DialogContent>

@@ -57,7 +57,7 @@ export function YarnInventory({
   const { accessToken } = useAuth();
   const { t } = useTranslation();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
+  const [filter, setFilter] = useState<'all' | 'inproject' | 'leftover'>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
@@ -140,13 +140,13 @@ export function YarnInventory({
 
   const filtered = entries.filter(y => {
     if (q && !y.name.toLowerCase().includes(q.toLowerCase()) && !y.color?.toLowerCase().includes(q.toLowerCase())) return false;
-    if (filter === 'inuse' && y.usedInProjects.length === 0) return false;
-    if (filter === 'spare' && y.usedInProjects.length > 0) return false;
+    if (filter === 'inproject' && y.usedInProjects.length === 0) return false;
+    if (filter === 'leftover' && !(y.isStandalone && y.usedInProjects.length === 0)) return false;
     return true;
   });
 
   const totalEntries = entries.length;
-  const inUseCount = entries.filter(y => y.usedInProjects.length > 0).length;
+  const leftoverCount = entries.filter(y => y.isStandalone && y.usedInProjects.length === 0).length;
   const colors = new Set(entries.map(y => y.color || y.name)).size;
 
   const handleAdd = () => {
@@ -252,7 +252,7 @@ export function YarnInventory({
         {[
           { label: t('common.all'), value: totalEntries },
           { label: t('common.color'), value: colors },
-          { label: t('yarn.inUse'), value: inUseCount },
+          { label: t('yarn.leftover'), value: leftoverCount },
         ].map(s => (
           <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ fontSize: 10, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase' }}>{s.label}</div>
@@ -274,8 +274,8 @@ export function YarnInventory({
       <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8 }}>
         {[
           { id: 'all' as const, label: t('common.all') },
-          { id: 'inuse' as const, label: t('yarn.inUse') },
-          { id: 'spare' as const, label: t('yarn.available') },
+          { id: 'inproject' as const, label: t('yarn.inProject') },
+          { id: 'leftover' as const, label: t('yarn.leftover') },
         ].map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)} style={{
             display: 'inline-flex', alignItems: 'center',

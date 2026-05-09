@@ -238,6 +238,11 @@ export const el = {
     emptyGauge: 'Δεν έχει καταγραφεί δείγμα πλεξίματος. Πάτα το κουμπί δεξιά για να προσθέσεις.',
     emptyLog: 'Δεν υπάρχουν εγγραφές ημερολογίου. Πάτα το κουμπί δεξιά για να προσθέσεις.',
     saveNote: 'Αποθήκευση',
+    completeDialogTitle: 'Ολοκλήρωση έργου',
+    completeDialogBody: 'Σου έχει μείνει νήμα από αυτό το έργο; Εισήγαγε πόσα κουβάρια σου έχουν μείνει από κάθε νήμα.',
+    completeDialogSkeins: 'κουβάρια',
+    completeDialogNoLeftover: 'Ολοκλήρωση χωρίς υπόλοιπο νήμα',
+    completeDialogWithLeftover: 'Ολοκλήρωση και προσθήκη υπόλοιπου νήματος',
   },
   yarn: {
     title: 'Νήματα',
@@ -267,6 +272,8 @@ export const el = {
     emptyDescription: 'Πρόσθεσε το πρώτο σου νήμα για να έχεις τον έλεγχο',
     inUse: 'Σε χρήση',
     available: 'Διαθέσιμο',
+    inProject: 'Σε έργο',
+    leftover: 'Υπόλοιπο νήμα',
     addPhoto: 'Προσθήκη φωτογραφίας',
   },
   needles: {

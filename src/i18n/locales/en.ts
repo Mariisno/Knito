@@ -238,6 +238,11 @@ export const en = {
     emptyGauge: 'No gauge recorded. Tap the button on the right to add one.',
     emptyLog: 'No log entries yet. Tap the button on the right to add one.',
     saveNote: 'Save',
+    completeDialogTitle: 'Complete project',
+    completeDialogBody: 'Do you have yarn left over from this project? Enter how many skeins you have left of each yarn.',
+    completeDialogSkeins: 'skeins',
+    completeDialogNoLeftover: 'Complete without leftover yarn',
+    completeDialogWithLeftover: 'Complete and add leftover yarn',
   },
   yarn: {
     title: 'Yarn',
@@ -267,6 +272,8 @@ export const en = {
     emptyDescription: 'Add your first yarn to keep track',
     inUse: 'In use',
     available: 'Available',
+    inProject: 'In project',
+    leftover: 'Leftover yarn',
     addPhoto: 'Add photo',
   },
   needles: {

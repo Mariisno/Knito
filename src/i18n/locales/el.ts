@@ -278,6 +278,9 @@ export const el = {
     addPhoto: 'Προσθήκη φωτογραφίας',
     linkToProject: 'Σύνδεση με έργο',
     linkToProjectPlaceholder: 'Επιλογή έργου (προαιρετικό)',
+    templateLabel: 'Αντιγραφή από υπάρχον νήμα',
+    templatePlaceholder: 'Επιλογή προτύπου (προαιρετικό)',
+    duplicate: 'Αντιγραφή νήματος',
   },
   needles: {
     title: 'Βελόνες',

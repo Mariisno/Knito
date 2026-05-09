@@ -24,7 +24,7 @@ import { toast } from 'sonner@2.0.3';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useTranslation } from './contexts/LanguageContext';
 import { useProjects } from './hooks/useProjects';
-import type { KnittingProject, NeedleInventoryItem, Yarn } from './types/knitting';
+import type { KnittingProject, NeedleInventoryItem, ProjectStatus, Yarn } from './types/knitting';
 import { exportAllDataAsJSON } from './utils/export';
 
 // DIAGNOSTIC MODE - Set to false to return to normal app
@@ -89,6 +89,7 @@ function AppContent() {
   } = useProjects(accessToken);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newProjectDefaultStatus, setNewProjectDefaultStatus] = useState<ProjectStatus | undefined>(undefined);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('prosjekter');
@@ -98,7 +99,10 @@ function AppContent() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'n' || e.key === 'N') setIsAddDialogOpen(true);
+      if (e.key === 'n' || e.key === 'N') {
+        setNewProjectDefaultStatus(undefined);
+        setIsAddDialogOpen(true);
+      }
       if (e.key === 'Escape' && isAddDialogOpen) setIsAddDialogOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -147,7 +151,10 @@ function AppContent() {
               projects={projects}
               onSelectProject={(id) => navigate(`/projects/${id}`)}
               onProgressChange={changeProgress}
-              onNewProject={() => setIsAddDialogOpen(true)}
+              onNewProject={(status) => {
+                setNewProjectDefaultStatus(status);
+                setIsAddDialogOpen(true);
+              }}
               onSignOut={handleSignOut}
               onToggleTheme={toggleTheme}
               theme={theme}
@@ -201,6 +208,7 @@ function AppContent() {
         needleInventory={needleInventory}
         onUpdateStandaloneYarns={updateStandaloneYarns}
         onUpdateNeedleInventory={updateNeedleInventory}
+        defaultStatus={newProjectDefaultStatus}
       />
 
       <PrivacyDialog

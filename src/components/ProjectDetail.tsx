@@ -15,6 +15,8 @@ import { YarnFormFields } from './YarnFormFields';
 import { format } from 'date-fns';
 import { useTranslation } from '../contexts/LanguageContext';
 import { getDateFnsLocale } from '../utils/formatDate';
+import { useDesignVersion } from '../contexts/DesignVersionContext';
+import { ProjectDetailV3 } from './ProjectDetailV3';
 
 interface ProjectDetailProps {
   project: KnittingProject;
@@ -68,7 +70,15 @@ const needleFieldInput: React.CSSProperties = {
   color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14, outline: 'none',
 };
 
-export function ProjectDetail({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
+export function ProjectDetail(props: ProjectDetailProps) {
+  const { version } = useDesignVersion();
+  if (version === 'v3') {
+    return <ProjectDetailV3 {...props} />;
+  }
+  return <ProjectDetailInner {...props} />;
+}
+
+function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
   const { t, language } = useTranslation();
   const dateLocale = getDateFnsLocale(language);
   const [editedProject, setEditedProject] = useState(project);

@@ -2,6 +2,7 @@ import { useState, useMemo, useTransition } from 'react';
 import type { KnittingProject, ProjectStatus } from '../types/knitting';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { ProgressBar } from './ProgressBar';
+import { ProjectListV3 } from './ProjectListV3';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
 import { Moon, Sun, Download, LogOut, Sparkles, Shield, CircleUserRound, RefreshCw, MessageSquareWarning, Palette, Globe } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -263,11 +264,32 @@ interface ProjectListProps {
   onExport: () => void;
   onPrivacy: () => void;
   onFeedback: () => void;
-  designVersion?: 'v1' | 'v2';
+  designVersion?: 'v1' | 'v2' | 'v3';
   onToggleDesignVersion?: () => void;
 }
 
-export function ProjectList({
+export function ProjectList(props: ProjectListProps) {
+  if (props.designVersion === 'v3') {
+    return (
+      <ProjectListV3
+        projects={props.projects}
+        onSelectProject={props.onSelectProject}
+        onNewProject={props.onNewProject}
+        onSignOut={props.onSignOut}
+        onToggleTheme={props.onToggleTheme}
+        theme={props.theme}
+        onExport={props.onExport}
+        onPrivacy={props.onPrivacy}
+        onFeedback={props.onFeedback}
+        designVersion={props.designVersion}
+        onToggleDesignVersion={props.onToggleDesignVersion}
+      />
+    );
+  }
+  return <ProjectListInner {...props} />;
+}
+
+function ProjectListInner({
   projects, onSelectProject, onProgressChange,
   onNewProject, onSignOut, onToggleTheme, theme, onExport, onPrivacy, onFeedback,
   designVersion = 'v1', onToggleDesignVersion,
@@ -412,7 +434,7 @@ export function ProjectList({
             {onToggleDesignVersion && (
               <DropdownMenuItem onClick={onToggleDesignVersion}>
                 <Palette className="mr-2 h-4 w-4" />
-                {designVersion === 'v1' ? t('settings.tryDesignV2') : t('settings.useDesignV1')}
+                {designVersion === 'v1' ? t('settings.tryDesignV2') : t('settings.tryDesignV3')}
                 <span style={{
                   marginLeft: 'auto',
                   fontSize: 10,

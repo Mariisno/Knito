@@ -12,6 +12,7 @@ import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { YarnFormFields } from './YarnFormFields';
+import { DrawingCanvas } from './DrawingCanvas';
 import { format } from 'date-fns';
 import { useTranslation } from '../contexts/LanguageContext';
 import { getDateFnsLocale } from '../utils/formatDate';
@@ -91,6 +92,9 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   const [editingPatternUrl, setEditingPatternUrl] = useState(false);
   const [patternUrlDraft, setPatternUrlDraft] = useState('');
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [showDrawingModal, setShowDrawingModal] = useState(false);
+  const [drawingBgUrl, setDrawingBgUrl] = useState<string | undefined>(undefined);
+  const [savingDrawing, setSavingDrawing] = useState(false);
   const [noteInput, setNoteInput] = useState('');
   const [logImageFile, setLogImageFile] = useState<File | null>(null);
   const [logImagePreview, setLogImagePreview] = useState<string | null>(null);
@@ -261,6 +265,30 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
     const newImages = editedProject.images.filter((_, i) => i !== index);
     handleUpdate({ images: newImages });
     toast.success(t('projectDetail.deleteImage'));
+  };
+
+  const openDrawingFromImage = () => {
+    setDrawingBgUrl(editedProject.images[currentImgIdx]);
+    setShowDrawingModal(true);
+  };
+
+  const openBlankDrawing = () => {
+    setDrawingBgUrl(undefined);
+    setShowDrawingModal(true);
+  };
+
+  const handleDrawingSave = async (file: File) => {
+    setSavingDrawing(true);
+    try {
+      const url = await api.uploadImage(file, accessToken);
+      handleUpdate({ images: [url, ...editedProject.images] });
+      toast.success(t('drawing.saved'));
+      setShowDrawingModal(false);
+    } catch {
+      toast.error(t('toasts.imageUploadFailed'));
+    } finally {
+      setSavingDrawing(false);
+    }
   };
 
   const handleLogImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -756,6 +784,19 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
             style={{ position: 'absolute', bottom: 12, left: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}
           >
             <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        )}
+        {/* draw on current image button */}
+        {editedProject.images.length > 0 && (
+          <button
+            onClick={openDrawingFromImage}
+            title={t('drawing.drawOnImage')}
+            aria-label={t('drawing.drawOnImage')}
+            style={{ position: 'absolute', bottom: 12, right: 56, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}
+          >
+            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
+            </svg>
           </button>
         )}
         {/* camera button to change current image */}
@@ -1443,6 +1484,12 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
         </Section>
       )}
 
+      <Section title={t('drawing.sketches')}>
+        <button onClick={openBlankDrawing} style={dashedBtn}>
+          + {t('drawing.newSketch')}
+        </button>
+      </Section>
+
       {/* LOG ENTRIES + INPUT */}
       <div style={{ padding: '14px 20px 2px' }}>
         <div style={{ fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--muted-fg)', fontWeight: 500, padding: '0 2px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -1970,6 +2017,14 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
         </AlertDialogContent>
       </AlertDialog>
 
+
+      <DrawingCanvas
+        open={showDrawingModal}
+        onClose={() => setShowDrawingModal(false)}
+        onSave={handleDrawingSave}
+        backgroundUrl={drawingBgUrl}
+        saving={savingDrawing}
+      />
 
       {showHeroLightbox && editedProject.images[currentImgIdx] && (
         <div

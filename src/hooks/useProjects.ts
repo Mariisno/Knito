@@ -149,7 +149,7 @@ export function useProjects(accessToken: string | null) {
   };
 
   // Fields that are shared between an inventory yarn and the project copies that link to it.
-  // `id`, `standaloneYarnId`, `amount`, `quantity`, `quantityUsed` (project-specific) and `price`
+  // `id`, `standaloneYarnId`, `amount`, `quantityUsed` (project-specific) and `price`
   // (inventory-only) are intentionally excluded.
   const SHARED_YARN_FIELDS = ['name', 'brand', 'color', 'weight', 'fiberContent', 'yardage', 'dyeLot', 'imageUrl', 'notes'] as const;
 
@@ -159,7 +159,7 @@ export function useProjects(accessToken: string | null) {
       standaloneYarnId: projectYarn.standaloneYarnId,
       name: source.name,
       amount: projectYarn.amount,
-      quantity: projectYarn.quantity,
+      quantity: source.quantity,
       quantityUsed: projectYarn.quantityUsed,
     };
     for (const field of SHARED_YARN_FIELDS) {

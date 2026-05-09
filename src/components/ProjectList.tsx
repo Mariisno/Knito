@@ -256,7 +256,7 @@ interface ProjectListProps {
   projects: KnittingProject[];
   onSelectProject: (id: string) => void;
   onProgressChange?: (projectId: string, newProgress: number) => void;
-  onNewProject: () => void;
+  onNewProject: (defaultStatus?: ProjectStatus) => void;
   onSignOut: () => void;
   onToggleTheme: () => void;
   theme: string;
@@ -323,6 +323,10 @@ export function ProjectList({
     }
     return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [projects, searchQuery, statusFilter, yarnFilter]);
+
+  const startNewProject = () => {
+    onNewProject(statusFilter !== 'Alle' ? statusFilter : undefined);
+  };
 
   async function checkForUpdate() {
     setUpdateState('checking');
@@ -574,7 +578,7 @@ export function ProjectList({
       {/* List */}
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 20, WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain' } as React.CSSProperties}>
         {filtered.length === 0 ? (
-          <EmptyState onNew={onNewProject} />
+          <EmptyState onNew={startNewProject} />
         ) : view === 'grid' ? (
           <div style={{ padding: '4px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
             {filtered.map(p => (
@@ -605,7 +609,7 @@ export function ProjectList({
 
       {/* FAB */}
       <button
-        onClick={onNewProject}
+        onClick={startNewProject}
         style={{
           position: 'absolute', right: 20, bottom: 80, zIndex: 25,
           height: 54, padding: '0 20px 0 16px', borderRadius: 999,

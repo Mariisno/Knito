@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import type { KnittingProject, Yarn, Needle, NeedleInventoryItem, CraftType } from '../types/knitting';
+import type { KnittingProject, Yarn, Needle, NeedleInventoryItem, CraftType, ProjectStatus } from '../types/knitting';
 import * as api from '../utils/api';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import { useTranslation } from '../contexts/LanguageContext';
@@ -18,11 +18,12 @@ interface AddProjectDialogProps {
   needleInventory: NeedleInventoryItem[];
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
   onUpdateNeedleInventory: (needles: NeedleInventoryItem[]) => void;
+  defaultStatus?: ProjectStatus;
 }
 
 const CATEGORIES = ['Genser', 'Sjal', 'Sokker', 'Kofte', 'Teppe', 'Lue', 'Annet'];
 
-export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdateProject, accessToken, standaloneYarns, needleInventory, onUpdateStandaloneYarns, onUpdateNeedleInventory }: AddProjectDialogProps) {
+export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdateProject, accessToken, standaloneYarns, needleInventory, onUpdateStandaloneYarns, onUpdateNeedleInventory, defaultStatus }: AddProjectDialogProps) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [craftType, setCraftType] = useState<CraftType>('Strikking');
@@ -101,7 +102,7 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
       craftType,
       category: category || undefined,
       progress: 0,
-      status: 'Planlagt',
+      status: defaultStatus ?? 'Planlagt',
       images: uploadedImages,
       yarns: selectedYarns,
       needles: selectedNeedles,

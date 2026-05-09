@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { Yarn, YarnWeight } from '../types/knitting';
+import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -15,9 +15,12 @@ interface YarnFormFieldsProps {
   onChange: (next: YarnFormValue) => void;
   uploadingImg: boolean;
   onUploadImage: (file: File, setUrl: (url: string) => void) => Promise<void> | void;
+  projects?: KnittingProject[];
+  selectedProjectId?: string | null;
+  onProjectChange?: (id: string | null) => void;
 }
 
-export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }: YarnFormFieldsProps) {
+export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage, projects, selectedProjectId, onProjectChange }: YarnFormFieldsProps) {
   const { t } = useTranslation();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [imageSourceOpen, setImageSourceOpen] = useState(false);
@@ -44,11 +47,20 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
       </div>
 
       <div className="space-y-2">
+        <Label>{t('common.brand')}</Label>
+        <Input
+          value={value.brand || ''}
+          onChange={e => onChange({ ...value, brand: e.target.value })}
+          placeholder={t('yarn.yarnBrandPlaceholder')}
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label>{t('common.quantity')}</Label>
         <Input
           type="number"
           min={0}
-          value={value.quantity ?? 1}
+          value={value.quantity ?? ''}
           onChange={e => {
             const v = e.target.value;
             onChange({ ...value, quantity: v === '' ? undefined : Math.max(0, parseInt(v, 10) || 0) });
@@ -64,6 +76,22 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
           placeholder={t('yarn.yarnColorPlaceholder')}
         />
       </div>
+
+      {projects && projects.length > 0 && onProjectChange && (
+        <div className="space-y-2">
+          <Label>{t('yarn.linkToProject')}</Label>
+          <select
+            value={selectedProjectId ?? ''}
+            onChange={e => onProjectChange(e.target.value || null)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">{t('yarn.linkToProjectPlaceholder')}</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label>{t('common.image')}</Label>
@@ -140,14 +168,6 @@ export function YarnFormFields({ value, onChange, uploadingImg, onUploadImage }:
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-3 pt-2">
-          <div className="space-y-2">
-            <Label>{t('common.brand')}</Label>
-            <Input
-              value={value.brand || ''}
-              onChange={e => onChange({ ...value, brand: e.target.value })}
-              placeholder={t('yarn.yarnBrandPlaceholder')}
-            />
-          </div>
           <div className="space-y-2">
             <Label>{t('yarn.weightLabel')}</Label>
             <select

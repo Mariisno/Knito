@@ -18,6 +18,7 @@ interface YarnInventoryProps {
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
   onUpdateStandaloneYarn: (yarn: Yarn) => void;
   onDeleteStandaloneYarn: (id: string) => void;
+  onUpdateProject: (project: KnittingProject) => void;
 }
 
 const PlusIcon = () => (
@@ -53,16 +54,18 @@ export function YarnInventory({
   onUpdateStandaloneYarns,
   onUpdateStandaloneYarn,
   onDeleteStandaloneYarn,
+  onUpdateProject,
 }: YarnInventoryProps) {
   const { accessToken } = useAuth();
   const { t } = useTranslation();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
+  const [filter, setFilter] = useState<'all' | 'inproject' | 'leftover'>('all');
   const [showAdd, setShowAdd] = useState(false);
-  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
+  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({ quantity: 1 });
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; usedIn: string[] } | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [addProjectId, setAddProjectId] = useState<string | null>(null);
 
   // Combine project yarns + standalone yarns into unified list
   interface YarnEntry {
@@ -140,13 +143,13 @@ export function YarnInventory({
 
   const filtered = entries.filter(y => {
     if (q && !y.name.toLowerCase().includes(q.toLowerCase()) && !y.color?.toLowerCase().includes(q.toLowerCase())) return false;
-    if (filter === 'inuse' && y.usedInProjects.length === 0) return false;
-    if (filter === 'spare' && y.usedInProjects.length > 0) return false;
+    if (filter === 'inproject' && y.usedInProjects.length === 0) return false;
+    if (filter === 'leftover' && !(y.isStandalone && y.usedInProjects.length === 0)) return false;
     return true;
   });
 
   const totalQuantity = entries.reduce((sum, y) => sum + (y.quantity ?? 0), 0);
-  const inUseCount = entries.filter(y => y.usedInProjects.length > 0).length;
+  const leftoverCount = entries.filter(y => y.isStandalone && y.usedInProjects.length === 0).length;
   const colors = new Set(entries.map(y => y.color || y.name)).size;
 
   const handleAdd = () => {
@@ -167,7 +170,28 @@ export function YarnInventory({
       imageUrl: newYarn.imageUrl,
     };
     onUpdateStandaloneYarns([...standaloneYarns, yarn]);
-    setNewYarn({});
+    if (addProjectId) {
+      const proj = projects.find(p => p.id === addProjectId);
+      if (proj) {
+        const projYarn: Yarn = {
+          id: crypto.randomUUID(),
+          standaloneYarnId: yarn.id,
+          name: yarn.name,
+          brand: yarn.brand,
+          color: yarn.color,
+          weight: yarn.weight,
+          fiberContent: yarn.fiberContent,
+          yardage: yarn.yardage,
+          dyeLot: yarn.dyeLot,
+          imageUrl: yarn.imageUrl,
+          notes: yarn.notes,
+          quantity: 1,
+        };
+        onUpdateProject({ ...proj, yarns: [...proj.yarns, projYarn] });
+      }
+    }
+    setNewYarn({ quantity: 1 });
+    setAddProjectId(null);
     setShowAdd(false);
     toast.success(t('toasts.yarnAdded'));
   };
@@ -252,7 +276,7 @@ export function YarnInventory({
         {[
           { label: t('common.all'), value: totalQuantity },
           { label: t('common.color'), value: colors },
-          { label: t('yarn.inUse'), value: inUseCount },
+          { label: t('yarn.leftover'), value: leftoverCount },
         ].map(s => (
           <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ fontSize: 10, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase' }}>{s.label}</div>
@@ -274,8 +298,8 @@ export function YarnInventory({
       <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8 }}>
         {[
           { id: 'all' as const, label: t('common.all') },
-          { id: 'inuse' as const, label: t('yarn.inUse') },
-          { id: 'spare' as const, label: t('yarn.available') },
+          { id: 'inproject' as const, label: t('yarn.inProject') },
+          { id: 'leftover' as const, label: t('yarn.leftover') },
         ].map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)} style={{
             display: 'inline-flex', alignItems: 'center',
@@ -429,7 +453,7 @@ export function YarnInventory({
       </button>
 
       {/* Add dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      <Dialog open={showAdd} onOpenChange={(open) => { if (!open) { setAddProjectId(null); setNewYarn({ quantity: 1 }); } setShowAdd(open); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('yarn.addYarn')}</DialogTitle>
@@ -440,10 +464,13 @@ export function YarnInventory({
               onChange={setNewYarn}
               uploadingImg={uploadingImg}
               onUploadImage={handleUploadImage}
+              projects={projects}
+              selectedProjectId={addProjectId}
+              onProjectChange={setAddProjectId}
             />
             <div className="flex gap-2 pt-2">
               <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>{t('common.add')}</Button>
-              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">{t('common.cancel')}</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({ quantity: 1 }); setAddProjectId(null); }} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
         </DialogContent>

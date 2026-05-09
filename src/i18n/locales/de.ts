@@ -278,6 +278,9 @@ export const de = {
     addPhoto: 'Foto hinzufügen',
     linkToProject: 'Mit Projekt verknüpfen',
     linkToProjectPlaceholder: 'Projekt auswählen (optional)',
+    templateLabel: 'Aus vorhandenem Garn kopieren',
+    templatePlaceholder: 'Vorlage wählen (optional)',
+    duplicate: 'Garn duplizieren',
   },
   needles: {
     title: 'Nadeln',

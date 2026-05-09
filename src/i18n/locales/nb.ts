@@ -278,6 +278,9 @@ export const nb = {
     addPhoto: 'Legg til bilde',
     linkToProject: 'Knytt til prosjekt',
     linkToProjectPlaceholder: 'Velg prosjekt (valgfritt)',
+    templateLabel: 'Kopier fra eksisterende garn',
+    templatePlaceholder: 'Velg mal (valgfritt)',
+    duplicate: 'Dupliser garn',
   },
   needles: {
     title: 'Pinner',

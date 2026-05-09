@@ -278,6 +278,9 @@ export const en = {
     addPhoto: 'Add photo',
     linkToProject: 'Link to project',
     linkToProjectPlaceholder: 'Select project (optional)',
+    templateLabel: 'Copy from existing yarn',
+    templatePlaceholder: 'Choose template (optional)',
+    duplicate: 'Duplicate yarn',
   },
   needles: {
     title: 'Needles',

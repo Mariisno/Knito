@@ -295,7 +295,7 @@ function ProjectListInner({
   designVersion = 'v1', onToggleDesignVersion,
 }: ProjectListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'Alle'>('Alle');
+  const [statusFilter, setStatusFilter] = useState<ProjectStatus>('Aktiv');
   const [yarnFilter, setYarnFilter] = useState<'all' | 'with' | 'without'>('all');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [, startTransition] = useTransition();
@@ -308,8 +308,7 @@ function ProjectListInner({
   const { t, language, setLanguage } = useTranslation();
   const firstName = user?.name ? user.name.split(' ')[0] : user?.email?.split('@')[0] ?? '';
 
-  const FILTERS: Array<{ id: ProjectStatus | 'Alle'; tKey: string }> = [
-    { id: 'Alle',     tKey: 'statusFilter.Alle' },
+  const FILTERS: Array<{ id: ProjectStatus; tKey: string }> = [
     { id: 'Aktiv',    tKey: 'statusFilter.Aktiv' },
     { id: 'På vent',  tKey: 'statusFilter.På vent' },
     { id: 'Planlagt', tKey: 'statusFilter.Planlagt' },
@@ -332,11 +331,7 @@ function ProjectListInner({
         p.notes?.toLowerCase().includes(q)
       );
     }
-    if (statusFilter === 'Alle') {
-      list = list.filter(p => p.status !== 'Arkivert');
-    } else {
-      list = list.filter(p => p.status === statusFilter);
-    }
+    list = list.filter(p => p.status === statusFilter);
     if (statusFilter === 'Planlagt' && yarnFilter !== 'all') {
       list = list.filter(p => {
         const hasYarn = (p.yarns?.length ?? 0) > 0;
@@ -347,7 +342,7 @@ function ProjectListInner({
   }, [projects, searchQuery, statusFilter, yarnFilter]);
 
   const startNewProject = () => {
-    onNewProject(statusFilter !== 'Alle' ? statusFilter : undefined);
+    onNewProject(statusFilter);
   };
 
   async function checkForUpdate() {

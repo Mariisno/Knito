@@ -59,7 +59,6 @@ export const de = {
     Arkivert: 'Archiviert',
   },
   statusFilter: {
-    Alle: 'Alle',
     Aktiv: 'Aktiv',
     'På vent': 'Pausiert',
     Planlagt: 'Geplant',

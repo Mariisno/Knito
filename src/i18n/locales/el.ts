@@ -59,7 +59,6 @@ export const el = {
     Arkivert: 'Αρχειοθετημένο',
   },
   statusFilter: {
-    Alle: 'Όλα',
     Aktiv: 'Ενεργά',
     'På vent': 'Σε αναμονή',
     Planlagt: 'Προγραμματισμένα',

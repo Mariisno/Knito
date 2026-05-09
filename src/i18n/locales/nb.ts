@@ -275,6 +275,8 @@ export const nb = {
     inProject: 'I prosjekt',
     leftover: 'Restegarn',
     addPhoto: 'Legg til bilde',
+    linkToProject: 'Knytt til prosjekt',
+    linkToProjectPlaceholder: 'Velg prosjekt (valgfritt)',
   },
   needles: {
     title: 'Pinner',

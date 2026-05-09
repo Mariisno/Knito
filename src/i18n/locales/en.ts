@@ -275,6 +275,8 @@ export const en = {
     inProject: 'In project',
     leftover: 'Leftover yarn',
     addPhoto: 'Add photo',
+    linkToProject: 'Link to project',
+    linkToProjectPlaceholder: 'Select project (optional)',
   },
   needles: {
     title: 'Needles',

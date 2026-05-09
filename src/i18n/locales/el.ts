@@ -275,6 +275,8 @@ export const el = {
     inProject: 'Σε έργο',
     leftover: 'Υπόλοιπο νήμα',
     addPhoto: 'Προσθήκη φωτογραφίας',
+    linkToProject: 'Σύνδεση με έργο',
+    linkToProjectPlaceholder: 'Επιλογή έργου (προαιρετικό)',
   },
   needles: {
     title: 'Βελόνες',

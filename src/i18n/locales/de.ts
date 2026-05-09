@@ -275,6 +275,8 @@ export const de = {
     inProject: 'Im Projekt',
     leftover: 'Restgarn',
     addPhoto: 'Foto hinzufügen',
+    linkToProject: 'Mit Projekt verknüpfen',
+    linkToProjectPlaceholder: 'Projekt auswählen (optional)',
   },
   needles: {
     title: 'Nadeln',

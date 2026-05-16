@@ -118,8 +118,7 @@ export const de = {
     title: 'Projekte',
     greeting: 'Hallo, {{name}}!',
     searchPlaceholder: 'Projekte durchsuchen…',
-    sectionActive: 'Aktiv',
-    sectionOther: 'Sonstige',
+
     emptyTitle: 'Noch keine Projekte',
     emptyDescription: 'Beginne dein erstes Strickprojekt',
     newProject: 'Neues Projekt',

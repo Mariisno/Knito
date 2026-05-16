@@ -3,6 +3,7 @@ import useEmblaCarousel from 'embla-carousel-react@8.6.0';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import type { KnittingProject, ProjectStatus, CraftType, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
 import { getAllNeedleAvailability, syncNeedleToInventory } from '../utils/needles';
+import { getAllYarnAvailability } from '../utils/yarns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -128,6 +129,8 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   const [patternRowDraft, setPatternRowDraft] = useState<{ field: 'currentRow' | 'totalRows'; value: string } | null>(null);
   const [showPatternPos, setShowPatternPos] = useState(false);
   const [showHeroLightbox, setShowHeroLightbox] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [completionUsage, setCompletionUsage] = useState<Record<string, number>>({});
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const coverImgInputRef = useRef<HTMLInputElement>(null);
@@ -741,7 +744,16 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   };
 
   const heroImage = editedProject.images[0];
-  const availableYarns = standaloneYarns.filter(y => !editedProject.yarns.some(ey => ey.standaloneYarnId === y.id));
+  const yarnAvailability = useMemo(
+    () => getAllYarnAvailability(standaloneYarns, projects),
+    [standaloneYarns, projects],
+  );
+  const availableYarns = standaloneYarns.filter(y => {
+    if (editedProject.yarns.some(ey => ey.standaloneYarnId === y.id)) return false;
+    const a = yarnAvailability.get(y.id);
+    if (!a || a.totalQuantity === 0) return true;
+    return a.availableCount > 0;
+  });
   const filteredYarns = yarnSearch.trim()
     ? availableYarns.filter(y => {
         const q = yarnSearch.toLowerCase();
@@ -851,6 +863,21 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                 <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 51, minWidth: 160, padding: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 12px 28px -8px color-mix(in oklab, var(--fg) 30%, transparent)' }}>
                   {STATUS_OPTIONS.map(s => (
                     <button key={s} onClick={() => {
+                      if (s === 'Fullført' && editedProject.status !== 'Fullført') {
+                        const yarnsWithLink = editedProject.yarns.filter(y => y.standaloneYarnId);
+                        if (yarnsWithLink.length > 0) {
+                          const initial: Record<string, number> = {};
+                          for (const y of yarnsWithLink) {
+                            const allocated = y.quantity ?? 1;
+                            const consumed = y.quantityUsed ?? 0;
+                            initial[y.id] = Math.min(allocated, Math.max(consumed, allocated));
+                          }
+                          setCompletionUsage(initial);
+                          setShowCompleteDialog(true);
+                          setShowStatusMenu(false);
+                          return;
+                        }
+                      }
                       const updates: Partial<KnittingProject> = { status: s };
                       if (s === 'Fullført' && editedProject.progress < 100) {
                         updates.progress = 100;
@@ -1741,7 +1768,9 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                 )}
                 {filteredYarns.map(yarn => {
                   const isExpanded = pendingYarn?.id === yarn.id;
-                  const stock = yarn.quantity ?? 0;
+                  const av = yarnAvailability.get(yarn.id);
+                  const total = yarn.quantity ?? 0;
+                  const stock = av && total > 0 ? av.availableCount : total;
                   const cap = stock > 0 ? stock : 99;
                   return (
                     <div key={yarn.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
@@ -1766,7 +1795,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                           <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>{[yarn.brand, yarn.weight].filter(Boolean).join(' · ')}</div>
                         </div>
                         <div style={{ fontSize: 11.5, color: 'var(--muted-fg)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                          På lager: {stock}
+                          {total > 0 ? t('yarn.availableCount', { count: stock }) : t('yarn.noStock')}
                         </div>
                       </button>
                       {isExpanded && (
@@ -2008,6 +2037,89 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
               className="flex-1 bg-destructive hover:bg-destructive/90"
             >
               Fjern
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCompleteDialog} onOpenChange={(open) => { if (!open) { setShowCompleteDialog(false); setCompletionUsage({}); } }}>
+        <AlertDialogContent className="bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('completion.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('completion.yarnPrompt')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0', maxHeight: '50vh', overflowY: 'auto' }}>
+            {editedProject.yarns.filter(y => y.standaloneYarnId).map(y => {
+              const allocated = y.quantity ?? 1;
+              const value = completionUsage[y.id] ?? y.quantityUsed ?? 0;
+              return (
+                <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>
+                      {t('completion.allocated', { count: allocated })}
+                    </div>
+                  </div>
+                  <select
+                    value={value}
+                    onChange={e => setCompletionUsage(prev => ({ ...prev, [y.id]: parseInt(e.target.value, 10) }))}
+                    style={{ height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14 }}
+                  >
+                    {Array.from({ length: allocated + 1 }, (_, i) => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+          <AlertDialogFooter className="flex-row gap-2 mt-4">
+            <AlertDialogCancel className="flex-1" onClick={() => setCompletionUsage({})}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="flex-1"
+              onClick={() => {
+                const updatedYarns = editedProject.yarns.map(y => {
+                  if (!y.standaloneYarnId) return y;
+                  const chosen = completionUsage[y.id] ?? y.quantityUsed ?? 0;
+                  const allocated = y.quantity ?? 1;
+                  const finalUsed = Math.max(0, Math.min(allocated, chosen));
+                  return { ...y, quantityUsed: finalUsed };
+                });
+
+                let newStandaloneYarns = standaloneYarns;
+                let standaloneChanged = false;
+                for (const y of editedProject.yarns) {
+                  if (!y.standaloneYarnId) continue;
+                  const prevUsed = y.quantityUsed ?? 0;
+                  const chosen = completionUsage[y.id] ?? prevUsed;
+                  const allocated = y.quantity ?? 1;
+                  const finalUsed = Math.max(0, Math.min(allocated, chosen));
+                  const delta = finalUsed - prevUsed;
+                  if (delta === 0) continue;
+                  newStandaloneYarns = newStandaloneYarns.map(s =>
+                    s.id === y.standaloneYarnId
+                      ? { ...s, quantity: Math.max(0, (s.quantity ?? 0) - delta) }
+                      : s,
+                  );
+                  standaloneChanged = true;
+                }
+
+                if (standaloneChanged) {
+                  onUpdateStandaloneYarns(newStandaloneYarns);
+                }
+
+                handleUpdate({
+                  yarns: updatedYarns,
+                  status: 'Fullført' as ProjectStatus,
+                  progress: 100,
+                  endDate: new Date(),
+                });
+                toast.success(t('toasts.projectCompleted'));
+                setShowCompleteDialog(false);
+                setCompletionUsage({});
+              }}
+            >
+              {t('completion.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { KnittingProject, Yarn, YarnWeight } from '../types/knitting';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import {
@@ -12,6 +12,7 @@ import * as api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { YarnFormFields } from './YarnFormFields';
+import { getAllYarnAvailability, yarnStatusKind } from '../utils/yarns';
 
 interface YarnInventoryProps {
   projects: KnittingProject[];
@@ -95,6 +96,11 @@ export function YarnInventory({
     isStandalone: boolean;
     standaloneId?: string;
   }
+
+  const availabilityMap = useMemo(
+    () => getAllYarnAvailability(standaloneYarns, projects),
+    [standaloneYarns, projects],
+  );
 
   const entries: YarnEntry[] = [];
 
@@ -347,6 +353,13 @@ export function YarnInventory({
         ) : filtered.map(y => {
           const qty = y.quantity ?? (y.isStandalone ? 1 : undefined);
           const qtyLabel = qty !== undefined ? `${qty}` : null;
+          const availability = y.isStandalone && y.standaloneId ? availabilityMap.get(y.standaloneId) : undefined;
+          const statusKind = availability ? yarnStatusKind(availability) : 'empty';
+          const statusLabel = availability && statusKind === 'free' ? t('yarn.statusFree')
+            : availability && statusKind === 'busy' ? t('yarn.statusBusy')
+            : availability && statusKind === 'partial' ? t('yarn.statusInUse', { taken: availability.takenCount, total: availability.totalQuantity })
+            : null;
+          const isFullyTaken = statusKind === 'busy';
           return (
           <div key={y.id}
             onClick={y.isStandalone && y.standaloneId ? () => {
@@ -381,6 +394,14 @@ export function YarnInventory({
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                  {statusLabel && (
+                    <div style={{
+                      fontSize: 11, marginTop: 4, fontWeight: isFullyTaken ? 600 : 500,
+                      color: isFullyTaken ? 'var(--primary)' : 'var(--muted-fg)',
+                    }}>
+                      {statusLabel}
+                    </div>
+                  )}
                   <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginTop: 2 }}>
                     {[y.color && `${t('common.color')}: ${y.color}`, y.weight, y.fiberContent].filter(Boolean).join(' · ') || ' '}
                   </div>

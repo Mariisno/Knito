@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import type { KnittingProject, Yarn, Needle, NeedleInventoryItem, CraftType, ProjectStatus } from '../types/knitting';
 import * as api from '../utils/api';
+import { syncNeedleToInventory } from '../utils/needles';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -51,7 +52,6 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
   const [newNeedleType, setNewNeedleType] = useState('Rundpinne');
   const [newNeedleLength, setNewNeedleLength] = useState('');
   const [newNeedleMaterial, setNewNeedleMaterial] = useState('');
-  const [saveNeedleToInventory, setSaveNeedleToInventory] = useState(false);
 
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -81,7 +81,6 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
     setNewNeedleType('Rundpinne');
     setNewNeedleLength('');
     setNewNeedleMaterial('');
-    setSaveNeedleToInventory(false);
     setShowImageSourcePicker(false);
     setCreatedProjectId(null);
     setSaveStatus('idle');
@@ -265,39 +264,27 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
 
   const handleAddNewNeedle = () => {
     if (!newNeedleSize.trim()) return;
-    const needleId = crypto.randomUUID();
-    if (saveNeedleToInventory) {
-      const inventoryItem: NeedleInventoryItem = {
-        id: needleId,
-        size: newNeedleSize.trim(),
-        type: newNeedleType,
-        length: newNeedleLength.trim() || undefined,
-        material: newNeedleMaterial.trim() || undefined,
-        quantity: 1,
-      };
-      onUpdateNeedleInventory([...needleInventory, inventoryItem]);
-      setSelectedNeedles(prev => [...prev, {
-        id: crypto.randomUUID(),
-        size: inventoryItem.size,
-        type: inventoryItem.type,
-        length: inventoryItem.length,
-        material: inventoryItem.material,
-        inventoryNeedleId: needleId,
-      }]);
-    } else {
-      setSelectedNeedles(prev => [...prev, {
-        id: crypto.randomUUID(),
-        size: newNeedleSize.trim(),
-        type: newNeedleType,
-        length: newNeedleLength.trim() || undefined,
-        material: newNeedleMaterial.trim() || undefined,
-      }]);
-    }
+    const size = newNeedleSize.trim();
+    const type = newNeedleType;
+    const length = newNeedleLength.trim() || undefined;
+    const material = newNeedleMaterial.trim() || undefined;
+    const { updatedInventory, inventoryNeedleId } = syncNeedleToInventory(
+      { size, type, length, material, quantity: 1 },
+      needleInventory,
+    );
+    onUpdateNeedleInventory(updatedInventory);
+    setSelectedNeedles(prev => [...prev, {
+      id: crypto.randomUUID(),
+      size,
+      type,
+      length,
+      material,
+      inventoryNeedleId,
+    }]);
     setNewNeedleSize('');
     setNewNeedleType('Rundpinne');
     setNewNeedleLength('');
     setNewNeedleMaterial('');
-    setSaveNeedleToInventory(false);
     setShowNewNeedleModal(false);
   };
 
@@ -617,12 +604,6 @@ export function AddProjectDialog({ open, onOpenChange, onAddProject, onUpdatePro
               <div style={{ display: 'flex', gap: 10 }}>
                 <input placeholder={t('common.length')} value={newNeedleLength} onChange={e => setNewNeedleLength(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
                 <input placeholder={t('common.material')} value={newNeedleMaterial} onChange={e => setNewNeedleMaterial(e.target.value)} style={{ flex: 1, height: 48, padding: '0 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px' }}>
-                <span style={{ fontSize: 14, color: 'var(--fg)' }}>{t('projects.saveNeedleToInventory')}</span>
-                <button onClick={() => setSaveNeedleToInventory(v => !v)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', background: saveNeedleToInventory ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <span style={{ position: 'absolute', top: 3, left: saveNeedleToInventory ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: 'var(--card)', boxShadow: '0 1px 2px rgba(0,0,0,0.18)', transition: 'left 0.15s', display: 'block' }} />
-                </button>
               </div>
             </div>
           </div>

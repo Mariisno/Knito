@@ -147,7 +147,6 @@ export const nb = {
     yarnNamePlaceholder: 'Garnnavn *',
     needleSizePlaceholder: 'Størrelse (f.eks. 4mm) *',
     saveYarnToInventory: 'Lagre til garnskapet',
-    saveNeedleToInventory: 'Lagre til pinneskapet',
     takePhoto: 'Ta bilde',
     chooseFromGallery: 'Velg fra bibliotek',
   },

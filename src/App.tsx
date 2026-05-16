@@ -36,6 +36,7 @@ function ProjectDetailRoute({
   onDelete,
   accessToken,
   needleInventory,
+  onUpdateNeedleInventory,
   standaloneYarns,
   onUpdateStandaloneYarns,
 }: {
@@ -44,6 +45,7 @@ function ProjectDetailRoute({
   onDelete: (projectId: string) => void;
   accessToken: string;
   needleInventory: NeedleInventoryItem[];
+  onUpdateNeedleInventory: (needles: NeedleInventoryItem[]) => void;
   standaloneYarns: Yarn[];
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
 }) {
@@ -68,6 +70,7 @@ function ProjectDetailRoute({
       }}
       accessToken={accessToken}
       needleInventory={needleInventory}
+      onUpdateNeedleInventory={onUpdateNeedleInventory}
       standaloneYarns={standaloneYarns}
       onUpdateStandaloneYarns={onUpdateStandaloneYarns}
     />
@@ -255,6 +258,7 @@ function AppContent() {
                   onDelete={deleteProject}
                   accessToken={accessToken!}
                   needleInventory={needleInventory}
+                  onUpdateNeedleInventory={updateNeedleInventory}
                   standaloneYarns={standaloneYarns}
                   onUpdateStandaloneYarns={updateStandaloneYarns}
                 />

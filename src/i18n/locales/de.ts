@@ -147,7 +147,6 @@ export const de = {
     yarnNamePlaceholder: 'Garnname *',
     needleSizePlaceholder: 'Größe (z. B. 4mm) *',
     saveYarnToInventory: 'Im Garnschrank speichern',
-    saveNeedleToInventory: 'Im Nadelschrank speichern',
     takePhoto: 'Foto aufnehmen',
     chooseFromGallery: 'Aus Galerie wählen',
   },

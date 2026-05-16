@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import useEmblaCarousel from 'embla-carousel-react@8.6.0';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 import type { KnittingProject, ProjectStatus, CraftType, Counter, LogEntry, NeedleInventoryItem, Yarn } from '../types/knitting';
-import { getAllNeedleAvailability } from '../utils/needles';
+import { getAllNeedleAvailability, syncNeedleToInventory } from '../utils/needles';
 import { getAllYarnAvailability } from '../utils/yarns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -28,6 +28,7 @@ interface ProjectDetailProps {
   onDelete: (projectId: string) => void;
   accessToken: string;
   needleInventory: NeedleInventoryItem[];
+  onUpdateNeedleInventory: (needles: NeedleInventoryItem[]) => void;
   standaloneYarns: Yarn[];
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
 }
@@ -80,7 +81,7 @@ export function ProjectDetail(props: ProjectDetailProps) {
   return <ProjectDetailInner {...props} />;
 }
 
-function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
+function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, accessToken, needleInventory, onUpdateNeedleInventory, standaloneYarns, onUpdateStandaloneYarns }: ProjectDetailProps) {
   const { t, language } = useTranslation();
   const dateLocale = getDateFnsLocale(language);
   const [editedProject, setEditedProject] = useState(project);
@@ -676,13 +677,23 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   const handleAddNewNeedle = () => {
     if (!newNeedleData.size?.trim()) return;
     const qty = Math.max(1, Math.floor(newNeedleData.quantity || 1));
+    const size = newNeedleData.size.trim();
+    const type = newNeedleData.type || 'Rundpinne';
+    const length = newNeedleData.length?.trim() || undefined;
+    const material = newNeedleData.material?.trim() || undefined;
+    const { updatedInventory, inventoryNeedleId } = syncNeedleToInventory(
+      { size, type, length, material, quantity: qty },
+      needleInventory,
+    );
+    onUpdateNeedleInventory(updatedInventory);
     const needle = {
       id: crypto.randomUUID(),
-      size: newNeedleData.size.trim(),
-      type: newNeedleData.type || 'Rundpinne',
-      length: newNeedleData.length?.trim() || undefined,
-      material: newNeedleData.material?.trim() || undefined,
+      size,
+      type,
+      length,
+      material,
       quantity: qty > 1 ? qty : undefined,
+      inventoryNeedleId,
     };
     handleUpdate({ needles: [...(editedProject.needles || []), needle] });
     setShowNeedlePicker(false);

@@ -10,6 +10,7 @@ import type { KnittingProject, ProjectStatus, Counter, LogEntry, NeedleInventory
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { useTranslation } from '../contexts/LanguageContext';
 import { getDateFnsLocale } from '../utils/formatDate';
+import { getAllYarnAvailability } from '../utils/yarns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -80,7 +81,7 @@ function StatusPill({ status, onClick }: { status: ProjectStatus; onClick?: () =
 }
 
 export function ProjectDetailV3({
-  project, onBack, onUpdate, onDelete, accessToken,
+  project, projects, onBack, onUpdate, onDelete, accessToken,
   standaloneYarns, onUpdateStandaloneYarns,
 }: ProjectDetailV3Props) {
   const { t, language } = useTranslation();
@@ -105,6 +106,7 @@ export function ProjectDetailV3({
 
   const [showYarnForm, setShowYarnForm] = useState(false);
   const [yarnPickerId, setYarnPickerId] = useState<string>('');
+  const [yarnPickerQty, setYarnPickerQty] = useState<number>(1);
   const [newYarnName, setNewYarnName] = useState('');
 
   const [showCounterForm, setShowCounterForm] = useState(false);
@@ -231,14 +233,39 @@ export function ProjectDetailV3({
   };
 
   // ----- Yarns -----
+  const yarnAvailability = useMemo(
+    () => getAllYarnAvailability(standaloneYarns, projects),
+    [standaloneYarns, projects],
+  );
+
+  const yarnRemaining = (yarnId: string): number => {
+    const a = yarnAvailability.get(yarnId);
+    if (!a) return 0;
+    if (a.totalQuantity === 0) return 0;
+    return a.availableCount;
+  };
+
   const availableYarns = useMemo(
-    () => standaloneYarns.filter(y => !editedProject.yarns.some(ey => ey.standaloneYarnId === y.id)),
-    [standaloneYarns, editedProject.yarns],
+    () => standaloneYarns.filter(y => {
+      if (editedProject.yarns.some(ey => ey.standaloneYarnId === y.id)) return false;
+      const a = yarnAvailability.get(y.id);
+      if (!a || a.totalQuantity === 0) return true;
+      return a.availableCount > 0;
+    }),
+    [standaloneYarns, editedProject.yarns, yarnAvailability],
   );
 
   const addYarnFromInventory = () => {
     const source = standaloneYarns.find(y => y.id === yarnPickerId);
     if (!source) return;
+    const remaining = yarnRemaining(source.id);
+    const total = source.quantity ?? 0;
+    const requested = Math.max(1, yarnPickerQty);
+    const quantity = total > 0 ? Math.min(remaining, requested) : requested;
+    if (total > 0 && quantity <= 0) {
+      toast.error(t('yarn.statusBusy'));
+      return;
+    }
     const projectYarn: Yarn = {
       id: crypto.randomUUID(),
       standaloneYarnId: source.id,
@@ -251,10 +278,12 @@ export function ProjectDetailV3({
       dyeLot: source.dyeLot,
       notes: source.notes,
       imageUrl: source.imageUrl,
+      quantity,
       quantityUsed: 0,
     };
     commit({ yarns: [...editedProject.yarns, projectYarn] });
     setYarnPickerId('');
+    setYarnPickerQty(1);
     setShowYarnForm(false);
     toast.success(t('toasts.yarnAdded'));
   };
@@ -378,8 +407,68 @@ export function ProjectDetailV3({
     });
   };
 
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [completionUsage, setCompletionUsage] = useState<Record<string, number>>({});
+
   const completeProject = () => {
-    commit({ status: 'Fullført', progress: 100, endDate: new Date() });
+    const yarnsWithLink = editedProject.yarns.filter(y => y.standaloneYarnId);
+    if (yarnsWithLink.length === 0) {
+      commit({ status: 'Fullført', progress: 100, endDate: new Date() });
+      toast.success(t('toasts.projectCompleted'));
+      return;
+    }
+    const initial: Record<string, number> = {};
+    for (const y of yarnsWithLink) {
+      const allocated = y.quantity ?? 1;
+      const consumed = y.quantityUsed ?? 0;
+      initial[y.id] = Math.min(allocated, Math.max(consumed, allocated));
+    }
+    setCompletionUsage(initial);
+    setShowCompleteDialog(true);
+  };
+
+  const confirmCompleteProject = () => {
+    const updatedYarns = editedProject.yarns.map(y => {
+      if (!y.standaloneYarnId) return y;
+      const chosen = completionUsage[y.id] ?? y.quantityUsed ?? 0;
+      const allocated = y.quantity ?? 1;
+      const finalUsed = Math.max(0, Math.min(allocated, chosen));
+      return { ...y, quantityUsed: finalUsed };
+    });
+
+    let newStandaloneYarns = standaloneYarns;
+    let standaloneChanged = false;
+    for (const y of editedProject.yarns) {
+      if (!y.standaloneYarnId) continue;
+      const prevUsed = y.quantityUsed ?? 0;
+      const chosen = completionUsage[y.id] ?? prevUsed;
+      const allocated = y.quantity ?? 1;
+      const finalUsed = Math.max(0, Math.min(allocated, chosen));
+      const delta = finalUsed - prevUsed;
+      if (delta === 0) continue;
+      newStandaloneYarns = newStandaloneYarns.map(s =>
+        s.id === y.standaloneYarnId
+          ? { ...s, quantity: Math.max(0, (s.quantity ?? 0) - delta) }
+          : s,
+      );
+      standaloneChanged = true;
+    }
+
+    if (standaloneChanged) {
+      onUpdateStandaloneYarns(newStandaloneYarns);
+    }
+
+    const next = {
+      ...editedProject,
+      yarns: updatedYarns,
+      status: 'Fullført' as ProjectStatus,
+      progress: 100,
+      endDate: new Date(),
+    };
+    setEditedProject(next);
+    onUpdate(next);
+    setShowCompleteDialog(false);
+    setCompletionUsage({});
     toast.success(t('toasts.projectCompleted'));
   };
 
@@ -618,9 +707,12 @@ export function ProjectDetailV3({
                     <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {y.name}
                     </div>
-                    {(y.color || y.brand) && (
+                    {(y.color || y.brand || y.quantity) && (
                       <div style={{ fontSize: 12, color: 'var(--muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {[y.brand, y.color].filter(Boolean).join(' · ')}
+                        {[
+                          [y.brand, y.color].filter(Boolean).join(' · '),
+                          y.quantity ? t('yarn.skeinsCount', { count: y.quantity }) : null,
+                        ].filter(Boolean).join(' · ')}
                       </div>
                     )}
                   </div>
@@ -901,41 +993,74 @@ export function ProjectDetailV3({
       )}
 
       {/* Yarn form modal */}
-      {showYarnForm && (
-        <ModalSheet onClose={() => setShowYarnForm(false)} title={t('projectDetail.addYarn')}>
-          {availableYarns.length > 0 && (
-            <>
-              <label style={modalLabelStyle}>{t('projects.pickFromInventoryYarn')}</label>
-              <select
-                value={yarnPickerId}
-                onChange={e => setYarnPickerId(e.target.value)}
-                style={modalInputStyle}
-              >
-                <option value="">—</option>
-                {availableYarns.map(y => (
-                  <option key={y.id} value={y.id}>{y.name}{y.color ? ` (${y.color})` : ''}</option>
-                ))}
-              </select>
-              {yarnPickerId && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-                  <button onClick={addYarnFromInventory} style={primaryBtnStyle}>
-                    {t('common.add')}
-                  </button>
-                </div>
-              )}
-              <div style={{ height: 1, background: 'var(--border)', margin: '8px 0 14px' }} />
-            </>
-          )}
-          <label style={modalLabelStyle}>{t('projects.newYarn')}</label>
-          <input
-            value={newYarnName}
-            onChange={e => setNewYarnName(e.target.value)}
-            placeholder={t('projects.yarnNamePlaceholder')}
-            style={modalInputStyle}
-          />
-          <ModalActions onCancel={() => setShowYarnForm(false)} onSave={addNewYarn} saveDisabled={!newYarnName.trim()} />
-        </ModalSheet>
-      )}
+      {showYarnForm && (() => {
+        const pickedYarn = standaloneYarns.find(y => y.id === yarnPickerId);
+        const pickedTotal = pickedYarn?.quantity ?? 0;
+        const pickedRemaining = pickedYarn ? yarnRemaining(pickedYarn.id) : 0;
+        const pickedMax = pickedTotal > 0 ? Math.max(1, pickedRemaining) : 99;
+        const clampedQty = Math.min(pickedMax, Math.max(1, yarnPickerQty));
+        return (
+          <ModalSheet onClose={() => { setShowYarnForm(false); setYarnPickerId(''); setYarnPickerQty(1); }} title={t('projectDetail.addYarn')}>
+            {availableYarns.length > 0 && (
+              <>
+                <label style={modalLabelStyle}>{t('projects.pickFromInventoryYarn')}</label>
+                <select
+                  value={yarnPickerId}
+                  onChange={e => { setYarnPickerId(e.target.value); setYarnPickerQty(1); }}
+                  style={modalInputStyle}
+                >
+                  <option value="">—</option>
+                  {availableYarns.map(y => {
+                    const a = yarnAvailability.get(y.id);
+                    const label = a && a.totalQuantity > 0
+                      ? `${y.name}${y.color ? ` (${y.color})` : ''} — ${t('yarn.availableCount', { count: a.availableCount })}`
+                      : `${y.name}${y.color ? ` (${y.color})` : ''}`;
+                    return <option key={y.id} value={y.id}>{label}</option>;
+                  })}
+                </select>
+                {yarnPickerId && pickedYarn && (
+                  <>
+                    <label style={modalLabelStyle}>{t('projectDetail.skeinsCount')}</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                      <button
+                        onClick={() => setYarnPickerQty(Math.max(1, clampedQty - 1))}
+                        aria-label={t('projectDetail.decrement')}
+                        style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: 'pointer', fontSize: 18, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >−</button>
+                      <div style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{clampedQty}</div>
+                      <button
+                        onClick={() => setYarnPickerQty(Math.min(pickedMax, clampedQty + 1))}
+                        disabled={clampedQty >= pickedMax}
+                        aria-label={t('projectDetail.increment')}
+                        style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', cursor: clampedQty >= pickedMax ? 'default' : 'pointer', fontSize: 18, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: clampedQty >= pickedMax ? 0.4 : 1 }}
+                      >+</button>
+                    </div>
+                    {pickedTotal > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginBottom: 10 }}>
+                        {t('yarn.availableCount', { count: pickedRemaining })}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                      <button onClick={addYarnFromInventory} style={primaryBtnStyle}>
+                        {t('common.add')}
+                      </button>
+                    </div>
+                  </>
+                )}
+                <div style={{ height: 1, background: 'var(--border)', margin: '8px 0 14px' }} />
+              </>
+            )}
+            <label style={modalLabelStyle}>{t('projects.newYarn')}</label>
+            <input
+              value={newYarnName}
+              onChange={e => setNewYarnName(e.target.value)}
+              placeholder={t('projects.yarnNamePlaceholder')}
+              style={modalInputStyle}
+            />
+            <ModalActions onCancel={() => { setShowYarnForm(false); setYarnPickerId(''); setYarnPickerQty(1); }} onSave={addNewYarn} saveDisabled={!newYarnName.trim()} />
+          </ModalSheet>
+        );
+      })()}
 
       {/* Counter form modal */}
       {showCounterForm && (
@@ -1023,6 +1148,47 @@ export function ProjectDetailV3({
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => onDelete(editedProject.id)}>
               {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Complete project confirmation: how many skeins were actually used */}
+      <AlertDialog open={showCompleteDialog} onOpenChange={(open) => { if (!open) { setShowCompleteDialog(false); setCompletionUsage({}); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('completion.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('completion.yarnPrompt')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0', maxHeight: '50vh', overflowY: 'auto' }}>
+            {editedProject.yarns.filter(y => y.standaloneYarnId).map(y => {
+              const allocated = y.quantity ?? 1;
+              const value = completionUsage[y.id] ?? y.quantityUsed ?? 0;
+              return (
+                <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>
+                      {t('completion.allocated', { count: allocated })}
+                    </div>
+                  </div>
+                  <select
+                    value={value}
+                    onChange={e => setCompletionUsage(prev => ({ ...prev, [y.id]: parseInt(e.target.value, 10) }))}
+                    style={{ height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14 }}
+                  >
+                    {Array.from({ length: allocated + 1 }, (_, i) => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCompletionUsage({}); }}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCompleteProject}>
+              {t('completion.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

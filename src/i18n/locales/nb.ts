@@ -118,8 +118,7 @@ export const nb = {
     title: 'Prosjekter',
     greeting: 'Hei, {{name}}!',
     searchPlaceholder: 'Søk i prosjekter…',
-    sectionActive: 'Aktive',
-    sectionOther: 'Andre',
+
     emptyTitle: 'Ingen prosjekter ennå',
     emptyDescription: 'Begynn på ditt første strikkeprosjekt',
     newProject: 'Nytt prosjekt',

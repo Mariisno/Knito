@@ -118,8 +118,7 @@ export const el = {
     title: 'Έργα',
     greeting: 'Γεια σου, {{name}}!',
     searchPlaceholder: 'Αναζήτηση έργων…',
-    sectionActive: 'Ενεργά',
-    sectionOther: 'Άλλα',
+
     emptyTitle: 'Κανένα έργο ακόμη',
     emptyDescription: 'Ξεκίνα το πρώτο σου έργο πλεξίματος',
     newProject: 'Νέο έργο',

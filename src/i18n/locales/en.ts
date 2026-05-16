@@ -118,8 +118,7 @@ export const en = {
     title: 'Projects',
     greeting: 'Hi, {{name}}!',
     searchPlaceholder: 'Search projects…',
-    sectionActive: 'Active',
-    sectionOther: 'Other',
+
     emptyTitle: 'No projects yet',
     emptyDescription: 'Start your first knitting project',
     newProject: 'New project',

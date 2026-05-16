@@ -64,16 +64,6 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
-// ---------- Section header ----------
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div style={{
-      fontSize: 11, color: 'var(--muted-fg)', letterSpacing: 2,
-      textTransform: 'uppercase', padding: '16px 2px 10px', fontWeight: 500,
-    }}>{label}</div>
-  );
-}
-
 // ---------- Project row (list view) ----------
 interface ProjectRowProps {
   project: KnittingProject;
@@ -358,9 +348,6 @@ function ProjectListInner({
     }
   }
 
-  const active = filtered.filter(p => p.status === 'Aktiv');
-  const other  = filtered.filter(p => p.status !== 'Aktiv');
-
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
 
@@ -604,22 +591,9 @@ function ProjectListInner({
           </div>
         ) : (
           <div style={{ padding: '0 20px' }}>
-            {active.length > 0 && (
-              <>
-                <SectionHeader label={t('projects.sectionActive')} />
-                {active.map(p => (
-                  <ProjectRow key={p.id} project={p} onOpen={() => onSelectProject(p.id)} onProgressChange={onProgressChange} />
-                ))}
-              </>
-            )}
-            {other.length > 0 && (
-              <>
-                <SectionHeader label={t('projects.sectionOther')} />
-                {other.map(p => (
-                  <ProjectRow key={p.id} project={p} onOpen={() => onSelectProject(p.id)} onProgressChange={onProgressChange} />
-                ))}
-              </>
-            )}
+            {filtered.map(p => (
+              <ProjectRow key={p.id} project={p} onOpen={() => onSelectProject(p.id)} onProgressChange={onProgressChange} />
+            ))}
           </div>
         )}
       </div>

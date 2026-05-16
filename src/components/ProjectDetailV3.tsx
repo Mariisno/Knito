@@ -126,6 +126,9 @@ export function ProjectDetailV3({
     notes: project.gauge?.notes ?? '',
   });
 
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [leftoverAmounts, setLeftoverAmounts] = useState<Record<string, number>>({});
+
   const imgInputRef = useRef<HTMLInputElement>(null);
   const patternFileRef = useRef<HTMLInputElement>(null);
 
@@ -407,69 +410,53 @@ export function ProjectDetailV3({
     });
   };
 
-  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-  const [completionUsage, setCompletionUsage] = useState<Record<string, number>>({});
-
-  const completeProject = () => {
-    const yarnsWithLink = editedProject.yarns.filter(y => y.standaloneYarnId);
-    if (yarnsWithLink.length === 0) {
-      commit({ status: 'Fullført', progress: 100, endDate: new Date() });
-      toast.success(t('toasts.projectCompleted'));
-      return;
+  const openCompleteDialog = () => {
+    const amounts: Record<string, number> = {};
+    editedProject.yarns.forEach(y => {
+      amounts[y.id] = Math.max(0, (y.quantity ?? 0) - (y.quantityUsed ?? 0));
+    });
+    setLeftoverAmounts(amounts);
+    if (editedProject.yarns.length > 0) {
+      setShowCompleteDialog(true);
+    } else {
+      doComplete();
     }
-    const initial: Record<string, number> = {};
-    for (const y of yarnsWithLink) {
-      const allocated = y.quantity ?? 1;
-      const consumed = y.quantityUsed ?? 0;
-      initial[y.id] = Math.min(allocated, Math.max(consumed, allocated));
-    }
-    setCompletionUsage(initial);
-    setShowCompleteDialog(true);
   };
 
-  const confirmCompleteProject = () => {
-    const updatedYarns = editedProject.yarns.map(y => {
-      if (!y.standaloneYarnId) return y;
-      const chosen = completionUsage[y.id] ?? y.quantityUsed ?? 0;
-      const allocated = y.quantity ?? 1;
-      const finalUsed = Math.max(0, Math.min(allocated, chosen));
-      return { ...y, quantityUsed: finalUsed };
-    });
-
-    let newStandaloneYarns = standaloneYarns;
-    let standaloneChanged = false;
-    for (const y of editedProject.yarns) {
-      if (!y.standaloneYarnId) continue;
-      const prevUsed = y.quantityUsed ?? 0;
-      const chosen = completionUsage[y.id] ?? prevUsed;
-      const allocated = y.quantity ?? 1;
-      const finalUsed = Math.max(0, Math.min(allocated, chosen));
-      const delta = finalUsed - prevUsed;
-      if (delta === 0) continue;
-      newStandaloneYarns = newStandaloneYarns.map(s =>
-        s.id === y.standaloneYarnId
-          ? { ...s, quantity: Math.max(0, (s.quantity ?? 0) - delta) }
-          : s,
-      );
-      standaloneChanged = true;
-    }
-
-    if (standaloneChanged) {
-      onUpdateStandaloneYarns(newStandaloneYarns);
-    }
-
-    const next = {
-      ...editedProject,
-      yarns: updatedYarns,
-      status: 'Fullført' as ProjectStatus,
-      progress: 100,
-      endDate: new Date(),
-    };
-    setEditedProject(next);
-    onUpdate(next);
-    setShowCompleteDialog(false);
-    setCompletionUsage({});
+  const doComplete = () => {
+    commit({ status: 'Fullført', progress: 100, endDate: new Date() });
     toast.success(t('toasts.projectCompleted'));
+    setShowCompleteDialog(false);
+  };
+
+  const doCompleteWithLeftovers = () => {
+    const updated = [...standaloneYarns];
+    editedProject.yarns.forEach(y => {
+      const amt = leftoverAmounts[y.id] ?? 0;
+      if (amt <= 0) return;
+      if (y.standaloneYarnId) {
+        const idx = updated.findIndex(s => s.id === y.standaloneYarnId);
+        if (idx !== -1) {
+          updated[idx] = { ...updated[idx], quantity: (updated[idx].quantity ?? 0) + amt };
+        }
+      } else {
+        updated.push({
+          id: crypto.randomUUID(),
+          name: y.name,
+          brand: y.brand,
+          color: y.color,
+          weight: y.weight,
+          fiberContent: y.fiberContent,
+          yardage: y.yardage,
+          dyeLot: y.dyeLot,
+          imageUrl: y.imageUrl,
+          notes: y.notes,
+          quantity: amt,
+        });
+      }
+    });
+    onUpdateStandaloneYarns(updated);
+    doComplete();
   };
 
   const reopenProject = () => {
@@ -917,7 +904,7 @@ export function ProjectDetailV3({
               {t('projectDetailV3.reopenProject')}
             </button>
           ) : editedProject.status === 'Aktiv' ? (
-            <button onClick={completeProject} style={{
+            <button onClick={openCompleteDialog} style={{
               flex: 1, height: 48, borderRadius: 12, border: '1px solid var(--border)',
               background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
@@ -933,7 +920,7 @@ export function ProjectDetailV3({
               }}>
                 {t('projectDetailV3.startProject')}
               </button>
-              <button onClick={completeProject} style={{
+              <button onClick={openCompleteDialog} style={{
                 flex: 1, height: 48, borderRadius: 12, border: '1px solid var(--border)',
                 background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
                 fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
@@ -1137,6 +1124,88 @@ export function ProjectDetailV3({
         </ModalSheet>
       )}
 
+      {/* Complete project dialog */}
+      {showCompleteDialog && (
+        <div
+          onClick={() => setShowCompleteDialog(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'color-mix(in oklab, #000 45%, transparent)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 'var(--shell-max-w)', maxHeight: '85vh', overflowY: 'auto',
+              background: 'var(--bg)', borderRadius: '20px 20px 0 0',
+              padding: '20px 20px calc(20px + env(safe-area-inset-bottom))',
+              fontFamily: 'var(--font-ui)', color: 'var(--fg)',
+            }}
+          >
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600, marginBottom: 6 }}>
+              {t('projectDetailV3.completeDialogTitle')}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted-fg)', marginBottom: 16 }}>
+              {t('projectDetailV3.completeDialogBody')}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {editedProject.yarns.map(y => (
+                <div key={y.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px', background: 'var(--card)',
+                  border: '1px solid var(--border)', borderRadius: 12,
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {y.name}
+                    {y.color && <span style={{ fontSize: 12, color: 'var(--muted-fg)', marginLeft: 6 }}>{y.color}</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted-fg)' }}>{t('projectDetailV3.completeDialogSkeins')}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={leftoverAmounts[y.id] ?? 0}
+                      onChange={e => setLeftoverAmounts(prev => ({ ...prev, [y.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                      style={{
+                        width: 56, height: 36, borderRadius: 8, border: '1px solid var(--border)',
+                        background: 'var(--bg)', color: 'var(--fg)', textAlign: 'center',
+                        fontFamily: 'inherit', fontSize: 14, fontWeight: 600, outline: 'none',
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                onClick={doCompleteWithLeftovers}
+                disabled={Object.values(leftoverAmounts).every(v => v <= 0)}
+                style={{
+                  height: 48, borderRadius: 12, border: 'none',
+                  background: Object.values(leftoverAmounts).every(v => v <= 0) ? 'var(--muted)' : 'var(--primary)',
+                  color: 'var(--primary-foreground)', cursor: Object.values(leftoverAmounts).every(v => v <= 0) ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                  opacity: Object.values(leftoverAmounts).every(v => v <= 0) ? 0.5 : 1,
+                }}
+              >
+                {t('projectDetailV3.completeDialogWithLeftover')}
+              </button>
+              <button
+                onClick={doComplete}
+                style={{
+                  height: 48, borderRadius: 12, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--fg)', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                }}
+              >
+                {t('projectDetailV3.completeDialogNoLeftover')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -1153,46 +1222,6 @@ export function ProjectDetailV3({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Complete project confirmation: how many skeins were actually used */}
-      <AlertDialog open={showCompleteDialog} onOpenChange={(open) => { if (!open) { setShowCompleteDialog(false); setCompletionUsage({}); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('completion.title')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('completion.yarnPrompt')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0', maxHeight: '50vh', overflowY: 'auto' }}>
-            {editedProject.yarns.filter(y => y.standaloneYarnId).map(y => {
-              const allocated = y.quantity ?? 1;
-              const value = completionUsage[y.id] ?? y.quantityUsed ?? 0;
-              return (
-                <div key={y.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{y.name}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted-fg)' }}>
-                      {t('completion.allocated', { count: allocated })}
-                    </div>
-                  </div>
-                  <select
-                    value={value}
-                    onChange={e => setCompletionUsage(prev => ({ ...prev, [y.id]: parseInt(e.target.value, 10) }))}
-                    style={{ height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', fontFamily: 'inherit', fontSize: 14 }}
-                  >
-                    {Array.from({ length: allocated + 1 }, (_, i) => (
-                      <option key={i} value={i}>{i}</option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setCompletionUsage({}); }}>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCompleteProject}>
-              {t('completion.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

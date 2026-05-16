@@ -13,6 +13,7 @@ import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { KnitTexture, paletteForId } from './KnitTexture';
 import { YarnFormFields } from './YarnFormFields';
+import { DrawingCanvas } from './DrawingCanvas';
 import { format } from 'date-fns';
 import { useTranslation } from '../contexts/LanguageContext';
 import { getDateFnsLocale } from '../utils/formatDate';
@@ -92,6 +93,9 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   const [editingPatternUrl, setEditingPatternUrl] = useState(false);
   const [patternUrlDraft, setPatternUrlDraft] = useState('');
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [showDrawingModal, setShowDrawingModal] = useState(false);
+  const [drawingBgUrl, setDrawingBgUrl] = useState<string | undefined>(undefined);
+  const [savingDrawing, setSavingDrawing] = useState(false);
   const [noteInput, setNoteInput] = useState('');
   const [logImageFile, setLogImageFile] = useState<File | null>(null);
   const [logImagePreview, setLogImagePreview] = useState<string | null>(null);
@@ -104,6 +108,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
   const [newYarnData, setNewYarnData] = useState<Partial<Yarn>>({});
   const [pendingYarn, setPendingYarn] = useState<Yarn | null>(null);
   const [pendingYarnQuantity, setPendingYarnQuantity] = useState(1);
+  const [yarnSearch, setYarnSearch] = useState('');
   const [yarnMenuOpenId, setYarnMenuOpenId] = useState<string | null>(null);
   const [yarnQtyEditId, setYarnQtyEditId] = useState<string | null>(null);
   const [yarnQtyEditValue, setYarnQtyEditValue] = useState<string>('');
@@ -264,6 +269,30 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
     const newImages = editedProject.images.filter((_, i) => i !== index);
     handleUpdate({ images: newImages });
     toast.success(t('projectDetail.deleteImage'));
+  };
+
+  const openDrawingFromImage = () => {
+    setDrawingBgUrl(editedProject.images[currentImgIdx]);
+    setShowDrawingModal(true);
+  };
+
+  const openBlankDrawing = () => {
+    setDrawingBgUrl(undefined);
+    setShowDrawingModal(true);
+  };
+
+  const handleDrawingSave = async (file: File) => {
+    setSavingDrawing(true);
+    try {
+      const url = await api.uploadImage(file, accessToken);
+      handleUpdate({ images: [url, ...editedProject.images] });
+      toast.success(t('drawing.saved'));
+      setShowDrawingModal(false);
+    } catch {
+      toast.error(t('toasts.imageUploadFailed'));
+    } finally {
+      setSavingDrawing(false);
+    }
   };
 
   const handleLogImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -708,18 +737,20 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
     () => getAllYarnAvailability(standaloneYarns, projects),
     [standaloneYarns, projects],
   );
-  const remainingYarn = (y: Yarn) => {
-    const a = yarnAvailability.get(y.id);
-    if (!a) return y.quantity ?? 0;
-    if (a.totalQuantity === 0) return 0;
-    return a.availableCount;
-  };
   const availableYarns = standaloneYarns.filter(y => {
     if (editedProject.yarns.some(ey => ey.standaloneYarnId === y.id)) return false;
     const a = yarnAvailability.get(y.id);
     if (!a || a.totalQuantity === 0) return true;
     return a.availableCount > 0;
   });
+  const filteredYarns = yarnSearch.trim()
+    ? availableYarns.filter(y => {
+        const q = yarnSearch.toLowerCase();
+        return (y.name ?? '').toLowerCase().includes(q)
+          || (y.brand ?? '').toLowerCase().includes(q)
+          || (y.color ?? '').toLowerCase().includes(q);
+      })
+    : availableYarns;
   const needleAvailability = useMemo(
     () => getAllNeedleAvailability(needleInventory, projects),
     [needleInventory, projects],
@@ -774,6 +805,19 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
             style={{ position: 'absolute', bottom: 12, left: 12, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}
           >
             <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        )}
+        {/* draw on current image button */}
+        {editedProject.images.length > 0 && (
+          <button
+            onClick={openDrawingFromImage}
+            title={t('drawing.drawOnImage')}
+            aria-label={t('drawing.drawOnImage')}
+            style={{ position: 'absolute', bottom: 12, right: 56, width: 34, height: 34, borderRadius: 10, border: 'none', background: 'color-mix(in oklab, var(--bg) 85%, transparent)', backdropFilter: 'blur(12px)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg)' }}
+          >
+            <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
+            </svg>
           </button>
         )}
         {/* camera button to change current image */}
@@ -1405,7 +1449,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                 </div>
               );
             })}
-            <button onClick={() => setShowYarnPicker(true)} style={dashedBtn}>+ {t('projectDetail.addYarn')}</button>
+            <button onClick={() => { setShowYarnPicker(true); setYarnSearch(''); }} style={dashedBtn}>+ {t('projectDetail.addYarn')}</button>
           </Section>
         );
       })()}
@@ -1475,6 +1519,12 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
           </div>
         </Section>
       )}
+
+      <Section title={t('drawing.sketches')}>
+        <button onClick={openBlankDrawing} style={dashedBtn}>
+          + {t('drawing.newSketch')}
+        </button>
+      </Section>
 
       {/* LOG ENTRIES + INPUT */}
       <div style={{ padding: '14px 20px 2px' }}>
@@ -1675,7 +1725,7 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
       {/* YARN PICKER */}
       {showYarnPicker && (
         <>
-          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnQuantity(1); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
+          <div onClick={() => { setShowYarnPicker(false); setShowNewYarnForm(false); setNewYarnData({}); setPendingYarn(null); setPendingYarnQuantity(1); setYarnSearch(''); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'color-mix(in oklab, #000 25%, transparent)' }} />
           <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell-max-w)', zIndex: 51, background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '12px 20px 36px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--border)', margin: '0 auto 18px' }} />
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>{showNewYarnForm ? t('projects.newYarn') : t('projectDetail.addYarn')}</div>
@@ -1694,7 +1744,18 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
               </div>
             ) : (
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {availableYarns.map(yarn => {
+                {availableYarns.length > 3 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 40, padding: '0 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted-fg)', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                    <input
+                      value={yarnSearch}
+                      onChange={e => setYarnSearch(e.target.value)}
+                      placeholder={t('common.search') + '…'}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--fg)', fontFamily: 'var(--font-ui)' }}
+                    />
+                  </div>
+                )}
+                {filteredYarns.map(yarn => {
                   const isExpanded = pendingYarn?.id === yarn.id;
                   const av = yarnAvailability.get(yarn.id);
                   const total = yarn.quantity ?? 0;
@@ -1767,6 +1828,9 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
                 })}
                 {availableYarns.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>{t('yarn.emptyTitle')}</div>
+                )}
+                {filteredYarns.length === 0 && availableYarns.length > 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--muted-fg)', fontSize: 14, padding: '16px 0 8px' }}>{t('yarn.noSearchResults')}</div>
                 )}
                 <button onClick={() => setShowNewYarnForm(true)} style={dashedBtn}>+ {t('projects.newYarn')}</button>
               </div>
@@ -2088,6 +2152,14 @@ function ProjectDetailInner({ project, projects, onBack, onUpdate, onDelete, acc
         </AlertDialogContent>
       </AlertDialog>
 
+
+      <DrawingCanvas
+        open={showDrawingModal}
+        onClose={() => setShowDrawingModal(false)}
+        onSave={handleDrawingSave}
+        backgroundUrl={drawingBgUrl}
+        saving={savingDrawing}
+      />
 
       {showHeroLightbox && editedProject.images[currentImgIdx] && (
         <div

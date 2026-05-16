@@ -6,6 +6,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Button } from './ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
 import * as api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +20,7 @@ interface YarnInventoryProps {
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
   onUpdateStandaloneYarn: (yarn: Yarn) => void;
   onDeleteStandaloneYarn: (id: string) => void;
+  onUpdateProject: (project: KnittingProject) => void;
 }
 
 const PlusIcon = () => (
@@ -47,6 +49,12 @@ const TrashIcon = () => (
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>
   </svg>
 );
+const CopyIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
 
 export function YarnInventory({
   projects,
@@ -54,16 +62,19 @@ export function YarnInventory({
   onUpdateStandaloneYarns,
   onUpdateStandaloneYarn,
   onDeleteStandaloneYarn,
+  onUpdateProject,
 }: YarnInventoryProps) {
   const { accessToken } = useAuth();
   const { t } = useTranslation();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'inuse' | 'spare'>('all');
+  const [filter, setFilter] = useState<'all' | 'inproject' | 'leftover'>('all');
   const [showAdd, setShowAdd] = useState(false);
-  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({});
+  const [newYarn, setNewYarn] = useState<Partial<Yarn>>({ quantity: 1 });
+  const [templateId, setTemplateId] = useState('');
   const [editingYarn, setEditingYarn] = useState<Yarn | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; usedIn: string[] } | null>(null);
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [addProjectId, setAddProjectId] = useState<string | null>(null);
 
   // Combine project yarns + standalone yarns into unified list
   interface YarnEntry {
@@ -146,14 +157,31 @@ export function YarnInventory({
 
   const filtered = entries.filter(y => {
     if (q && !y.name.toLowerCase().includes(q.toLowerCase()) && !y.color?.toLowerCase().includes(q.toLowerCase())) return false;
-    if (filter === 'inuse' && y.usedInProjects.length === 0) return false;
-    if (filter === 'spare' && y.usedInProjects.length > 0) return false;
+    if (filter === 'inproject' && y.usedInProjects.length === 0) return false;
+    if (filter === 'leftover' && !(y.isStandalone && y.usedInProjects.length === 0)) return false;
     return true;
   });
 
-  const totalEntries = entries.length;
-  const inUseCount = entries.filter(y => y.usedInProjects.length > 0).length;
+  const totalQuantity = entries.reduce((sum, y) => sum + (y.quantity ?? 0), 0);
+  const leftoverCount = entries.filter(y => y.isStandalone && y.usedInProjects.length === 0).length;
   const colors = new Set(entries.map(y => y.color || y.name)).size;
+
+  const handleDuplicate = (yarn: Yarn) => {
+    setNewYarn({
+      name: yarn.name,
+      brand: yarn.brand,
+      color: yarn.color,
+      weight: yarn.weight,
+      fiberContent: yarn.fiberContent,
+      yardage: yarn.yardage,
+      dyeLot: yarn.dyeLot,
+      imageUrl: yarn.imageUrl,
+      quantity: yarn.quantity ?? 1,
+      notes: yarn.notes,
+    });
+    setTemplateId('');
+    setShowAdd(true);
+  };
 
   const handleAdd = () => {
     if (!newYarn.name?.trim()) { toast.error(t('yarn.yarnName') + ' ' + t('common.required')); return; }
@@ -173,7 +201,28 @@ export function YarnInventory({
       imageUrl: newYarn.imageUrl,
     };
     onUpdateStandaloneYarns([...standaloneYarns, yarn]);
-    setNewYarn({});
+    if (addProjectId) {
+      const proj = projects.find(p => p.id === addProjectId);
+      if (proj) {
+        const projYarn: Yarn = {
+          id: crypto.randomUUID(),
+          standaloneYarnId: yarn.id,
+          name: yarn.name,
+          brand: yarn.brand,
+          color: yarn.color,
+          weight: yarn.weight,
+          fiberContent: yarn.fiberContent,
+          yardage: yarn.yardage,
+          dyeLot: yarn.dyeLot,
+          imageUrl: yarn.imageUrl,
+          notes: yarn.notes,
+          quantity: 1,
+        };
+        onUpdateProject({ ...proj, yarns: [...proj.yarns, projYarn] });
+      }
+    }
+    setNewYarn({ quantity: 1 });
+    setAddProjectId(null);
     setShowAdd(false);
     toast.success(t('toasts.yarnAdded'));
   };
@@ -256,9 +305,9 @@ export function YarnInventory({
       {/* Summary stats */}
       <div style={{ padding: '12px 20px 4px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         {[
-          { label: t('common.all'), value: totalEntries },
+          { label: t('common.all'), value: totalQuantity },
           { label: t('common.color'), value: colors },
-          { label: t('yarn.inUse'), value: inUseCount },
+          { label: t('yarn.leftover'), value: leftoverCount },
         ].map(s => (
           <div key={s.label} style={{ padding: '12px 14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <div style={{ fontSize: 10, color: 'var(--muted-fg)', letterSpacing: 1.3, textTransform: 'uppercase' }}>{s.label}</div>
@@ -280,8 +329,8 @@ export function YarnInventory({
       <div style={{ padding: '0 20px 8px', display: 'flex', gap: 8 }}>
         {[
           { id: 'all' as const, label: t('common.all') },
-          { id: 'inuse' as const, label: t('yarn.inUse') },
-          { id: 'spare' as const, label: t('yarn.available') },
+          { id: 'inproject' as const, label: t('yarn.inProject') },
+          { id: 'leftover' as const, label: t('yarn.leftover') },
         ].map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)} style={{
             display: 'inline-flex', alignItems: 'center',
@@ -358,17 +407,30 @@ export function YarnInventory({
                   </div>
                 </div>
                 {y.isStandalone && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); requestDelete(y.standaloneId!); }}
-                    aria-label={t('yarn.deleteYarn')}
-                    style={{
-                      width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}
-                  >
-                    <TrashIcon />
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDuplicate(standaloneYarns.find(yy => yy.id === y.standaloneId)!); }}
+                      aria-label={t('yarn.duplicate')}
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
+                        background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <CopyIcon />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); requestDelete(y.standaloneId!); }}
+                      aria-label={t('yarn.deleteYarn')}
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
+                        background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -450,21 +512,54 @@ export function YarnInventory({
       </button>
 
       {/* Add dialog */}
-      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+      <Dialog open={showAdd} onOpenChange={(open) => { if (!open) { setAddProjectId(null); setNewYarn({ quantity: 1 }); setTemplateId(''); } setShowAdd(open); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('yarn.addYarn')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {standaloneYarns.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t('yarn.templateLabel')}</label>
+                <Select value={templateId} onValueChange={(id) => {
+                  setTemplateId(id);
+                  const tmpl = standaloneYarns.find(y => y.id === id);
+                  if (tmpl) {
+                    setNewYarn({
+                      name: tmpl.name,
+                      brand: tmpl.brand,
+                      weight: tmpl.weight,
+                      fiberContent: tmpl.fiberContent,
+                      yardage: tmpl.yardage,
+                      dyeLot: tmpl.dyeLot,
+                      imageUrl: tmpl.imageUrl,
+                      quantity: 1,
+                    });
+                  }
+                }}>
+                  <SelectTrigger><SelectValue placeholder={t('yarn.templatePlaceholder')} /></SelectTrigger>
+                  <SelectContent>
+                    {standaloneYarns.map(y => (
+                      <SelectItem key={y.id} value={y.id}>
+                        {y.name}{y.color ? ` — ${y.color}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <YarnFormFields
               value={newYarn}
               onChange={setNewYarn}
               uploadingImg={uploadingImg}
               onUploadImage={handleUploadImage}
+              projects={projects}
+              selectedProjectId={addProjectId}
+              onProjectChange={setAddProjectId}
             />
             <div className="flex gap-2 pt-2">
               <Button onClick={handleAdd} className="flex-1" disabled={uploadingImg}>{t('common.add')}</Button>
-              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({}); }} className="flex-1">{t('common.cancel')}</Button>
+              <Button variant="outline" onClick={() => { setShowAdd(false); setNewYarn({ quantity: 1 }); setAddProjectId(null); setTemplateId(''); }} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
         </DialogContent>

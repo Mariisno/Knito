@@ -148,7 +148,6 @@ export const en = {
     yarnNamePlaceholder: 'Yarn name *',
     needleSizePlaceholder: 'Size (e.g. 4mm) *',
     saveYarnToInventory: 'Save to yarn stash',
-    saveNeedleToInventory: 'Save to needle stash',
     takePhoto: 'Take photo',
     chooseFromGallery: 'Choose from library',
   },

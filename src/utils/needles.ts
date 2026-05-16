@@ -57,3 +57,27 @@ export function formatNeedleStatus(a: NeedleAvailability): string {
   if (a.availableCount === 0) return 'Opptatt';
   return `${a.takenCount} / ${a.totalQuantity} i bruk`;
 }
+
+export function syncNeedleToInventory(
+  needle: { size: string; type: string; length?: string; material?: string; quantity: number },
+  inventory: NeedleInventoryItem[],
+): { updatedInventory: NeedleInventoryItem[]; inventoryNeedleId: string } {
+  const match = inventory.find(i => i.size === needle.size && i.type === needle.type);
+  if (match) {
+    return {
+      updatedInventory: inventory.map(i =>
+        i.id === match.id ? { ...i, quantity: i.quantity + needle.quantity } : i,
+      ),
+      inventoryNeedleId: match.id,
+    };
+  }
+  const newItem: NeedleInventoryItem = {
+    id: crypto.randomUUID(),
+    size: needle.size,
+    type: needle.type,
+    length: needle.length,
+    material: needle.material,
+    quantity: needle.quantity,
+  };
+  return { updatedInventory: [...inventory, newItem], inventoryNeedleId: newItem.id };
+}

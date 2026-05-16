@@ -24,6 +24,7 @@ interface ProjectDetailV3Props {
   onDelete: (projectId: string) => void;
   accessToken: string;
   needleInventory: NeedleInventoryItem[];
+  onUpdateNeedleInventory: (needles: NeedleInventoryItem[]) => void;
   standaloneYarns: Yarn[];
   onUpdateStandaloneYarns: (yarns: Yarn[]) => void;
 }

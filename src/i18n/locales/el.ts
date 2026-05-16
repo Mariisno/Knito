@@ -148,7 +148,6 @@ export const el = {
     yarnNamePlaceholder: 'Όνομα νήματος *',
     needleSizePlaceholder: 'Μέγεθος (π.χ. 4mm) *',
     saveYarnToInventory: 'Αποθήκευση στην αποθήκη νημάτων',
-    saveNeedleToInventory: 'Αποθήκευση στην αποθήκη βελόνων',
     takePhoto: 'Λήψη φωτογραφίας',
     chooseFromGallery: 'Επιλογή από τη συλλογή',
   },

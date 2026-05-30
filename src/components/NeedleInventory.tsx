@@ -25,10 +25,21 @@ const TrashIcon = () => (
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>
   </svg>
 );
+const CopyIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
+const ImageIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+  </svg>
+);
 
 export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInventory }: NeedleInventoryProps) {
   const { t } = useTranslation();
   const [showAdd, setShowAdd] = useState(false);
+  const [editingNeedle, setEditingNeedle] = useState<NeedleInventoryItem | null>(null);
   const [newNeedle, setNewNeedle] = useState<Partial<NeedleInventoryItem>>({ type: 'Rundpinne', quantity: 1 });
 
   const availabilityMap = useMemo(
@@ -61,6 +72,50 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
   const handleDelete = (id: string) => {
     onUpdateNeedleInventory(needleInventory.filter(n => n.id !== id));
     toast.success(t('toasts.needleDeleted'));
+  };
+
+  const handleEdit = (needle: NeedleInventoryItem) => {
+    setEditingNeedle(needle);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingNeedle) return;
+    if (!editingNeedle.size?.trim()) { toast.error(t('common.size') + ' ' + t('common.required')); return; }
+
+    onUpdateNeedleInventory(needleInventory.map(n => n.id === editingNeedle.id ? editingNeedle : n));
+    setEditingNeedle(null);
+    toast.success(t('toasts.needleUpdated'));
+  };
+
+  const handleDuplicate = (needle: NeedleInventoryItem) => {
+    const duplicated: NeedleInventoryItem = {
+      ...needle,
+      id: crypto.randomUUID(),
+    };
+    onUpdateNeedleInventory([...needleInventory, duplicated]);
+    toast.success(t('toasts.needleDuplicated'));
+  };
+
+  const handleImageUpload = (needle: NeedleInventoryItem, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('toasts.fileTooLarge'));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      if (editingNeedle && editingNeedle.id === needle.id) {
+        setEditingNeedle({ ...editingNeedle, imageUrl });
+      } else {
+        onUpdateNeedleInventory(needleInventory.map(n => n.id === needle.id ? { ...n, imageUrl } : n));
+        toast.success(t('toasts.imageAdded'));
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const isEmpty = needleInventory.length === 0;
@@ -104,16 +159,30 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                       display: 'flex', alignItems: 'center', gap: 12,
                       padding: '14px 16px',
                       borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                    }}>
-                      {/* Size badge */}
-                      <div style={{
-                        minWidth: 52, height: 52, borderRadius: 10, background: 'var(--accent)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, letterSpacing: -0.3, flexShrink: 0,
-                      }}>
-                        {n.size}
-                        {n.length && <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6, marginTop: 1 }}>{n.length}</span>}
-                      </div>
+                      cursor: 'pointer',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--accent)'}
+                    onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    onClick={() => handleEdit(n)}>
+                      {/* Image or Size badge */}
+                      {n.imageUrl ? (
+                        <div style={{
+                          minWidth: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
+                          border: '1px solid var(--border)',
+                        }}>
+                          <img src={n.imageUrl} alt={n.size} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      ) : (
+                        <div style={{
+                          minWidth: 52, height: 52, borderRadius: 10, background: 'var(--accent)',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                          fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, letterSpacing: -0.3, flexShrink: 0,
+                        }}>
+                          {n.size}
+                          {n.length && <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.6, marginTop: 1 }}>{n.length}</span>}
+                        </div>
+                      )}
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.material || t(`needleType.${type}`)}</div>
@@ -136,15 +205,24 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
                         )}
                       </div>
 
-                      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                         <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
                           {n.quantity > 1
                             ? `×${availability.availableCount}/${availability.totalQuantity}`
                             : `×${n.quantity}`}
                         </div>
-                        <button onClick={() => handleDelete(n.id)} style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <TrashIcon />
-                        </button>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={(e) => { e.stopPropagation(); handleDuplicate(n); }}
+                            style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title={t('common.duplicate')}>
+                            <CopyIcon />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(n.id); }}
+                            style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted-fg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title={t('common.delete')}>
+                            <TrashIcon />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -211,6 +289,84 @@ export function NeedleInventory({ projects, needleInventory, onUpdateNeedleInven
               <Button variant="outline" onClick={() => setShowAdd(false)} className="flex-1">{t('common.cancel')}</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editingNeedle} onOpenChange={(open) => !open && setEditingNeedle(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('needles.editNeedle')}</DialogTitle>
+            <DialogDescription>{t('needles.editDescription')}</DialogDescription>
+          </DialogHeader>
+          {editingNeedle && (
+            <div className="space-y-4 py-2">
+              {/* Image upload */}
+              <div className="space-y-2">
+                <Label>{t('common.image')}</Label>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  {editingNeedle.imageUrl && (
+                    <div style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <img src={editingNeedle.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(editingNeedle, e)}
+                      style={{ display: 'none' }}
+                      id="needle-image-upload"
+                    />
+                    <Button variant="outline" onClick={() => document.getElementById('needle-image-upload')?.click()} className="w-full">
+                      <ImageIcon /> {editingNeedle.imageUrl ? t('common.changeImage') : t('common.addImage')}
+                    </Button>
+                    {editingNeedle.imageUrl && (
+                      <Button variant="ghost" onClick={() => setEditingNeedle({ ...editingNeedle, imageUrl: undefined })} className="w-full mt-2">
+                        {t('common.removeImage')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                <div className="space-y-2">
+                  <Label>{t('common.type')} *</Label>
+                  <Select value={editingNeedle.type} onValueChange={v => setEditingNeedle({ ...editingNeedle, type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Rundpinne','Strømpepinne','Settpinner','Utskiftbar','Heklenål','Annet'].map(typeName => (
+                        <SelectItem key={typeName} value={typeName}>{t(`needleType.${typeName}`)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('common.size')} *</Label>
+                  <Input value={editingNeedle.size} onChange={e => setEditingNeedle({ ...editingNeedle, size: e.target.value })} placeholder="4mm" />
+                </div>
+              </div>
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                <div className="space-y-2">
+                  <Label>{t('common.length')}</Label>
+                  <Input value={editingNeedle.length || ''} onChange={e => setEditingNeedle({ ...editingNeedle, length: e.target.value })} placeholder={t('needles.lengthPlaceholder')} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('common.material')}</Label>
+                  <Input value={editingNeedle.material || ''} onChange={e => setEditingNeedle({ ...editingNeedle, material: e.target.value })} placeholder={t('needles.materialPlaceholder')} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('common.quantity')}</Label>
+                <Input type="number" min="1" value={editingNeedle.quantity} onChange={e => setEditingNeedle({ ...editingNeedle, quantity: parseInt(e.target.value) || 1 })} />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleSaveEdit} className="flex-1">{t('common.save')}</Button>
+                <Button variant="outline" onClick={() => setEditingNeedle(null)} className="flex-1">{t('common.cancel')}</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

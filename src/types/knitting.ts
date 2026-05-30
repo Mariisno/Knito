@@ -37,6 +37,7 @@ export interface NeedleInventoryItem {
   length?: string;    // e.g. "80cm"
   material?: string;  // e.g. "Bambus", "Metall"
   quantity: number;   // how many the user owns
+  imageUrl?: string;  // optional photo
 }
 
 export type ProjectStatus = 'Aktiv' | 'Fullført' | 'Planlagt' | 'På vent' | 'Arkivert';
